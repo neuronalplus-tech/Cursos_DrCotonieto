@@ -14,6 +14,8 @@ const supabase = createClient(
 )
 
 const BUCKET_NAME = 'curso_duelo'
+const AVATAR_BUCKET = 'avatares'
+const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
 
 // ---------- LOGIN ----------
 function Login({ onLogin, message }) {
@@ -26,10 +28,7 @@ function Login({ onLogin, message }) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
     if (error) {
       setError('Correo o contraseña incorrectos.')
       setLoading(false)
@@ -74,6 +73,7 @@ function Header({ user, onLogout }) {
         </div>
         <div className="header-actions">
           {location.pathname !== '/' && <button className="nav-link" onClick={() => navigate('/')}>← Inicio</button>}
+          <button className="nav-link" onClick={() => navigate('/perfil')}>Mi perfil</button>
           <span className="user-email">{user?.email}</span>
           <button className="button secondary" onClick={onLogout}>Cerrar sesión</button>
         </div>
@@ -85,38 +85,31 @@ function Header({ user, onLogout }) {
 // ---------- DASHBOARD ----------
 function Dashboard({ user }) {
   const [cursos, setCursos] = useState([])
+  const [accesos, setAccesos] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     async function loadCursos() {
       try {
-        console.log('Intentando cargar cursos...')
         const { data, error } = await supabase
-          .from('cursos')
-          .select('*')
-          .eq('activo', true)
-          .order('orden')
-
+          .from('cursos').select('*').eq('activo', true).order('orden')
         if (error) {
-          console.error('Error de Supabase:', error)
           setError(`Error de Supabase: ${error.message}`)
         } else {
-          console.log('Cursos obtenidos:', data)
           setCursos(data || [])
-          if (data.length === 0) {
-            setError('No hay cursos en la base de datos. Asegúrate de insertar datos.')
-          }
+          if (data.length === 0) setError('No hay cursos en la base de datos.')
         }
+        const { data: acc } = await supabase.from('acceso').select('curso_id').eq('usuario_id', user.id)
+        setAccesos(new Set((acc || []).map(a => a.curso_id)))
       } catch (err) {
-        console.error('Error inesperado:', err)
         setError(`Error inesperado: ${err.message}`)
       } finally {
         setLoading(false)
       }
     }
     loadCursos()
-  }, [])
+  }, [user])
 
   if (loading) return <div className="loading">Cargando cursos...</div>
 
@@ -127,17 +120,7 @@ function Dashboard({ user }) {
         <div className="error" style={{ background: '#f8d7da', padding: '16px', borderRadius: '8px', color: '#721c24' }}>
           <p><strong>Error al cargar cursos:</strong></p>
           <p>{error}</p>
-          <p style={{ fontSize: '14px' }}>Revisa la consola del navegador para más detalles.</p>
         </div>
-      </section>
-    )
-  }
-
-  if (cursos.length === 0) {
-    return (
-      <section className="dashboard">
-        <h1>Bienvenido, {user?.email}</h1>
-        <p>No hay cursos disponibles. Contacta al administrador.</p>
       </section>
     )
   }
@@ -147,22 +130,144 @@ function Dashboard({ user }) {
       <div className="dashboard-header">
         <h1>Bienvenido, {user?.email}</h1>
         <p className="instrucciones">
-          Selecciona un curso para comenzar. Dentro de cada curso encontrarás los módulos con sus recursos.
-          Marca cada recurso como "Visto" para avanzar. Al completar todos los recursos, podrás obtener tu constancia.
+          Este es el catálogo de cursos. Si ya tienes acceso a alguno, entra con "Ver módulos".
+          Si te interesa uno al que aún no estás inscrito, usa "Preguntar por costo" y con gusto te doy acceso.
         </p>
       </div>
       <div className="course-grid">
-        {cursos.map((curso) => (
-          <div key={curso.id} className="course-card">
-            {curso.imagen_portada && <img src={curso.imagen_portada} alt={curso.titulo} className="course-image" />}
-            <div className="course-info">
-              <h2>{curso.titulo}</h2>
-              <p>{curso.descripcion}</p>
-              <Link to={`/curso/${curso.id}`} className="button primary">Ver módulos</Link>
+        {cursos.map((curso) => {
+          const tieneAcceso = accesos.has(curso.id)
+          return (
+            <div key={curso.id} className={`course-card ${tieneAcceso ? '' : 'bloqueado'}`}>
+              {curso.imagen_portada && <img src={curso.imagen_portada} alt={curso.titulo} className="course-image" />}
+              <div className="course-info">
+                <h2>{curso.titulo}</h2>
+                <p>{curso.descripcion}</p>
+                {tieneAcceso ? (
+                  <Link to={`/curso/${curso.id}`} className="button primary">Ver módulos</Link>
+                ) : (
+                  <>
+                    <span className="badge-bloqueado">🔒 No inscrito</span>
+                    <a
+                      className="button secondary"
+                      href={`mailto:${CONTACTO_EMAIL}?subject=${encodeURIComponent('Interés en el curso: ' + curso.titulo)}&body=${encodeURIComponent('Hola, me interesa el curso "' + curso.titulo + '". ¿Me podrías compartir el costo y cómo obtener acceso? Gracias.')}`}
+                    >
+                      Preguntar por costo
+                    </a>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
+    </section>
+  )
+}
+
+// ---------- PERFIL ----------
+function Perfil({ user }) {
+  const [perfil, setPerfil] = useState({ nombre_completo: '', profesion: '', descripcion: '', ubicacion: '', avatar_url: '' })
+  const [misCursos, setMisCursos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [subiendo, setSubiendo] = useState(false)
+  const [msg, setMsg] = useState('')
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('perfiles').select('*').eq('id', user.id).single()
+      if (data) setPerfil({
+        nombre_completo: data.nombre_completo || '',
+        profesion: data.profesion || '',
+        descripcion: data.descripcion || '',
+        ubicacion: data.ubicacion || '',
+        avatar_url: data.avatar_url || ''
+      })
+      const { data: acc } = await supabase.from('acceso').select('cursos(titulo)').eq('usuario_id', user.id)
+      if (acc) setMisCursos(acc.map(a => a.cursos?.titulo).filter(Boolean))
+      setCargando(false)
+    }
+    load()
+  }, [user])
+
+  const handleAvatar = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendo(true)
+    setMsg('')
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${user.id}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+      const urlConCache = `${pub.publicUrl}?t=${Date.now()}`
+      await supabase.from('perfiles').upsert({ id: user.id, avatar_url: urlConCache }, { onConflict: 'id' })
+      setPerfil(p => ({ ...p, avatar_url: urlConCache }))
+      setMsg('Foto actualizada.')
+    } catch (err) {
+      setMsg('Error al subir la foto: ' + err.message)
+    }
+    setSubiendo(false)
+  }
+
+  const handleGuardar = async () => {
+    setMsg('')
+    const { error } = await supabase.from('perfiles').upsert({
+      id: user.id,
+      nombre_completo: perfil.nombre_completo,
+      profesion: perfil.profesion,
+      descripcion: perfil.descripcion,
+      ubicacion: perfil.ubicacion
+    }, { onConflict: 'id' })
+    setMsg(error ? 'Error: ' + error.message : 'Perfil guardado.')
+  }
+
+  if (cargando) return <div className="loading">Cargando perfil...</div>
+
+  return (
+    <section className="perfil-wrapper">
+      <h1>Mi perfil</h1>
+
+      <div className="perfil-avatar-zona">
+        <div className="perfil-avatar">
+          {perfil.avatar_url
+            ? <img src={perfil.avatar_url} alt="Foto de perfil" />
+            : <div className="perfil-avatar-placeholder">{(perfil.nombre_completo || user.email || '?').charAt(0).toUpperCase()}</div>}
+        </div>
+        <label className="button secondary">
+          {subiendo ? 'Subiendo...' : 'Cambiar foto'}
+          <input type="file" accept="image/*" onChange={handleAvatar} disabled={subiendo} style={{ display: 'none' }} />
+        </label>
+      </div>
+
+      <div className="formulario-datos">
+        <label>Nombre completo</label>
+        <input type="text" value={perfil.nombre_completo} onChange={(e) => setPerfil({ ...perfil, nombre_completo: e.target.value })} placeholder="Tu nombre completo" />
+
+        <label>Profesión / Especialidad</label>
+        <input type="text" value={perfil.profesion} onChange={(e) => setPerfil({ ...perfil, profesion: e.target.value })} placeholder="Ej. Psicólogo clínico" />
+
+        <label>Ubicación</label>
+        <input type="text" value={perfil.ubicacion} onChange={(e) => setPerfil({ ...perfil, ubicacion: e.target.value })} placeholder="Ciudad, país" />
+
+        <label>Sobre mí</label>
+        <textarea rows="4" value={perfil.descripcion} onChange={(e) => setPerfil({ ...perfil, descripcion: e.target.value })} placeholder="Cuéntanos un poco sobre ti y tu práctica." />
+
+        <button className="button primary" onClick={handleGuardar}>Guardar cambios</button>
+      </div>
+
+      {msg && <p className={msg.startsWith('Error') ? 'error' : 'success'}>{msg}</p>}
+
+      <div className="perfil-cursos">
+        <h3>Cursos a los que estás inscrito</h3>
+        {misCursos.length > 0
+          ? <ul>{misCursos.map((t, i) => <li key={i}>{t}</li>)}</ul>
+          : <p className="perfil-sin-cursos">Aún no estás inscrito en ningún curso.</p>}
+      </div>
+
+      <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
     </section>
   )
 }
@@ -180,31 +285,35 @@ function ProgresoBarra({ progreso }) {
 // ---------- CURSO VIEW ----------
 function CursoView({ user }) {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [progreso, setProgreso] = useState(0)
+  const [tieneAcceso, setTieneAcceso] = useState(true)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
       try {
-        const { data: cursoData, error: cursoError } = await supabase.from('cursos').select('*').eq('id', id).single()
-        if (cursoError) throw cursoError
+        const { data: cursoData } = await supabase.from('cursos').select('*').eq('id', id).single()
         setCurso(cursoData)
 
-        const { data: modulosData, error: modulosError } = await supabase.from('modulos').select('*').eq('curso_id', id).eq('activo', true).order('orden')
-        if (modulosError) throw modulosError
-        setModulos(modulosData)
+        const { data: acc } = await supabase.from('acceso').select('id').eq('usuario_id', user.id).eq('curso_id', id)
+        const acceso = acc && acc.length > 0
+        setTieneAcceso(acceso)
+        if (!acceso) { setLoading(false); return }
+
+        const { data: modulosData } = await supabase.from('modulos').select('*').eq('curso_id', id).eq('activo', true).order('orden')
+        setModulos(modulosData || [])
 
         const recursoIds = []
-        for (const mod of modulosData) {
+        for (const mod of (modulosData || [])) {
           const { data: recs } = await supabase.from('recursos').select('id').eq('modulo_id', mod.id)
-          recursoIds.push(...recs.map(r => r.id))
+          recursoIds.push(...(recs || []).map(r => r.id))
         }
         if (recursoIds.length > 0) {
           const { data: completados } = await supabase.from('progreso_usuario').select('recurso_id').eq('usuario_id', user.id).in('recurso_id', recursoIds).eq('completado', true)
-          const pct = Math.round((completados.length / recursoIds.length) * 100)
-          setProgreso(pct)
+          setProgreso(Math.round((completados.length / recursoIds.length) * 100))
         } else setProgreso(0)
       } catch (error) {
         console.error('Error loading curso:', error)
@@ -217,6 +326,23 @@ function CursoView({ user }) {
 
   if (loading) return <div className="loading">Cargando módulos...</div>
   if (!curso) return <div className="error">Curso no encontrado</div>
+
+  if (!tieneAcceso) {
+    return (
+      <section className="curso-view">
+        <h1>{curso.titulo}</h1>
+        <p>{curso.descripcion}</p>
+        <div className="constancia-estado">
+          <p className="error">🔒 Aún no tienes acceso a este curso.</p>
+        </div>
+        <a className="button primary"
+           href={`mailto:${CONTACTO_EMAIL}?subject=${encodeURIComponent('Interés en el curso: ' + curso.titulo)}`}>
+          Preguntar por costo
+        </a>
+        <button className="button secondary" onClick={() => navigate('/')} style={{ marginLeft: '10px' }}>Volver al inicio</button>
+      </section>
+    )
+  }
 
   return (
     <section className="curso-view">
@@ -339,6 +465,15 @@ function VideoPlayer({ url, email }) {
   )
 }
 
+// ---------- ENLACE (videollamada / recurso externo) ----------
+function EnlaceRecurso({ url }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="button primary enlace-btn">
+      Entrar a la videollamada →
+    </a>
+  )
+}
+
 // ---------- AUTOEVALUACION ----------
 function Autoevaluacion({ url, recursoId, userId, onComplete }) {
   const [intentos, setIntentos] = useState(0)
@@ -381,9 +516,8 @@ function DescargaWord({ archivo, titulo }) {
     try {
       const { data, error } = await supabase.storage.from(BUCKET_NAME).download(archivo)
       if (error) throw error
-      const blob = data
       const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
+      link.href = URL.createObjectURL(data)
       link.download = archivo.split('/').pop()
       document.body.appendChild(link); link.click(); document.body.removeChild(link)
       URL.revokeObjectURL(link.href)
@@ -442,7 +576,7 @@ function Constancia({ user }) {
       doc.text(`Otorgada a: ${perfil.nombre}`, 20, 90)
       doc.text(`Profesión: ${perfil.profesion}`, 20, 110)
       doc.text(`Correo: ${user.email}`, 20, 130)
-      doc.text(`Curso: ${curso?.titulo || 'Evaluación y acompañamiento en duelo normativo y prolongado'}`, 20, 150)
+      doc.text(`Curso: ${curso?.titulo || ''}`, 20, 150)
       doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 170)
       doc.text('Firma: _____________________', 20, 200)
       doc.save('constancia.pdf')
@@ -539,6 +673,7 @@ function ModuloView({ user }) {
       <div className="recursos-list">
         {recursos.map((recurso) => {
           const visto = progresoRecursos[recurso.id] || false
+          const sinBotonVisto = ['autoevaluacion', 'word', 'enlace'].includes(recurso.tipo)
           return (
             <div key={recurso.id} className="recurso-item">
               <div className="recurso-header"><h3>{recurso.titulo}</h3>{visto && <span className="badge visto">✔ Visto</span>}</div>
@@ -548,8 +683,9 @@ function ModuloView({ user }) {
                 {recurso.tipo === 'video' && <VideoPlayer url={recurso.url} email={user.email} />}
                 {recurso.tipo === 'autoevaluacion' && <Autoevaluacion url={recurso.url} recursoId={recurso.id} userId={user.id} onComplete={() => handleMarcarVisto(recurso.id)} />}
                 {recurso.tipo === 'word' && <DescargaWord archivo={recurso.archivo} titulo={recurso.titulo} />}
+                {recurso.tipo === 'enlace' && <EnlaceRecurso url={recurso.url} />}
               </div>
-              {!visto && recurso.tipo !== 'autoevaluacion' && recurso.tipo !== 'word' && (
+              {!visto && !sinBotonVisto && (
                 <button className="button secondary marcar-visto" onClick={() => handleMarcarVisto(recurso.id)}>Marcar como visto</button>
               )}
             </div>
@@ -616,11 +752,8 @@ function App() {
     const handleVisibility = () => {
       const content = document.querySelector('.protected-content')
       if (content) {
-        if (document.hidden) {
-          content.classList.add('hidden')
-        } else {
-          content.classList.remove('hidden')
-        }
+        if (document.hidden) content.classList.add('hidden')
+        else content.classList.remove('hidden')
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
@@ -639,6 +772,7 @@ function App() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<Dashboard user={session.user} />} />
+          <Route path="/perfil" element={<Perfil user={session.user} />} />
           <Route path="/curso/:id" element={<CursoView user={session.user} />} />
           <Route path="/modulo/:id" element={<ModuloView user={session.user} />} />
           <Route path="/constancia/:cursoId" element={<Constancia user={session.user} />} />
