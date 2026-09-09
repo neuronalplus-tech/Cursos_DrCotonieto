@@ -1,8 +1,10 @@
 {
-  "name": "curso-duelo",
+  // El nombre debe coincidir EXACTAMENTE con el Worker en Cloudflare.
+  "name": "cursos-drcotonieto",
   "compatibility_date": "2026-09-07",
   "assets": {
     "directory": "./dist",
+    // Hace que /curso/3 y /modulo/8 funcionen al recargar la página
     "not_found_handling": "single-page-application"
   }
 }
