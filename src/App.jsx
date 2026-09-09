@@ -14,10 +14,10 @@ const supabase = createClient(
 )
 
 /* ============================================================
-   CONFIGURACIÓN — edita aquí tus datos, no hace falta tocar más
+   CONFIGURACIÓN
    ============================================================ */
-const BUCKET_PAGO = 'curso_duelo'       // materiales de cursos de paga
-const BUCKET_TALLERES = 'talleres'      // materiales gratuitos (bucket público)
+const BUCKET_PAGO = 'curso_duelo'
+const BUCKET_TALLERES = 'talleres'
 const AVATAR_BUCKET = 'avatares'
 
 const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
@@ -25,8 +25,7 @@ const WHATSAPP = '5215637841931'
 const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
 const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
 
-// Imágenes: colócalas en la carpeta public/ de tu repo
-const FOTO_PERFIL = '/foto-perfil.jpg'   // tu foto profesional
+const FOTO_PERFIL = '/foto-perfil.jpg'
 const LOGO_CLARO = '/logo_claro_1024.png'
 const LOGO_BLANCO = '/logo_blanco_1024.png'
 
@@ -65,6 +64,95 @@ const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', a
 const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
 
 /* ============================================================
+   PORTADAS VECTORIALES DE LOS CURSOS
+   Se dibujan en código: no pesan, no se rompen y usan tu paleta.
+   ============================================================ */
+function PortadaCurso({ variante, uid }) {
+  const id = `p${uid}`
+
+  // Red de nodos — para supervisión clínica (retoma el motivo del logotipo)
+  if (variante === 'red') {
+    const nodos = [
+      [88, 108, 4], [148, 58, 5], [206, 96, 9], [132, 148, 4],
+      [252, 150, 5], [312, 74, 4], [330, 132, 3], [60, 60, 3]
+    ]
+    const aristas = [[0,1],[1,2],[0,3],[3,2],[2,4],[3,4],[2,5],[4,6],[5,6],[7,1],[7,0]]
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+        <rect width="400" height="200" fill="#F2EEE9" />
+        <g stroke="#1B3A4B" strokeOpacity=".28" strokeWidth="1.4">
+          {aristas.map(([a, b], i) => (
+            <line key={i} x1={nodos[a][0]} y1={nodos[a][1]} x2={nodos[b][0]} y2={nodos[b][1]} />
+          ))}
+        </g>
+        {nodos.map(([cx, cy, r], i) => (
+          <circle key={i} cx={cx} cy={cy} r={r} fill={i === 2 ? '#C17A5E' : '#1B3A4B'} fillOpacity={i === 2 ? 1 : .82} />
+        ))}
+        <circle cx="206" cy="96" r="18" fill="none" stroke="#C17A5E" strokeOpacity=".38" strokeWidth="1.4" />
+        <circle cx="206" cy="96" r="27" fill="none" stroke="#C17A5E" strokeOpacity=".18" strokeWidth="1.2" />
+      </svg>
+    )
+  }
+
+  // Arcos abiertos — para talleres gratuitos
+  if (variante === 'abierto') {
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+        <defs>
+          <linearGradient id={`${id}a`} x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor="#B76F53" />
+            <stop offset="100%" stopColor="#D9A184" />
+          </linearGradient>
+        </defs>
+        <rect width="400" height="200" fill={`url(#${id}a)`} />
+        <g fill="none" stroke="#FAFAF8" strokeLinecap="round">
+          <circle cx="68" cy="172" r="44" strokeOpacity=".55" strokeWidth="1.8" />
+          <circle cx="68" cy="172" r="82" strokeOpacity=".42" strokeWidth="1.8" />
+          <circle cx="68" cy="172" r="120" strokeOpacity=".30" strokeWidth="1.8" />
+          <circle cx="68" cy="172" r="158" strokeOpacity=".20" strokeWidth="1.8" />
+          <circle cx="68" cy="172" r="196" strokeOpacity=".12" strokeWidth="1.8" />
+        </g>
+        <circle cx="68" cy="172" r="10" fill="#FAFAF8" />
+        <g fill="#FAFAF8" fillOpacity=".85">
+          <circle cx="262" cy="54" r="3.5" />
+          <circle cx="318" cy="96" r="2.5" />
+          <circle cx="214" cy="30" r="2" />
+        </g>
+      </svg>
+    )
+  }
+
+  // Ondas descendentes — para duelo (proceso y acompañamiento)
+  return (
+    <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+      <defs>
+        <linearGradient id={`${id}o`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#1B3A4B" />
+          <stop offset="100%" stopColor="#2F5B72" />
+        </linearGradient>
+      </defs>
+      <rect width="400" height="200" fill={`url(#${id}o)`} />
+      <g fill="none" stroke="#FAFAF8" strokeLinecap="round" strokeWidth="1.8">
+        <path d="M-20 168 C 60 140, 130 192, 210 162 S 350 132, 420 156" strokeOpacity=".14" />
+        <path d="M-20 146 C 60 118, 130 170, 210 140 S 350 110, 420 134" strokeOpacity=".20" />
+        <path d="M-20 124 C 60 96, 130 148, 210 118 S 350 88, 420 112" strokeOpacity=".28" />
+        <path d="M-20 102 C 60 74, 130 126, 210 96 S 350 66, 420 90" strokeOpacity=".36" />
+      </g>
+      <path d="M-20 78 C 60 50, 130 102, 210 72 S 350 42, 420 66"
+            fill="none" stroke="#C17A5E" strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="210" cy="72" r="5.5" fill="#C17A5E" />
+      <circle cx="210" cy="72" r="13" fill="none" stroke="#C17A5E" strokeOpacity=".45" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
+function varianteDe(curso) {
+  if (curso.gratuito) return 'abierto'
+  if (/supervis/i.test(curso.titulo || '')) return 'red'
+  return 'ondas'
+}
+
+/* ============================================================
    UTILIDADES
    ============================================================ */
 function Breadcrumb({ items }) {
@@ -82,12 +170,14 @@ function Breadcrumb({ items }) {
 
 function WhatsAppFlotante() {
   return (
-    <a className="wa-flotante" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer"
-       aria-label="Escríbeme por WhatsApp">
+    <a className="wa-flotante" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer" aria-label="Escríbeme por WhatsApp">
       <span className="wa-icono">💬</span><span className="wa-texto">WhatsApp</span>
     </a>
   )
 }
+
+// Construye la ruta de login recordando a dónde quería ir la persona
+const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(destino)}`
 
 /* ============================================================
    HEADER
@@ -96,6 +186,7 @@ function Header({ user, esAdmin, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const ir = (ruta) => { navigate(ruta); setMenuAbierto(false) }
   return (
     <header className="app-header">
       <div className="header-content">
@@ -106,16 +197,16 @@ function Header({ user, esAdmin, onLogout }) {
         </div>
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
         <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
-          {location.pathname !== '/' && <button className="nav-link" onClick={() => { navigate('/'); setMenuAbierto(false) }}>Inicio</button>}
-          {user && <button className="nav-link" onClick={() => { navigate('/perfil'); setMenuAbierto(false) }}>Mi perfil</button>}
-          {esAdmin && <button className="nav-link destacado" onClick={() => { navigate('/admin'); setMenuAbierto(false) }}>Panel</button>}
+          {location.pathname !== '/' && <button className="nav-link" onClick={() => ir('/')}>Inicio</button>}
+          {user && <button className="nav-link" onClick={() => ir('/perfil')}>Mi perfil</button>}
+          {esAdmin && <button className="nav-link destacado" onClick={() => ir('/admin')}>Panel</button>}
           {user ? (
             <>
               <span className="user-email" title={user.email}>{user.email}</span>
               <button className="button secundario-claro" onClick={onLogout}>Salir</button>
             </>
           ) : (
-            <button className="button secundario-claro" onClick={() => { navigate('/acceso'); setMenuAbierto(false) }}>Iniciar sesión</button>
+            <button className="button secundario-claro" onClick={() => ir('/acceso')}>Iniciar sesión</button>
           )}
         </nav>
       </div>
@@ -124,7 +215,7 @@ function Header({ user, esAdmin, onLogout }) {
 }
 
 /* ============================================================
-   LOGIN
+   LOGIN (con retorno al curso solicitado)
    ============================================================ */
 function Login({ message }) {
   const [email, setEmail] = useState('')
@@ -132,13 +223,18 @@ function Login({ message }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Solo se aceptan rutas internas (evita redirecciones a sitios externos)
+  const crudo = new URLSearchParams(location.search).get('redirigir')
+  const destino = crudo && crudo.startsWith('/') && !crudo.startsWith('//') ? crudo : '/'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
     if (error) { setError('Correo o contraseña incorrectos. Revisa que no haya espacios de más.'); setLoading(false) }
-    else { localStorage.setItem('login_time', String(Date.now())); navigate('/') }
+    else { localStorage.setItem('login_time', String(Date.now())); navigate(destino, { replace: true }) }
   }
 
   return (
@@ -147,14 +243,16 @@ function Login({ message }) {
         <img src={LOGO_CLARO} alt="" className="logo-login" />
         <p className="eyebrow">Aula virtual</p>
         <h1>Iniciar sesión</h1>
-        <p className="sutil">Ingresa con el usuario y contraseña que te compartí. Los talleres gratuitos no requieren cuenta.</p>
+        <p className="sutil">
+          {destino !== '/'
+            ? 'Ingresa tus datos y te llevo directo al curso que abriste.'
+            : 'Ingresa con el usuario y contraseña que te compartí. Los talleres gratuitos no requieren cuenta.'}
+        </p>
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Correo electrónico</label>
-          <input id="email" type="email" autoComplete="email" value={email}
-                 onChange={(e) => setEmail(e.target.value)} required />
+          <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <label htmlFor="password">Contraseña</label>
-          <input id="password" type="password" autoComplete="current-password" value={password}
-                 onChange={(e) => setPassword(e.target.value)} required />
+          <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <button type="submit" disabled={loading} className="button primary ancho">
             {loading ? 'Verificando...' : 'Entrar al aula'}
           </button>
@@ -171,23 +269,90 @@ function Login({ message }) {
 }
 
 /* ============================================================
-   HOME (pública)
+   TARJETA DE CURSO
+   ============================================================ */
+function CursoCard({ curso, user, tieneAcceso }) {
+  const [abierto, setAbierto] = useState(false)
+  const [imgFalla, setImgFalla] = useState(false)
+  const navigate = useNavigate()
+  const gratis = !!curso.gratuito
+  const usarSvg = !curso.imagen_portada || imgFalla
+
+  return (
+    <article className={`course-card ${gratis ? 'gratis' : ''}`}>
+      <div className="course-portada">
+        {usarSvg
+          ? <PortadaCurso variante={varianteDe(curso)} uid={curso.id} />
+          : <img src={curso.imagen_portada} alt="" className="course-image" onError={() => setImgFalla(true)} />}
+      </div>
+
+      <div className="course-info">
+        {gratis ? <span className="badge verde">Acceso libre</span>
+          : tieneAcceso ? <span className="badge ok">✔ Estás inscrito</span>
+            : <span className="badge neutro">Requiere inscripción</span>}
+
+        <h3>{curso.titulo}</h3>
+
+        <button className="saber-mas" onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
+          {abierto ? 'Ocultar detalles ▲' : 'Saber más ▼'}
+        </button>
+
+        {abierto && (
+          <div className="course-detalle">
+            <p>{curso.descripcion}</p>
+            {curso.info_curso && (
+              <div className="course-detalle-extra">
+                {curso.info_curso.split('\n').filter(Boolean).slice(0, 3).map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="course-acciones">
+          {gratis ? (
+            <Link to={`/curso/${curso.id}`} className="button primary ancho">Entrar libremente</Link>
+          ) : tieneAcceso ? (
+            <Link to={`/curso/${curso.id}`} className="button primary ancho">Continuar curso</Link>
+          ) : (
+            <>
+              <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+                 href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me compartes el costo y cómo apartar mi lugar?`)}>
+                Quiero inscribirme
+              </a>
+              <button className="button secondary ancho"
+                      onClick={() => navigate(user ? `/curso/${curso.id}` : rutaAcceso(`/curso/${curso.id}`))}>
+                Ya tengo acceso
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
+
+/* ============================================================
+   HOME
    ============================================================ */
 function Home({ user }) {
   const [cursos, setCursos] = useState([])
   const [accesos, setAccesos] = useState(new Set())
   const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('cursos').select('*').eq('activo', true).order('orden')
-      setCursos(data || [])
-      if (user) {
-        const { data: acc } = await supabase.from('acceso').select('curso_id').eq('usuario_id', user.id)
-        setAccesos(new Set((acc || []).map(a => a.curso_id)))
-      }
-      setLoading(false)
+      try {
+        const { data, error } = await supabase.from('cursos').select('*').eq('activo', true).order('orden')
+        if (error) throw error
+        setCursos(data || [])
+        if (user) {
+          const { data: acc } = await supabase.from('acceso').select('curso_id').eq('usuario_id', user.id)
+          setAccesos(new Set((acc || []).map(a => a.curso_id)))
+        }
+      } catch (e) {
+        console.error('Error cargando cursos:', e); setError(e.message)
+      } finally { setLoading(false) }
     }
     load()
   }, [user])
@@ -222,48 +387,16 @@ function Home({ user }) {
       <section className="seccion" id="cursos">
         <h2>Cursos y talleres</h2>
         <p className="seccion-intro">
-          Formación clínica aplicada. Los talleres gratuitos son de acceso libre;
-          los cursos requieren inscripción.
+          Formación clínica aplicada. Los talleres gratuitos son de acceso libre; los cursos requieren
+          inscripción. Toca “Saber más” para ver de qué trata cada uno.
         </p>
-        {loading ? <div className="loading">Cargando cursos...</div> : (
+        {loading && <div className="loading">Cargando cursos...</div>}
+        {error && <p className="aviso-error">No se pudo cargar el catálogo: {error}</p>}
+        {!loading && !error && cursos.length === 0 &&
+          <p className="aviso-error">El catálogo está vacío. Si acabas de publicar, recarga en un momento.</p>}
+        {!loading && cursos.length > 0 && (
           <div className="course-grid">
-            {cursos.map((curso) => {
-              const gratis = curso.gratuito
-              const tiene = accesos.has(curso.id)
-              return (
-                <article key={curso.id} className={`course-card ${gratis ? 'gratis' : ''}`}>
-                  {curso.imagen_portada
-                    ? <img src={curso.imagen_portada} alt="" className="course-image" />
-                    : <div className={`course-image placeholder ${gratis ? 'verde' : ''}`}>{gratis ? '🎁' : '📚'}</div>}
-                  <div className="course-info">
-                    {gratis ? <span className="badge verde">Acceso libre</span>
-                      : tiene ? <span className="badge ok">✔ Inscrito</span>
-                        : <span className="badge neutro">Requiere inscripción</span>}
-                    <h3>{curso.titulo}</h3>
-                    <p>{curso.descripcion}</p>
-                    <div className="course-acciones">
-                      {gratis || tiene ? (
-                        <Link to={`/curso/${curso.id}`} className="button primary ancho">
-                          {gratis ? 'Entrar libremente' : 'Continuar curso'}
-                        </Link>
-                      ) : (
-                        <>
-                          <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
-                             href={wa(`Hola, me interesa inscribirme al curso "${curso.titulo}". ¿Me compartes el costo y cómo apartar mi lugar?`)}>
-                            Quiero inscribirme
-                          </a>
-                          {!user && (
-                            <button className="button secondary ancho" onClick={() => navigate('/acceso')}>
-                              Ya tengo acceso
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
+            {cursos.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={accesos.has(c.id)} />)}
           </div>
         )}
       </section>
@@ -272,10 +405,7 @@ function Home({ user }) {
         <h2>Servicios</h2>
         <div className="servicios-grid">
           {SERVICIOS.map((s, i) => (
-            <div key={i} className="servicio-card">
-              <h3>{s.titulo}</h3>
-              <p>{s.detalle}</p>
-            </div>
+            <div key={i} className="servicio-card"><h3>{s.titulo}</h3><p>{s.detalle}</p></div>
           ))}
         </div>
       </section>
@@ -297,9 +427,9 @@ function Home({ user }) {
       <footer className="pie-pagina">
         <p><strong>{MARCA.nombre}</strong> · {MARCA.credencial}</p>
         <p className="pie-legal">
-          El contenido de este sitio es informativo y formativo, y no sustituye la atención
-          clínica individual. Si estás en una situación de urgencia, comunícate al <strong>911</strong> o
-          a la Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
+          El contenido de este sitio es informativo y formativo, y no sustituye la atención clínica
+          individual. Si estás en una situación de urgencia, comunícate al <strong>911</strong> o a la
+          Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
         </p>
       </footer>
     </div>
@@ -318,7 +448,7 @@ function Perfil({ user }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!user) { navigate('/acceso'); return }
+    if (!user) { navigate(rutaAcceso('/perfil')); return }
     async function load() {
       const { data } = await supabase.from('perfiles').select('*').eq('id', user.id).maybeSingle()
       if (data) setPerfil({
@@ -340,8 +470,7 @@ function Perfil({ user }) {
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `${user.id}/avatar.${ext}`
-      const { error: upErr } = await supabase.storage.from(AVATAR_BUCKET)
-        .upload(path, file, { upsert: true, contentType: file.type })
+      const { error: upErr } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type })
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
       const url = `${pub.publicUrl}?t=${Date.now()}`
@@ -383,7 +512,8 @@ function Perfil({ user }) {
       <div className="formulario-datos">
         <label htmlFor="nom">Nombre completo</label>
         <input id="nom" type="text" value={perfil.nombre_completo}
-               onChange={(e) => setPerfil({ ...perfil, nombre_completo: e.target.value })} placeholder="Como quieres que aparezca en tu constancia" />
+               onChange={(e) => setPerfil({ ...perfil, nombre_completo: e.target.value })}
+               placeholder="Como quieres que aparezca en tu constancia" />
         <label htmlFor="prof">Profesión o especialidad</label>
         <input id="prof" type="text" value={perfil.profesion}
                onChange={(e) => setPerfil({ ...perfil, profesion: e.target.value })} placeholder="Ej. Psicóloga clínica" />
@@ -418,7 +548,7 @@ function Admin({ user, esAdmin }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!user) { navigate('/acceso'); return }
+    if (!user) { navigate(rutaAcceso('/admin')); return }
     async function load() {
       const { data, error } = await supabase.from('vista_admin_inscripciones')
         .select('*').order('inscrito_el', { ascending: false })
@@ -442,27 +572,20 @@ function Admin({ user, esAdmin }) {
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
       <h1>Panel de administración</h1>
-
       <div className="kpi-fila">
         <div className="kpi"><span className="kpi-num">{alumnosUnicos}</span><span className="kpi-lbl">Alumnos</span></div>
         <div className="kpi"><span className="kpi-num">{filas.length}</span><span className="kpi-lbl">Inscripciones</span></div>
         <div className="kpi"><span className="kpi-num">{cursos.length}</span><span className="kpi-lbl">Cursos con alumnos</span></div>
       </div>
-
       <div className="filtros">
         <button className={`filtro ${filtro === 'todos' ? 'activo' : ''}`} onClick={() => setFiltro('todos')}>Todos</button>
         {cursos.map(c => (
           <button key={c} className={`filtro ${filtro === c ? 'activo' : ''}`} onClick={() => setFiltro(c)}>{c}</button>
         ))}
       </div>
-
       <div className="tabla-scroll">
         <table className="tabla-admin">
-          <thead>
-            <tr>
-              <th>Alumno</th><th>Curso</th><th>Progreso</th><th>Inscrito</th><th>Último ingreso</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Alumno</th><th>Curso</th><th>Progreso</th><th>Inscrito</th><th>Último ingreso</th></tr></thead>
           <tbody>
             {visibles.map((f, i) => {
               const pct = f.total_recursos > 0 ? Math.round((f.recursos_completados / f.total_recursos) * 100) : 0
@@ -487,7 +610,6 @@ function Admin({ user, esAdmin }) {
           </tbody>
         </table>
       </div>
-
       <div className="panel-info">
         <h3>Para inscribir a alguien</h3>
         <p className="sutil">
@@ -500,7 +622,7 @@ function Admin({ user, esAdmin }) {
 }
 
 /* ============================================================
-   VISOR DE PDF (carga solo cuando se abre el material)
+   VISOR DE PDF
    ============================================================ */
 function PdfViewer({ archivo, bucket }) {
   const [pages, setPages] = useState([])
@@ -535,12 +657,7 @@ function PdfViewer({ archivo, bucket }) {
 
   if (error) return <div className="aviso-error">No se pudo cargar el documento: {error}</div>
   if (status) return <div className="loading">{status}</div>
-
-  return (
-    <div className="pdf-viewer">
-      {pages.map((p, i) => <PdfPage key={i} page={p} n={i + 1} total={pages.length} />)}
-    </div>
-  )
+  return <div className="pdf-viewer">{pages.map((p, i) => <PdfPage key={i} page={p} n={i + 1} total={pages.length} />)}</div>
 }
 
 function PdfPage({ page, n, total }) {
@@ -575,7 +692,7 @@ function PdfPage({ page, n, total }) {
 }
 
 /* ============================================================
-   OTROS TIPOS DE RECURSO
+   OTROS RECURSOS
    ============================================================ */
 function VideoPlayer({ url }) {
   return (
@@ -612,7 +729,6 @@ function Autoevaluacion({ url, recursoId, userId, onComplete }) {
   if (cargando) return <div className="loading">Cargando...</div>
   if (completado) return <div className="aviso-ok">✔ Autoevaluación completada.</div>
   if (intentos >= 3) return <div className="aviso-error">Alcanzaste el límite de 3 intentos.</div>
-
   return (
     <div>
       <p className="sutil">Máximo 3 intentos. Llevas {intentos}.</p>
@@ -623,15 +739,15 @@ function Autoevaluacion({ url, recursoId, userId, onComplete }) {
 }
 
 /* ============================================================
-   TARJETA DE RECURSO (colapsable)
+   TARJETA DE RECURSO
    ============================================================ */
 function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
   const [abierto, setAbierto] = useState(false)
-  const [abriendo, setAbriendo] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
   const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo)
 
   const abrirNuevaPestana = async () => {
-    setAbriendo(true)
+    setOcupado(true)
     try {
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(recurso.archivo, 3600)
       if (error) throw error
@@ -640,11 +756,11 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
       const { data } = supabase.storage.from(bucket).getPublicUrl(recurso.archivo)
       window.open(data.publicUrl, '_blank', 'noopener,noreferrer')
     }
-    setAbriendo(false)
+    setOcupado(false)
   }
 
   const descargar = async () => {
-    setAbriendo(true)
+    setOcupado(true)
     try {
       const { data, error } = await supabase.storage.from(bucket).download(recurso.archivo)
       if (error) throw error
@@ -654,7 +770,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(a.href)
     } catch (err) { alert('Error al descargar: ' + err.message) }
-    setAbriendo(false)
+    setOcupado(false)
   }
 
   return (
@@ -674,25 +790,24 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
 
       <div className="recurso-acciones">
         {colapsable && (
-          <button className={`button ${abierto ? 'secondary' : 'primary'}`} onClick={() => setAbierto(v => !v)}
-                  aria-expanded={abierto}>
+          <button className={`button ${abierto ? 'secondary' : 'primary'}`} onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
             {abierto ? 'Ocultar material' : 'Ver material'}
           </button>
         )}
         {recurso.tipo === 'enlace' && (
           <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
         )}
-        {(recurso.tipo === 'pdf') && (
-          <button className="button secondary" onClick={abrirNuevaPestana} disabled={abriendo}>
-            {abriendo ? 'Abriendo...' : 'Abrir en pestaña nueva ↗'}
+        {recurso.tipo === 'pdf' && (
+          <button className="button secondary" onClick={abrirNuevaPestana} disabled={ocupado}>
+            {ocupado ? 'Abriendo...' : 'Abrir en pestaña nueva ↗'}
           </button>
         )}
         {recurso.tipo === 'word' && (
-          <button className="button primary" onClick={descargar} disabled={abriendo}>
-            {abriendo ? 'Descargando...' : 'Descargar documento'}
+          <button className="button primary" onClick={descargar} disabled={ocupado}>
+            {ocupado ? 'Descargando...' : 'Descargar documento'}
           </button>
         )}
-        {user && !visto && !['autoevaluacion'].includes(recurso.tipo) && (
+        {user && !visto && recurso.tipo !== 'autoevaluacion' && (
           <button className="button texto" onClick={() => onMarcarVisto(recurso.id)}>Marcar como visto</button>
         )}
       </div>
@@ -702,8 +817,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
           {recurso.tipo === 'pdf' && <PdfViewer archivo={recurso.archivo} bucket={bucket} />}
           {recurso.tipo === 'video' && <VideoPlayer url={recurso.url} />}
           {recurso.tipo === 'autoevaluacion' && user &&
-            <Autoevaluacion url={recurso.url} recursoId={recurso.id} userId={user.id}
-                            onComplete={() => onMarcarVisto(recurso.id)} />}
+            <Autoevaluacion url={recurso.url} recursoId={recurso.id} userId={user.id} onComplete={() => onMarcarVisto(recurso.id)} />}
         </div>
       )}
     </article>
@@ -720,37 +834,49 @@ function CursoView({ user }) {
   const [modulos, setModulos] = useState([])
   const [progreso, setProgreso] = useState(0)
   const [estado, setEstado] = useState('cargando')
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function load() {
-      const { data: c } = await supabase.from('cursos').select('*').eq('id', id).maybeSingle()
-      setCurso(c)
-      if (!c) { setEstado('ok'); return }
-      if (!c.gratuito) {
-        if (!user) { setEstado('requiere_login'); return }
-        const { data: acc } = await supabase.from('acceso').select('id').eq('usuario_id', user.id).eq('curso_id', id)
-        if (!acc || acc.length === 0) { setEstado('sin_acceso'); return }
-      }
-      const { data: mods } = await supabase.from('modulos').select('*').eq('curso_id', id).eq('activo', true).order('orden')
-      setModulos(mods || [])
-      if (user) {
-        const ids = []
-        for (const m of (mods || [])) {
-          const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
-          ids.push(...(rs || []).map(r => r.id))
+      try {
+        const { data: c, error: eC } = await supabase.from('cursos').select('*').eq('id', id).maybeSingle()
+        if (eC) throw eC
+        setCurso(c)
+        if (!c) { setEstado('ok'); return }
+
+        if (!c.gratuito) {
+          if (!user) { setEstado('requiere_login'); return }
+          const { data: acc } = await supabase.from('acceso').select('id').eq('usuario_id', user.id).eq('curso_id', id)
+          if (!acc || acc.length === 0) { setEstado('sin_acceso'); return }
         }
-        if (ids.length) {
-          const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
-            .eq('usuario_id', user.id).in('recurso_id', ids).eq('completado', true)
-          setProgreso(Math.round(((comp?.length || 0) / ids.length) * 100))
+
+        const { data: mods, error: eM } = await supabase.from('modulos')
+          .select('*').eq('curso_id', id).eq('activo', true).order('orden')
+        if (eM) throw eM
+        setModulos(mods || [])
+
+        if (user && mods?.length) {
+          const ids = []
+          for (const m of mods) {
+            const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
+            ids.push(...(rs || []).map(r => r.id))
+          }
+          if (ids.length) {
+            const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
+              .eq('usuario_id', user.id).in('recurso_id', ids).eq('completado', true)
+            setProgreso(Math.round(((comp?.length || 0) / ids.length) * 100))
+          }
         }
+        setEstado('ok')
+      } catch (e) {
+        console.error('Error en CursoView:', e); setError(e.message); setEstado('ok')
       }
-      setEstado('ok')
     }
     load()
   }, [id, user])
 
   if (estado === 'cargando') return <div className="loading">Cargando...</div>
+  if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
 
   if (estado === 'requiere_login' || estado === 'sin_acceso') {
@@ -762,11 +888,11 @@ function CursoView({ user }) {
         <div className="bloque-cerrado">
           <p className="bloque-icono">🔒</p>
           <p>{estado === 'requiere_login'
-            ? 'Este curso es para personas inscritas. Si ya tienes tus datos de acceso, inicia sesión.'
+            ? 'Este curso es para personas inscritas. Si ya tienes tus datos de acceso, inicia sesión y te traigo de vuelta aquí.'
             : 'Tu cuenta aún no tiene acceso a este curso.'}</p>
           <div className="bloque-botones">
             {estado === 'requiere_login' &&
-              <button className="button primary" onClick={() => navigate('/acceso')}>Iniciar sesión</button>}
+              <button className="button primary" onClick={() => navigate(rutaAcceso(`/curso/${id}`))}>Iniciar sesión</button>}
             <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
                href={wa(`Hola, me interesa inscribirme al curso "${curso.titulo}".`)}>Quiero inscribirme</a>
             <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
@@ -783,29 +909,23 @@ function CursoView({ user }) {
         <h1>{curso.titulo}</h1>
         <p className="curso-desc">{curso.descripcion}</p>
       </div>
-
       {curso.info_curso && (
         <div className="curso-info-extra">
           {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
         </div>
       )}
-
       {user && !curso.gratuito && (
         <div className="progreso-container">
           <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
           <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }} /></div>
         </div>
       )}
-
       <h2 className="titulo-seccion">Contenido del curso</h2>
       <div className="modulo-grid">
         {modulos.map((m, i) => (
           <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">
             <span className="modulo-num">{i + 1}</span>
-            <div>
-              <h3>{m.titulo}</h3>
-              <p>{m.descripcion}</p>
-            </div>
+            <div><h3>{m.titulo}</h3><p>{m.descripcion}</p></div>
             <span className="modulo-flecha">→</span>
           </Link>
         ))}
@@ -816,7 +936,7 @@ function CursoView({ user }) {
 }
 
 /* ============================================================
-   MÓDULO (con navegación lateral)
+   MÓDULO
    ============================================================ */
 function ModuloView({ user }) {
   const { id } = useParams()
@@ -827,24 +947,35 @@ function ModuloView({ user }) {
   const [modulosCurso, setModulosCurso] = useState([])
   const [progresoRecursos, setProgresoRecursos] = useState({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function load() {
       try {
-        const { data: m } = await supabase.from('modulos').select('*, cursos(id, titulo, gratuito)').eq('id', id).maybeSingle()
-        if (!m) { setLoading(false); return }
-        setModulo(m); setCurso(m.cursos)
-        const { data: rs } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
+        const { data: m, error: eM } = await supabase.from('modulos').select('*').eq('id', id).maybeSingle()
+        if (eM) throw eM
+        if (!m) { setError('Este módulo no existe o no tienes acceso a él.'); return }
+        setModulo(m)
+
+        const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito').eq('id', m.curso_id).maybeSingle()
+        setCurso(c)
+
+        const { data: rs, error: eR } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
+        if (eR) throw eR
         setRecursos(rs || [])
+
         const { data: mods } = await supabase.from('modulos').select('id, titulo, orden')
           .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
         setModulosCurso(mods || [])
+
         if (user && rs?.length) {
           const { data: pr } = await supabase.from('progreso_usuario').select('recurso_id, completado')
             .eq('usuario_id', user.id).in('recurso_id', rs.map(r => r.id))
           const map = {}; pr?.forEach(p => { map[p.recurso_id] = p.completado })
           setProgresoRecursos(map)
         }
+      } catch (e) {
+        console.error('Error en ModuloView:', e); setError(e.message)
       } finally { setLoading(false) }
     }
     load()
@@ -866,18 +997,25 @@ function ModuloView({ user }) {
   }
 
   if (loading) return <div className="loading">Cargando módulo...</div>
+  if (error) return (
+    <div className="contenedor">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Módulo' }]} />
+      <p className="aviso-error">{error}</p>
+      <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
+    </div>
+  )
   if (!modulo) return <div className="contenedor"><p className="aviso-error">Módulo no encontrado.</p></div>
 
   const idx = modulosCurso.findIndex(m => m.id === parseInt(id))
   const prev = idx > 0 ? modulosCurso[idx - 1] : null
-  const next = idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
+  const next = idx >= 0 && idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
   const vistos = recursos.filter(r => progresoRecursos[r.id]).length
 
   return (
     <div className="contenedor">
       <Breadcrumb items={[
         { label: 'Inicio', to: '/' },
-        { label: curso?.titulo || 'Curso', to: `/curso/${curso?.id}` },
+        { label: curso?.titulo || 'Curso', to: curso ? `/curso/${curso.id}` : '/' },
         { label: modulo.titulo }
       ]} />
 
@@ -916,7 +1054,7 @@ function ModuloView({ user }) {
           <div className="side-bloque atajos">
             <h4>Atajos</h4>
             <Link to="/" className="side-atajo">🏠 Inicio</Link>
-            <Link to={`/curso/${curso?.id}`} className="side-atajo">📚 Todo el curso</Link>
+            {curso && <Link to={`/curso/${curso.id}`} className="side-atajo">📚 Todo el curso</Link>}
             {user && <Link to="/perfil" className="side-atajo">👤 Mi perfil</Link>}
             <a className="side-atajo" href={wa('Hola, tengo una duda sobre el material del aula.')}
                target="_blank" rel="noopener noreferrer">💬 Dudas</a>
@@ -941,10 +1079,12 @@ function ModuloView({ user }) {
           </div>
 
           <nav className="navegacion-modulos">
-            {prev && <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>}
+            {prev
+              ? <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>
+              : <span />}
             {next && <button className="button primary" onClick={() => navigate(`/modulo/${next.id}`)}>{next.titulo} →</button>}
-            {!next && user && !curso?.gratuito &&
-              <Link to={`/constancia/${curso?.id}`} className="button constancia-btn">Obtener constancia</Link>}
+            {!next && user && curso && !curso.gratuito &&
+              <Link to={`/constancia/${curso.id}`} className="button constancia-btn">Obtener constancia</Link>}
           </nav>
         </main>
       </div>
@@ -965,7 +1105,7 @@ function Constancia({ user }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!user) { navigate('/acceso'); return }
+    if (!user) { navigate(rutaAcceso(`/constancia/${cursoId}`)); return }
     async function load() {
       const { data: p } = await supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).maybeSingle()
       if (p) setPerfil({ nombre: p.nombre_completo || '', profesion: p.profesion || '' })
