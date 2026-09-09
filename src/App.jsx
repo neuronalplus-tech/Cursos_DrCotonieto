@@ -13,159 +13,302 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 )
 
-const BUCKET_NAME = 'curso_duelo'
+/* ============================================================
+   CONFIGURACIÓN — edita aquí tus datos, no hace falta tocar más
+   ============================================================ */
+const BUCKET_PAGO = 'curso_duelo'       // materiales de cursos de paga
+const BUCKET_TALLERES = 'talleres'      // materiales gratuitos (bucket público)
 const AVATAR_BUCKET = 'avatares'
+
 const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
+const WHATSAPP = '5215637841931'
+const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
+const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
 
-// ---------- LOGIN ----------
-function Login({ onLogin, message }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+// Imágenes: colócalas en la carpeta public/ de tu repo
+const FOTO_PERFIL = '/foto-perfil.jpg'   // tu foto profesional
+const LOGO_CLARO = '/logo_claro_1024.png'
+const LOGO_BLANCO = '/logo_blanco_1024.png'
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    if (error) {
-      setError('Correo o contraseña incorrectos.')
-      setLoading(false)
-    } else {
-      localStorage.setItem('login_time', String(Date.now()))
-      onLogin()
-    }
-  }
+const MARCA = {
+  nombre: 'Dr. Ernesto Cotonieto',
+  credencial: 'Cédula profesional 10521804 · Doctorado en Ciencias del Comportamiento Saludable',
+  slogan: 'No tienes que traducirte para que te entiendan.',
+  subtitulo: 'Un espacio afirmativo, para quienes cargan más de lo que muestran.',
+  bio: 'Acompaño a adolescentes (desde 13 años) y adultos en procesos psicológicos basados en evidencia, y formo a profesionales de la salud mental. Combino la práctica clínica con la investigación y la docencia.'
+}
 
+const REDES = [
+  { nombre: 'Página oficial', corto: 'Web', url: 'https://drcotonieto.netlify.app/', icono: '🌐' },
+  { nombre: 'Instagram', corto: 'Instagram', url: 'https://www.instagram.com/dr.cotonieto/', icono: '📷' },
+  { nombre: 'Facebook', corto: 'Facebook', url: 'https://www.facebook.com/dr.cotonieto', icono: '👥' },
+  { nombre: 'LinkedIn', corto: 'LinkedIn', url: 'https://www.linkedin.com/in/ernesto-cotonieto-928039235/', icono: '💼' },
+  { nombre: 'Google Scholar', corto: 'Publicaciones', url: 'https://scholar.google.com/citations?hl=es&user=8wRWA-sAAAAJ', icono: '🎓' }
+]
+
+const SERVICIOS = [
+  { titulo: 'Terapia individual en línea', detalle: 'Adolescentes desde 13 años y adultos. Procesos basados en evidencia.' },
+  { titulo: 'Llamada de encuadre sin costo', detalle: '15 a 20 minutos para conocernos y ver si es buen momento.' },
+  { titulo: 'Supervisión clínica grupal', detalle: 'Grupos cerrados de 5 a 6 profesionales, con método de formulación.' },
+  { titulo: 'Cursos y talleres', detalle: 'Formación clínica aplicada para profesionales de la salud mental.' }
+]
+
+const CASOS = [
+  'Ansiedad intensa y ataques de pánico', 'Trauma y TEPT',
+  'Distimia y estados de ánimo persistentes', 'Neurodivergencia',
+  'Crisis emocionales', 'Estrés profesional y autoexigencia extrema'
+]
+
+const ENFOQUES = ['Terapia de Aceptación y Compromiso (ACT)', 'Análisis funcional de la conducta', 'Terapia Dialéctico-Conductual (DBT)']
+
+const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', autoevaluacion: '✍️' }
+const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function Breadcrumb({ items }) {
   return (
-    <main className="portal centered">
-      <section className="card login-card">
-        <div className="logo-login">
-          <img src="/logo_claro_1024.png" alt="Dr. Cotonieto" className="logo" />
-        </div>
-        <p className="eyebrow">Acceso privado</p>
-        <h1>Portal de aprendizaje</h1>
-        <p>Ingresa con tus credenciales.</p>
-        <form onSubmit={handleSubmit}>
-          <label htmlFor="email">Correo electrónico</label>
-          <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <label htmlFor="password">Contraseña</label>
-          <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <button type="submit" disabled={loading} className="button primary">{loading ? 'Verificando...' : 'Ingresar'}</button>
-        </form>
-        {(error || message) && <p className="message">{error || message}</p>}
-      </section>
-    </main>
+    <nav className="breadcrumb" aria-label="Ruta de navegación">
+      {items.map((it, i) => (
+        <span key={i}>
+          {it.to ? <Link to={it.to}>{it.label}</Link> : <span aria-current="page">{it.label}</span>}
+          {i < items.length - 1 && <span className="bc-sep">›</span>}
+        </span>
+      ))}
+    </nav>
   )
 }
 
-// ---------- HEADER ----------
-function Header({ user, onLogout }) {
+function WhatsAppFlotante() {
+  return (
+    <a className="wa-flotante" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer"
+       aria-label="Escríbeme por WhatsApp">
+      <span className="wa-icono">💬</span><span className="wa-texto">WhatsApp</span>
+    </a>
+  )
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+function Header({ user, esAdmin, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const [menuAbierto, setMenuAbierto] = useState(false)
   return (
     <header className="app-header">
       <div className="header-content">
-        <div className="logo-area" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          <img src="/logo_blanco_1024.png" alt="Dr. Cotonieto" className="logo" />
+        <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
+             onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
+          <img src={LOGO_BLANCO} alt="" className="logo" />
           <span className="brand-name">Dr. Ernesto Cotonieto</span>
         </div>
-        <div className="header-actions">
-          {location.pathname !== '/' && <button className="nav-link" onClick={() => navigate('/')}>← Inicio</button>}
-          <button className="nav-link" onClick={() => navigate('/perfil')}>Mi perfil</button>
-          <span className="user-email">{user?.email}</span>
-          <button className="button secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
+        <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
+        <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
+          {location.pathname !== '/' && <button className="nav-link" onClick={() => { navigate('/'); setMenuAbierto(false) }}>Inicio</button>}
+          {user && <button className="nav-link" onClick={() => { navigate('/perfil'); setMenuAbierto(false) }}>Mi perfil</button>}
+          {esAdmin && <button className="nav-link destacado" onClick={() => { navigate('/admin'); setMenuAbierto(false) }}>Panel</button>}
+          {user ? (
+            <>
+              <span className="user-email" title={user.email}>{user.email}</span>
+              <button className="button secundario-claro" onClick={onLogout}>Salir</button>
+            </>
+          ) : (
+            <button className="button secundario-claro" onClick={() => { navigate('/acceso'); setMenuAbierto(false) }}>Iniciar sesión</button>
+          )}
+        </nav>
       </div>
     </header>
   )
 }
 
-// ---------- DASHBOARD ----------
-function Dashboard({ user }) {
-  const [cursos, setCursos] = useState([])
-  const [accesos, setAccesos] = useState(new Set())
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+/* ============================================================
+   LOGIN
+   ============================================================ */
+function Login({ message }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    async function loadCursos() {
-      try {
-        const { data, error } = await supabase
-          .from('cursos').select('*').eq('activo', true).order('orden')
-        if (error) {
-          setError(`Error de Supabase: ${error.message}`)
-        } else {
-          setCursos(data || [])
-          if (data.length === 0) setError('No hay cursos en la base de datos.')
-        }
-        const { data: acc } = await supabase.from('acceso').select('curso_id').eq('usuario_id', user.id)
-        setAccesos(new Set((acc || []).map(a => a.curso_id)))
-      } catch (err) {
-        setError(`Error inesperado: ${err.message}`)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadCursos()
-  }, [user])
-
-  if (loading) return <div className="loading">Cargando cursos...</div>
-
-  if (error) {
-    return (
-      <section className="dashboard">
-        <h1>Bienvenido, {user?.email}</h1>
-        <div className="error" style={{ background: '#f8d7da', padding: '16px', borderRadius: '8px', color: '#721c24' }}>
-          <p><strong>Error al cargar cursos:</strong></p>
-          <p>{error}</p>
-        </div>
-      </section>
-    )
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
+    if (error) { setError('Correo o contraseña incorrectos. Revisa que no haya espacios de más.'); setLoading(false) }
+    else { localStorage.setItem('login_time', String(Date.now())); navigate('/') }
   }
 
   return (
-    <section className="dashboard">
-      <div className="dashboard-header">
-        <h1>Bienvenido, {user?.email}</h1>
-        <p className="instrucciones">
-          Este es el catálogo de cursos. Si ya tienes acceso a alguno, entra con "Ver módulos".
-          Si te interesa uno al que aún no estás inscrito, usa "Preguntar por costo" y con gusto te doy acceso.
-        </p>
-      </div>
-      <div className="course-grid">
-        {cursos.map((curso) => {
-          const tieneAcceso = accesos.has(curso.id)
-          return (
-            <div key={curso.id} className={`course-card ${tieneAcceso ? '' : 'bloqueado'}`}>
-              {curso.imagen_portada && <img src={curso.imagen_portada} alt={curso.titulo} className="course-image" />}
-              <div className="course-info">
-                <h2>{curso.titulo}</h2>
-                <p>{curso.descripcion}</p>
-                {tieneAcceso ? (
-                  <Link to={`/curso/${curso.id}`} className="button primary">Ver módulos</Link>
-                ) : (
-                  <>
-                    <span className="badge-bloqueado">🔒 No inscrito</span>
-                    <a
-                      className="button secondary"
-                      href={`mailto:${CONTACTO_EMAIL}?subject=${encodeURIComponent('Interés en el curso: ' + curso.titulo)}&body=${encodeURIComponent('Hola, me interesa el curso "' + curso.titulo + '". ¿Me podrías compartir el costo y cómo obtener acceso? Gracias.')}`}
-                    >
-                      Preguntar por costo
-                    </a>
-                  </>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </section>
+    <main className="portal centered">
+      <section className="card login-card">
+        <img src={LOGO_CLARO} alt="" className="logo-login" />
+        <p className="eyebrow">Aula virtual</p>
+        <h1>Iniciar sesión</h1>
+        <p className="sutil">Ingresa con el usuario y contraseña que te compartí. Los talleres gratuitos no requieren cuenta.</p>
+        <form onSubmit={handleSubmit}>
+          <label htmlFor="email">Correo electrónico</label>
+          <input id="email" type="email" autoComplete="email" value={email}
+                 onChange={(e) => setEmail(e.target.value)} required />
+          <label htmlFor="password">Contraseña</label>
+          <input id="password" type="password" autoComplete="current-password" value={password}
+                 onChange={(e) => setPassword(e.target.value)} required />
+          <button type="submit" disabled={loading} className="button primary ancho">
+            {loading ? 'Verificando...' : 'Entrar al aula'}
+          </button>
+        </form>
+        {(error || message) && <p className="aviso-error">{error || message}</p>}
+        <div className="login-pie">
+          <button className="enlace-texto" onClick={() => navigate('/')}>← Volver al inicio</button>
+          <a className="enlace-texto" href={wa('Hola, no puedo entrar al aula virtual. ¿Me ayudas con mi acceso?')}
+             target="_blank" rel="noopener noreferrer">¿Problemas para entrar?</a>
+        </div>
+      </section>
+    </main>
   )
 }
 
-// ---------- PERFIL ----------
+/* ============================================================
+   HOME (pública)
+   ============================================================ */
+function Home({ user }) {
+  const [cursos, setCursos] = useState([])
+  const [accesos, setAccesos] = useState(new Set())
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('cursos').select('*').eq('activo', true).order('orden')
+      setCursos(data || [])
+      if (user) {
+        const { data: acc } = await supabase.from('acceso').select('curso_id').eq('usuario_id', user.id)
+        setAccesos(new Set((acc || []).map(a => a.curso_id)))
+      }
+      setLoading(false)
+    }
+    load()
+  }, [user])
+
+  return (
+    <div className="landing">
+      <section className="hero">
+        <div className="hero-foto-zona">
+          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="hero-foto"
+               onError={(e) => { e.currentTarget.src = LOGO_CLARO; e.currentTarget.classList.add('es-logo') }} />
+        </div>
+        <h1>{MARCA.nombre}</h1>
+        <p className="hero-credencial">{MARCA.credencial}</p>
+        <p className="hero-slogan">“{MARCA.slogan}”</p>
+        <p className="hero-sub">{MARCA.subtitulo}</p>
+        <p className="hero-bio">{MARCA.bio}</p>
+        <div className="hero-cta">
+          <a className="button whatsapp grande" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
+            Agenda tu llamada sin costo
+          </a>
+          <a className="button secondary grande" href="#cursos">Ver cursos</a>
+        </div>
+        <div className="redes">
+          {REDES.map((r) => (
+            <a key={r.nombre} className="red-btn" href={r.url} target="_blank" rel="noopener noreferrer" title={r.nombre}>
+              <span aria-hidden="true">{r.icono}</span><span>{r.corto}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="seccion" id="cursos">
+        <h2>Cursos y talleres</h2>
+        <p className="seccion-intro">
+          Formación clínica aplicada. Los talleres gratuitos son de acceso libre;
+          los cursos requieren inscripción.
+        </p>
+        {loading ? <div className="loading">Cargando cursos...</div> : (
+          <div className="course-grid">
+            {cursos.map((curso) => {
+              const gratis = curso.gratuito
+              const tiene = accesos.has(curso.id)
+              return (
+                <article key={curso.id} className={`course-card ${gratis ? 'gratis' : ''}`}>
+                  {curso.imagen_portada
+                    ? <img src={curso.imagen_portada} alt="" className="course-image" />
+                    : <div className={`course-image placeholder ${gratis ? 'verde' : ''}`}>{gratis ? '🎁' : '📚'}</div>}
+                  <div className="course-info">
+                    {gratis ? <span className="badge verde">Acceso libre</span>
+                      : tiene ? <span className="badge ok">✔ Inscrito</span>
+                        : <span className="badge neutro">Requiere inscripción</span>}
+                    <h3>{curso.titulo}</h3>
+                    <p>{curso.descripcion}</p>
+                    <div className="course-acciones">
+                      {gratis || tiene ? (
+                        <Link to={`/curso/${curso.id}`} className="button primary ancho">
+                          {gratis ? 'Entrar libremente' : 'Continuar curso'}
+                        </Link>
+                      ) : (
+                        <>
+                          <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+                             href={wa(`Hola, me interesa inscribirme al curso "${curso.titulo}". ¿Me compartes el costo y cómo apartar mi lugar?`)}>
+                            Quiero inscribirme
+                          </a>
+                          {!user && (
+                            <button className="button secondary ancho" onClick={() => navigate('/acceso')}>
+                              Ya tengo acceso
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="seccion">
+        <h2>Servicios</h2>
+        <div className="servicios-grid">
+          {SERVICIOS.map((s, i) => (
+            <div key={i} className="servicio-card">
+              <h3>{s.titulo}</h3>
+              <p>{s.detalle}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="seccion">
+        <h2>Casos que atiendo</h2>
+        <div className="lista-chips">{CASOS.map((c, i) => <span key={i} className="chip">{c}</span>)}</div>
+        <p className="enfoques"><strong>Enfoques:</strong> {ENFOQUES.join(' · ')}</p>
+      </section>
+
+      <section className="seccion cierre">
+        <h2>¿Empezamos?</h2>
+        <p>Escríbeme y resolvemos dudas sobre terapia, cursos o supervisión clínica.</p>
+        <a className="button whatsapp grande" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
+          Escríbeme por WhatsApp
+        </a>
+      </section>
+
+      <footer className="pie-pagina">
+        <p><strong>{MARCA.nombre}</strong> · {MARCA.credencial}</p>
+        <p className="pie-legal">
+          El contenido de este sitio es informativo y formativo, y no sustituye la atención
+          clínica individual. Si estás en una situación de urgencia, comunícate al <strong>911</strong> o
+          a la Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
+        </p>
+      </footer>
+    </div>
+  )
+}
+
+/* ============================================================
+   PERFIL
+   ============================================================ */
 function Perfil({ user }) {
   const [perfil, setPerfil] = useState({ nombre_completo: '', profesion: '', descripcion: '', ubicacion: '', avatar_url: '' })
   const [misCursos, setMisCursos] = useState([])
@@ -175,618 +318,812 @@ function Perfil({ user }) {
   const navigate = useNavigate()
 
   useEffect(() => {
+    if (!user) { navigate('/acceso'); return }
     async function load() {
-      const { data } = await supabase.from('perfiles').select('*').eq('id', user.id).single()
+      const { data } = await supabase.from('perfiles').select('*').eq('id', user.id).maybeSingle()
       if (data) setPerfil({
-        nombre_completo: data.nombre_completo || '',
-        profesion: data.profesion || '',
-        descripcion: data.descripcion || '',
-        ubicacion: data.ubicacion || '',
-        avatar_url: data.avatar_url || ''
+        nombre_completo: data.nombre_completo || '', profesion: data.profesion || '',
+        descripcion: data.descripcion || '', ubicacion: data.ubicacion || '', avatar_url: data.avatar_url || ''
       })
-      const { data: acc } = await supabase.from('acceso').select('cursos(titulo)').eq('usuario_id', user.id)
-      if (acc) setMisCursos(acc.map(a => a.cursos?.titulo).filter(Boolean))
+      const { data: acc } = await supabase.from('acceso').select('curso_id, cursos(titulo)').eq('usuario_id', user.id)
+      if (acc) setMisCursos(acc.map(a => ({ id: a.curso_id, titulo: a.cursos?.titulo })).filter(x => x.titulo))
       setCargando(false)
     }
     load()
-  }, [user])
+  }, [user, navigate])
 
   const handleAvatar = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setSubiendo(true)
-    setMsg('')
+    if (file.size > 3 * 1024 * 1024) { setMsg('Error: la imagen debe pesar menos de 3 MB.'); return }
+    setSubiendo(true); setMsg('')
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `${user.id}/avatar.${ext}`
-      const { error: upErr } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type })
+      const { error: upErr } = await supabase.storage.from(AVATAR_BUCKET)
+        .upload(path, file, { upsert: true, contentType: file.type })
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
-      const urlConCache = `${pub.publicUrl}?t=${Date.now()}`
-      await supabase.from('perfiles').upsert({ id: user.id, avatar_url: urlConCache }, { onConflict: 'id' })
-      setPerfil(p => ({ ...p, avatar_url: urlConCache }))
+      const url = `${pub.publicUrl}?t=${Date.now()}`
+      await supabase.from('perfiles').upsert({ id: user.id, avatar_url: url }, { onConflict: 'id' })
+      setPerfil(p => ({ ...p, avatar_url: url }))
       setMsg('Foto actualizada.')
-    } catch (err) {
-      setMsg('Error al subir la foto: ' + err.message)
-    }
+    } catch (err) { setMsg('Error al subir la foto: ' + err.message) }
     setSubiendo(false)
   }
 
   const handleGuardar = async () => {
     setMsg('')
     const { error } = await supabase.from('perfiles').upsert({
-      id: user.id,
-      nombre_completo: perfil.nombre_completo,
-      profesion: perfil.profesion,
-      descripcion: perfil.descripcion,
-      ubicacion: perfil.ubicacion
+      id: user.id, nombre_completo: perfil.nombre_completo, profesion: perfil.profesion,
+      descripcion: perfil.descripcion, ubicacion: perfil.ubicacion
     }, { onConflict: 'id' })
-    setMsg(error ? 'Error: ' + error.message : 'Perfil guardado.')
+    setMsg(error ? 'Error: ' + error.message : 'Perfil guardado correctamente.')
   }
 
+  if (!user) return null
   if (cargando) return <div className="loading">Cargando perfil...</div>
 
   return (
-    <section className="perfil-wrapper">
+    <section className="contenedor estrecho">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Mi perfil' }]} />
       <h1>Mi perfil</h1>
-
       <div className="perfil-avatar-zona">
         <div className="perfil-avatar">
           {perfil.avatar_url
-            ? <img src={perfil.avatar_url} alt="Foto de perfil" />
+            ? <img src={perfil.avatar_url} alt="Tu foto de perfil" />
             : <div className="perfil-avatar-placeholder">{(perfil.nombre_completo || user.email || '?').charAt(0).toUpperCase()}</div>}
         </div>
         <label className="button secondary">
           {subiendo ? 'Subiendo...' : 'Cambiar foto'}
           <input type="file" accept="image/*" onChange={handleAvatar} disabled={subiendo} style={{ display: 'none' }} />
         </label>
+        <p className="nota">JPG o PNG, menos de 3 MB.</p>
       </div>
-
       <div className="formulario-datos">
-        <label>Nombre completo</label>
-        <input type="text" value={perfil.nombre_completo} onChange={(e) => setPerfil({ ...perfil, nombre_completo: e.target.value })} placeholder="Tu nombre completo" />
-
-        <label>Profesión / Especialidad</label>
-        <input type="text" value={perfil.profesion} onChange={(e) => setPerfil({ ...perfil, profesion: e.target.value })} placeholder="Ej. Psicólogo clínico" />
-
-        <label>Ubicación</label>
-        <input type="text" value={perfil.ubicacion} onChange={(e) => setPerfil({ ...perfil, ubicacion: e.target.value })} placeholder="Ciudad, país" />
-
-        <label>Sobre mí</label>
-        <textarea rows="4" value={perfil.descripcion} onChange={(e) => setPerfil({ ...perfil, descripcion: e.target.value })} placeholder="Cuéntanos un poco sobre ti y tu práctica." />
-
+        <label htmlFor="nom">Nombre completo</label>
+        <input id="nom" type="text" value={perfil.nombre_completo}
+               onChange={(e) => setPerfil({ ...perfil, nombre_completo: e.target.value })} placeholder="Como quieres que aparezca en tu constancia" />
+        <label htmlFor="prof">Profesión o especialidad</label>
+        <input id="prof" type="text" value={perfil.profesion}
+               onChange={(e) => setPerfil({ ...perfil, profesion: e.target.value })} placeholder="Ej. Psicóloga clínica" />
+        <label htmlFor="ubi">Ubicación</label>
+        <input id="ubi" type="text" value={perfil.ubicacion}
+               onChange={(e) => setPerfil({ ...perfil, ubicacion: e.target.value })} placeholder="Ciudad, país" />
+        <label htmlFor="desc">Sobre mí</label>
+        <textarea id="desc" rows="4" value={perfil.descripcion}
+                  onChange={(e) => setPerfil({ ...perfil, descripcion: e.target.value })}
+                  placeholder="Cuéntanos brevemente sobre ti y tu práctica." />
         <button className="button primary" onClick={handleGuardar}>Guardar cambios</button>
       </div>
-
-      {msg && <p className={msg.startsWith('Error') ? 'error' : 'success'}>{msg}</p>}
-
-      <div className="perfil-cursos">
-        <h3>Cursos a los que estás inscrito</h3>
+      {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
+      <div className="panel-info">
+        <h3>Mis cursos</h3>
         {misCursos.length > 0
-          ? <ul>{misCursos.map((t, i) => <li key={i}>{t}</li>)}</ul>
-          : <p className="perfil-sin-cursos">Aún no estás inscrito en ningún curso.</p>}
+          ? <ul className="lista-cursos">{misCursos.map((c) => <li key={c.id}><Link to={`/curso/${c.id}`}>{c.titulo}</Link></li>)}</ul>
+          : <p className="sutil">Aún no estás inscrito en ningún curso.</p>}
       </div>
-
-      <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
     </section>
   )
 }
 
-// ---------- PROGRESO BARRA ----------
-function ProgresoBarra({ progreso }) {
-  return (
-    <div className="progreso-container">
-      <div className="progreso-label"><span>Progreso del curso</span><span>{progreso}%</span></div>
-      <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }}></div></div>
-    </div>
-  )
-}
-
-// ---------- CURSO VIEW ----------
-function CursoView({ user }) {
-  const { id } = useParams()
+/* ============================================================
+   PANEL DE ADMINISTRADOR
+   ============================================================ */
+function Admin({ user, esAdmin }) {
+  const [filas, setFilas] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [filtro, setFiltro] = useState('todos')
+  const [error, setError] = useState(null)
   const navigate = useNavigate()
-  const [curso, setCurso] = useState(null)
-  const [modulos, setModulos] = useState([])
-  const [progreso, setProgreso] = useState(0)
-  const [tieneAcceso, setTieneAcceso] = useState(true)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const { data: cursoData } = await supabase.from('cursos').select('*').eq('id', id).single()
-        setCurso(cursoData)
-
-        const { data: acc } = await supabase.from('acceso').select('id').eq('usuario_id', user.id).eq('curso_id', id)
-        const acceso = acc && acc.length > 0
-        setTieneAcceso(acceso)
-        if (!acceso) { setLoading(false); return }
-
-        const { data: modulosData } = await supabase.from('modulos').select('*').eq('curso_id', id).eq('activo', true).order('orden')
-        setModulos(modulosData || [])
-
-        const recursoIds = []
-        for (const mod of (modulosData || [])) {
-          const { data: recs } = await supabase.from('recursos').select('id').eq('modulo_id', mod.id)
-          recursoIds.push(...(recs || []).map(r => r.id))
-        }
-        if (recursoIds.length > 0) {
-          const { data: completados } = await supabase.from('progreso_usuario').select('recurso_id').eq('usuario_id', user.id).in('recurso_id', recursoIds).eq('completado', true)
-          setProgreso(Math.round((completados.length / recursoIds.length) * 100))
-        } else setProgreso(0)
-      } catch (error) {
-        console.error('Error loading curso:', error)
-      } finally {
-        setLoading(false)
-      }
+    if (!user) { navigate('/acceso'); return }
+    async function load() {
+      const { data, error } = await supabase.from('vista_admin_inscripciones')
+        .select('*').order('inscrito_el', { ascending: false })
+      if (error) setError(error.message); else setFilas(data || [])
+      setCargando(false)
     }
-    loadData()
-  }, [id, user])
+    load()
+  }, [user, navigate])
 
-  if (loading) return <div className="loading">Cargando módulos...</div>
-  if (!curso) return <div className="error">Curso no encontrado</div>
+  if (!user) return null
+  if (!esAdmin) return <div className="contenedor"><p className="aviso-error">No tienes permisos para ver esta sección.</p></div>
+  if (cargando) return <div className="loading">Cargando panel...</div>
+  if (error) return <div className="contenedor"><p className="aviso-error">Error: {error}</p></div>
 
-  if (!tieneAcceso) {
-    return (
-      <section className="curso-view">
-        <h1>{curso.titulo}</h1>
-        <p>{curso.descripcion}</p>
-        <div className="constancia-estado">
-          <p className="error">🔒 Aún no tienes acceso a este curso.</p>
-        </div>
-        <a className="button primary"
-           href={`mailto:${CONTACTO_EMAIL}?subject=${encodeURIComponent('Interés en el curso: ' + curso.titulo)}`}>
-          Preguntar por costo
-        </a>
-        <button className="button secondary" onClick={() => navigate('/')} style={{ marginLeft: '10px' }}>Volver al inicio</button>
-      </section>
-    )
-  }
+  const cursos = [...new Set(filas.map(f => f.curso))]
+  const visibles = filtro === 'todos' ? filas : filas.filter(f => f.curso === filtro)
+  const alumnosUnicos = new Set(filas.map(f => f.usuario_id)).size
+  const fecha = (d) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
   return (
-    <section className="curso-view">
-      <h1>{curso.titulo}</h1>
-      <p>{curso.descripcion}</p>
-      <ProgresoBarra progreso={progreso} />
-      <div className="modulo-grid">
-        {modulos.map((modulo) => (
-          <div key={modulo.id} className="modulo-card">
-            <h3>{modulo.titulo}</h3>
-            <p>{modulo.descripcion}</p>
-            <Link to={`/modulo/${modulo.id}`} className="button primary">Ver recursos</Link>
-          </div>
+    <section className="contenedor">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
+      <h1>Panel de administración</h1>
+
+      <div className="kpi-fila">
+        <div className="kpi"><span className="kpi-num">{alumnosUnicos}</span><span className="kpi-lbl">Alumnos</span></div>
+        <div className="kpi"><span className="kpi-num">{filas.length}</span><span className="kpi-lbl">Inscripciones</span></div>
+        <div className="kpi"><span className="kpi-num">{cursos.length}</span><span className="kpi-lbl">Cursos con alumnos</span></div>
+      </div>
+
+      <div className="filtros">
+        <button className={`filtro ${filtro === 'todos' ? 'activo' : ''}`} onClick={() => setFiltro('todos')}>Todos</button>
+        {cursos.map(c => (
+          <button key={c} className={`filtro ${filtro === c ? 'activo' : ''}`} onClick={() => setFiltro(c)}>{c}</button>
         ))}
+      </div>
+
+      <div className="tabla-scroll">
+        <table className="tabla-admin">
+          <thead>
+            <tr>
+              <th>Alumno</th><th>Curso</th><th>Progreso</th><th>Inscrito</th><th>Último ingreso</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibles.map((f, i) => {
+              const pct = f.total_recursos > 0 ? Math.round((f.recursos_completados / f.total_recursos) * 100) : 0
+              return (
+                <tr key={i}>
+                  <td>
+                    <strong>{f.nombre_completo || '(sin nombre)'}</strong>
+                    <span className="celda-sub">{f.email}</span>
+                    {f.profesion && <span className="celda-sub">{f.profesion}</span>}
+                  </td>
+                  <td>{f.curso}</td>
+                  <td>
+                    <div className="mini-barra"><div className="mini-lleno" style={{ width: `${pct}%` }} /></div>
+                    <span className="celda-sub">{f.recursos_completados}/{f.total_recursos} · {pct}%</span>
+                  </td>
+                  <td>{fecha(f.inscrito_el)}</td>
+                  <td>{fecha(f.ultimo_ingreso)}</td>
+                </tr>
+              )
+            })}
+            {visibles.length === 0 && <tr><td colSpan="5" className="sutil">Sin inscripciones todavía.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel-info">
+        <h3>Para inscribir a alguien</h3>
+        <p className="sutil">
+          1) Authentication → Users → Add user (con “Auto Confirm User”).<br />
+          2) SQL Editor → el INSERT en <code>acceso</code> con su correo y el nombre del curso.
+        </p>
       </div>
     </section>
   )
 }
 
-// ---------- PDF VIEWER ----------
-function PdfViewer({ archivo, email }) {
+/* ============================================================
+   VISOR DE PDF (carga solo cuando se abre el material)
+   ============================================================ */
+function PdfViewer({ archivo, bucket }) {
   const [pages, setPages] = useState([])
-  const [status, setStatus] = useState('Cargando PDF...')
+  const [status, setStatus] = useState('Cargando documento...')
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let cancelled = false, loadingTask = null, pdfDocument = null
     async function loadPdf() {
       try {
-        setPages([])
-        setStatus('Descargando documento...')
-        const { data: fileBlob, error } = await supabase.storage.from(BUCKET_NAME).download(archivo)
+        setPages([]); setStatus('Descargando documento...')
+        const { data: blob, error } = await supabase.storage.from(bucket).download(archivo)
         if (error) throw new Error(error.message)
-        if (!fileBlob) throw new Error('No se pudo obtener el archivo')
-        const arrayBuffer = await fileBlob.arrayBuffer()
+        const buf = await blob.arrayBuffer()
         if (cancelled) return
-        if (arrayBuffer.byteLength === 0) throw new Error('Archivo vacío')
+        if (buf.byteLength === 0) throw new Error('El archivo está vacío')
         setStatus('Procesando...')
-        loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer), isEvalSupported: false })
+        loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false })
         pdfDocument = await loadingTask.promise
-        if (cancelled || !pdfDocument) return
-        const loadedPages = []
+        if (cancelled) return
+        const cargadas = []
         for (let i = 1; i <= pdfDocument.numPages; i++) {
           if (cancelled) return
-          const page = await pdfDocument.getPage(i)
-          loadedPages.push(page)
+          cargadas.push(await pdfDocument.getPage(i))
         }
-        if (!cancelled) { setPages(loadedPages); setStatus('') }
-      } catch (err) {
-        if (!cancelled) { setError(err.message); setStatus('') }
-      }
+        if (!cancelled) { setPages(cargadas); setStatus('') }
+      } catch (err) { if (!cancelled) { setError(err.message); setStatus('') } }
     }
     loadPdf()
     return () => { cancelled = true; if (loadingTask) loadingTask.destroy(); if (pdfDocument) pdfDocument.destroy() }
-  }, [archivo])
+  }, [archivo, bucket])
 
-  if (error) return <div className="error">Error al cargar PDF: {error}</div>
+  if (error) return <div className="aviso-error">No se pudo cargar el documento: {error}</div>
   if (status) return <div className="loading">{status}</div>
 
   return (
-    <div className="pdf-viewer-container protected-content" onContextMenu={(e) => e.preventDefault()}>
-      {pages.map((page, index) => <PdfPage key={index} page={page} pageNumber={index+1} totalPages={pages.length} email={email} />)}
+    <div className="pdf-viewer">
+      {pages.map((p, i) => <PdfPage key={i} page={p} n={i + 1} total={pages.length} />)}
     </div>
   )
 }
 
-function PdfPage({ page, pageNumber, totalPages, email }) {
+function PdfPage({ page, n, total }) {
   const canvasRef = useRef(null)
   useEffect(() => {
     let renderTask = null, cancelled = false
-    async function renderPage() {
+    async function render() {
       const canvas = canvasRef.current
       if (!canvas || cancelled) return
-      const containerWidth = Math.min(window.innerWidth - 40, 900)
-      const originalViewport = page.getViewport({ scale: 1 })
-      const scale = containerWidth / originalViewport.width
-      const viewport = page.getViewport({ scale })
-      const outputScale = window.devicePixelRatio || 1
-      const context = canvas.getContext('2d', { alpha: false })
-      canvas.width = Math.floor(viewport.width * outputScale)
-      canvas.height = Math.floor(viewport.height * outputScale)
+      const ancho = Math.min(window.innerWidth - 60, 860)
+      const base = page.getViewport({ scale: 1 })
+      const viewport = page.getViewport({ scale: ancho / base.width })
+      const dpr = window.devicePixelRatio || 1
+      const ctx = canvas.getContext('2d', { alpha: false })
+      canvas.width = Math.floor(viewport.width * dpr)
+      canvas.height = Math.floor(viewport.height * dpr)
       canvas.style.width = `${Math.floor(viewport.width)}px`
       canvas.style.height = `${Math.floor(viewport.height)}px`
-      renderTask = page.render({ canvasContext: context, viewport, transform: outputScale !== 1 ? [outputScale,0,0,outputScale,0,0] : null })
+      renderTask = page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null })
       await renderTask.promise
     }
-    renderPage().catch((err) => { if (err?.name !== 'RenderingCancelledException') console.error(err) })
+    render().catch((e) => { if (e?.name !== 'RenderingCancelledException') console.error(e) })
     return () => { cancelled = true; if (renderTask) renderTask.cancel() }
   }, [page])
 
   return (
-    <article className="pdf-page" onContextMenu={(e) => e.preventDefault()}>
-      <canvas ref={canvasRef} aria-label={`Página ${pageNumber} de ${totalPages}`} />
-      <div className="watermark-layer">
-        <span className="watermark corner top-left">USO PERSONAL · {email}</span>
-        <span className="watermark corner top-right">USO PERSONAL · {email}</span>
-        <span className="watermark corner bottom-left">USO PERSONAL · {email}</span>
-        <span className="watermark corner bottom-right">USO PERSONAL · {email}</span>
-        <span className="watermark center">@dr.cotonieto</span>
-      </div>
-      <span className="page-label">Página {pageNumber} de {totalPages}</span>
-    </article>
+    <figure className="pdf-page">
+      <canvas ref={canvasRef} aria-label={`Página ${n} de ${total}`} />
+      <figcaption className="pdf-num">{n} / {total}</figcaption>
+    </figure>
   )
 }
 
-// ---------- VIDEO PLAYER ----------
-function VideoPlayer({ url, email }) {
-  const [showOverlay, setShowOverlay] = useState(true)
-  useEffect(() => { const t = setTimeout(() => setShowOverlay(false), 3000); return () => clearTimeout(t) }, [])
+/* ============================================================
+   OTROS TIPOS DE RECURSO
+   ============================================================ */
+function VideoPlayer({ url }) {
   return (
-    <div className="video-wrapper protected-content" onContextMenu={(e) => e.preventDefault()}>
-      <iframe src={url} className="video-iframe" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title="Video del curso" />
-      {showOverlay && (
-        <div className="video-overlay watermark-layer">
-          <span className="watermark center">@dr.cotonieto</span>
-          <span className="watermark corner bottom-right">USO PERSONAL · {email}</span>
-        </div>
-      )}
+    <div className="video-wrapper">
+      <iframe src={url} className="video-iframe" title="Video del curso"
+              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
     </div>
   )
 }
 
-// ---------- ENLACE (videollamada / recurso externo) ----------
-function EnlaceRecurso({ url }) {
-  return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="button primary enlace-btn">
-      Entrar a la videollamada →
-    </a>
-  )
-}
-
-// ---------- AUTOEVALUACION ----------
 function Autoevaluacion({ url, recursoId, userId, onComplete }) {
   const [intentos, setIntentos] = useState(0)
   const [completado, setCompletado] = useState(false)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    async function loadProgreso() {
-      const { data, error } = await supabase.from('progreso_usuario').select('intentos, completado').eq('usuario_id', userId).eq('recurso_id', recursoId).single()
-      if (!error && data) { setIntentos(data.intentos || 0); setCompletado(data.completado || false) }
+    async function load() {
+      const { data } = await supabase.from('progreso_usuario')
+        .select('intentos, completado').eq('usuario_id', userId).eq('recurso_id', recursoId).maybeSingle()
+      if (data) { setIntentos(data.intentos || 0); setCompletado(data.completado || false) }
       setCargando(false)
     }
-    loadProgreso()
+    load()
   }, [recursoId, userId])
 
-  const handleMarcarCompletado = async () => {
-    const nuevosIntentos = intentos + 1
-    const { error } = await supabase.from('progreso_usuario').upsert({ usuario_id: userId, recurso_id: recursoId, intentos: nuevosIntentos, completado: true, ultimo_acceso: new Date().toISOString() }, { onConflict: 'usuario_id, recurso_id' })
-    if (!error) { setIntentos(nuevosIntentos); setCompletado(true); onComplete() }
+  const marcar = async () => {
+    const n = intentos + 1
+    const { error } = await supabase.from('progreso_usuario').upsert(
+      { usuario_id: userId, recurso_id: recursoId, intentos: n, completado: true, ultimo_acceso: new Date().toISOString() },
+      { onConflict: 'usuario_id, recurso_id' })
+    if (!error) { setIntentos(n); setCompletado(true); onComplete() }
   }
 
-  if (cargando) return <div className="loading">Cargando autoevaluación...</div>
-  if (completado) return <div className="success">✔ Autoevaluación completada.</div>
-  if (intentos >= 3) return <div className="error">Has alcanzado el límite de 3 intentos.</div>
+  if (cargando) return <div className="loading">Cargando...</div>
+  if (completado) return <div className="aviso-ok">✔ Autoevaluación completada.</div>
+  if (intentos >= 3) return <div className="aviso-error">Alcanzaste el límite de 3 intentos.</div>
 
   return (
-    <div className="autoevaluacion-wrapper">
-      <p>Realiza la autoevaluación (máximo 3 intentos).</p>
+    <div>
+      <p className="sutil">Máximo 3 intentos. Llevas {intentos}.</p>
       <iframe src={url} className="forms-iframe" title="Autoevaluación" />
-      <button className="button primary" onClick={handleMarcarCompletado}>Marcar como completada</button>
+      <button className="button primary" onClick={marcar}>Marcar como completada</button>
     </div>
   )
 }
 
-// ---------- DESCARGA WORD ----------
-function DescargaWord({ archivo, titulo }) {
-  const [descargando, setDescargando] = useState(false)
-  const handleDownload = async () => {
-    setDescargando(true)
+/* ============================================================
+   TARJETA DE RECURSO (colapsable)
+   ============================================================ */
+function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
+  const [abierto, setAbierto] = useState(false)
+  const [abriendo, setAbriendo] = useState(false)
+  const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo)
+
+  const abrirNuevaPestana = async () => {
+    setAbriendo(true)
     try {
-      const { data, error } = await supabase.storage.from(BUCKET_NAME).download(archivo)
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(recurso.archivo, 3600)
       if (error) throw error
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(data)
-      link.download = archivo.split('/').pop()
-      document.body.appendChild(link); link.click(); document.body.removeChild(link)
-      URL.revokeObjectURL(link.href)
-    } catch (err) { alert('Error: ' + err.message) }
-    setDescargando(false)
-  }
-  return <button className="button secondary" onClick={handleDownload} disabled={descargando}>{descargando ? 'Descargando...' : `Descargar ${titulo}`}</button>
-}
-
-// ---------- CONSTANCIA ----------
-function Constancia({ user }) {
-  const { cursoId } = useParams()
-  const [perfil, setPerfil] = useState({ nombre: '', profesion: '' })
-  const [cargando, setCargando] = useState(true)
-  const [generando, setGenerando] = useState(false)
-  const [curso, setCurso] = useState(null)
-  const [puedeObtener, setPuedeObtener] = useState(false)
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    async function loadData() {
-      const { data: perfilData } = await supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).single()
-      if (perfilData) setPerfil({ nombre: perfilData.nombre_completo || '', profesion: perfilData.profesion || '' })
-      const { data: cursoData } = await supabase.from('cursos').select('titulo').eq('id', cursoId).single()
-      if (cursoData) setCurso(cursoData)
-      const { data: modulos } = await supabase.from('modulos').select('id').eq('curso_id', cursoId)
-      if (modulos && modulos.length > 0) {
-        const moduloIds = modulos.map(m => m.id)
-        const { data: recursos } = await supabase.from('recursos').select('id').in('modulo_id', moduloIds)
-        if (recursos && recursos.length > 0) {
-          const recursoIds = recursos.map(r => r.id)
-          const { data: completados } = await supabase.from('progreso_usuario').select('recurso_id').eq('usuario_id', user.id).in('recurso_id', recursoIds).eq('completado', true)
-          setPuedeObtener(completados && completados.length === recursoIds.length)
-        }
-      }
-      setCargando(false)
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(recurso.archivo)
+      window.open(data.publicUrl, '_blank', 'noopener,noreferrer')
     }
-    loadData()
-  }, [cursoId, user])
-
-  const handleGuardarPerfil = async () => {
-    const { error } = await supabase.from('perfiles').upsert({ id: user.id, nombre_completo: perfil.nombre, profesion: perfil.profesion }, { onConflict: 'id' })
-    if (error) alert('Error: ' + error.message)
-    else alert('Datos guardados.')
+    setAbriendo(false)
   }
 
-  const handleGenerarConstancia = async () => {
-    if (!puedeObtener) return alert('Completa todos los recursos primero.')
-    if (!perfil.nombre || !perfil.profesion) return alert('Completa tus datos personales.')
-    setGenerando(true)
+  const descargar = async () => {
+    setAbriendo(true)
     try {
-      const doc = new jsPDF()
-      doc.setFontSize(22)
-      doc.text('CONSTANCIA DE PARTICIPACIÓN', 105, 60, { align: 'center' })
-      doc.setFontSize(14)
-      doc.text(`Otorgada a: ${perfil.nombre}`, 20, 90)
-      doc.text(`Profesión: ${perfil.profesion}`, 20, 110)
-      doc.text(`Correo: ${user.email}`, 20, 130)
-      doc.text(`Curso: ${curso?.titulo || ''}`, 20, 150)
-      doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 170)
-      doc.text('Firma: _____________________', 20, 200)
-      doc.save('constancia.pdf')
-    } catch (err) { alert('Error: ' + err.message) }
-    setGenerando(false)
+      const { data, error } = await supabase.storage.from(bucket).download(recurso.archivo)
+      if (error) throw error
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(data)
+      a.download = recurso.archivo.split('/').pop()
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(a.href)
+    } catch (err) { alert('Error al descargar: ' + err.message) }
+    setAbriendo(false)
   }
-
-  if (cargando) return <div className="loading">Cargando...</div>
 
   return (
-    <section className="constancia-wrapper">
-      <h1>Constancia de participación</h1>
-      <p>Completa tus datos y asegúrate de haber marcado todos los recursos como vistos.</p>
-      <div className="formulario-datos">
-        <label>Nombre completo</label>
-        <input type="text" value={perfil.nombre} onChange={(e) => setPerfil({...perfil, nombre: e.target.value})} placeholder="Tu nombre completo" />
-        <label>Profesión / Especialidad</label>
-        <input type="text" value={perfil.profesion} onChange={(e) => setPerfil({...perfil, profesion: e.target.value})} placeholder="Tu profesión" />
-        <button className="button secondary" onClick={handleGuardarPerfil}>Guardar datos</button>
+    <article className="recurso-item" id={`r-${recurso.id}`}>
+      <div className="recurso-cabecera">
+        <div className="recurso-titulo">
+          <span className="recurso-icono" aria-hidden="true">{ICONO_TIPO[recurso.tipo] || '📌'}</span>
+          <div>
+            <h3>{recurso.titulo}</h3>
+            <span className="recurso-tipo">{NOMBRE_TIPO[recurso.tipo] || 'Recurso'}</span>
+          </div>
+        </div>
+        {visto && <span className="badge ok">✔ Visto</span>}
       </div>
-      <div className="constancia-estado">
-        {puedeObtener ? (
-          <>
-            <p className="success">✔ Has completado todos los recursos. ¡Felicidades!</p>
-            <button className="button primary" onClick={handleGenerarConstancia} disabled={generando}>{generando ? 'Generando...' : 'Descargar constancia'}</button>
-          </>
-        ) : (
-          <p className="error">❌ Aún no has completado todos los recursos.</p>
+
+      {recurso.descripcion && <p className="recurso-desc">{recurso.descripcion}</p>}
+
+      <div className="recurso-acciones">
+        {colapsable && (
+          <button className={`button ${abierto ? 'secondary' : 'primary'}`} onClick={() => setAbierto(v => !v)}
+                  aria-expanded={abierto}>
+            {abierto ? 'Ocultar material' : 'Ver material'}
+          </button>
+        )}
+        {recurso.tipo === 'enlace' && (
+          <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
+        )}
+        {(recurso.tipo === 'pdf') && (
+          <button className="button secondary" onClick={abrirNuevaPestana} disabled={abriendo}>
+            {abriendo ? 'Abriendo...' : 'Abrir en pestaña nueva ↗'}
+          </button>
+        )}
+        {recurso.tipo === 'word' && (
+          <button className="button primary" onClick={descargar} disabled={abriendo}>
+            {abriendo ? 'Descargando...' : 'Descargar documento'}
+          </button>
+        )}
+        {user && !visto && !['autoevaluacion'].includes(recurso.tipo) && (
+          <button className="button texto" onClick={() => onMarcarVisto(recurso.id)}>Marcar como visto</button>
         )}
       </div>
-      <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
+
+      {abierto && (
+        <div className="recurso-contenido">
+          {recurso.tipo === 'pdf' && <PdfViewer archivo={recurso.archivo} bucket={bucket} />}
+          {recurso.tipo === 'video' && <VideoPlayer url={recurso.url} />}
+          {recurso.tipo === 'autoevaluacion' && user &&
+            <Autoevaluacion url={recurso.url} recursoId={recurso.id} userId={user.id}
+                            onComplete={() => onMarcarVisto(recurso.id)} />}
+        </div>
+      )}
+    </article>
+  )
+}
+
+/* ============================================================
+   CURSO
+   ============================================================ */
+function CursoView({ user }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [curso, setCurso] = useState(null)
+  const [modulos, setModulos] = useState([])
+  const [progreso, setProgreso] = useState(0)
+  const [estado, setEstado] = useState('cargando')
+
+  useEffect(() => {
+    async function load() {
+      const { data: c } = await supabase.from('cursos').select('*').eq('id', id).maybeSingle()
+      setCurso(c)
+      if (!c) { setEstado('ok'); return }
+      if (!c.gratuito) {
+        if (!user) { setEstado('requiere_login'); return }
+        const { data: acc } = await supabase.from('acceso').select('id').eq('usuario_id', user.id).eq('curso_id', id)
+        if (!acc || acc.length === 0) { setEstado('sin_acceso'); return }
+      }
+      const { data: mods } = await supabase.from('modulos').select('*').eq('curso_id', id).eq('activo', true).order('orden')
+      setModulos(mods || [])
+      if (user) {
+        const ids = []
+        for (const m of (mods || [])) {
+          const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
+          ids.push(...(rs || []).map(r => r.id))
+        }
+        if (ids.length) {
+          const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
+            .eq('usuario_id', user.id).in('recurso_id', ids).eq('completado', true)
+          setProgreso(Math.round(((comp?.length || 0) / ids.length) * 100))
+        }
+      }
+      setEstado('ok')
+    }
+    load()
+  }, [id, user])
+
+  if (estado === 'cargando') return <div className="loading">Cargando...</div>
+  if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
+
+  if (estado === 'requiere_login' || estado === 'sin_acceso') {
+    return (
+      <section className="contenedor estrecho">
+        <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
+        <h1>{curso.titulo}</h1>
+        <p>{curso.descripcion}</p>
+        <div className="bloque-cerrado">
+          <p className="bloque-icono">🔒</p>
+          <p>{estado === 'requiere_login'
+            ? 'Este curso es para personas inscritas. Si ya tienes tus datos de acceso, inicia sesión.'
+            : 'Tu cuenta aún no tiene acceso a este curso.'}</p>
+          <div className="bloque-botones">
+            {estado === 'requiere_login' &&
+              <button className="button primary" onClick={() => navigate('/acceso')}>Iniciar sesión</button>}
+            <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
+               href={wa(`Hola, me interesa inscribirme al curso "${curso.titulo}".`)}>Quiero inscribirme</a>
+            <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="contenedor">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
+      <div className="curso-encabezado">
+        <h1>{curso.titulo}</h1>
+        <p className="curso-desc">{curso.descripcion}</p>
+      </div>
+
+      {curso.info_curso && (
+        <div className="curso-info-extra">
+          {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+        </div>
+      )}
+
+      {user && !curso.gratuito && (
+        <div className="progreso-container">
+          <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
+          <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }} /></div>
+        </div>
+      )}
+
+      <h2 className="titulo-seccion">Contenido del curso</h2>
+      <div className="modulo-grid">
+        {modulos.map((m, i) => (
+          <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">
+            <span className="modulo-num">{i + 1}</span>
+            <div>
+              <h3>{m.titulo}</h3>
+              <p>{m.descripcion}</p>
+            </div>
+            <span className="modulo-flecha">→</span>
+          </Link>
+        ))}
+        {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
+      </div>
     </section>
   )
 }
 
-// ---------- MODULO VIEW ----------
+/* ============================================================
+   MÓDULO (con navegación lateral)
+   ============================================================ */
 function ModuloView({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [modulo, setModulo] = useState(null)
+  const [curso, setCurso] = useState(null)
   const [recursos, setRecursos] = useState([])
   const [modulosCurso, setModulosCurso] = useState([])
   const [progresoRecursos, setProgresoRecursos] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadData() {
+    async function load() {
       try {
-        const { data: moduloData, error: modError } = await supabase.from('modulos').select('*, curso_id').eq('id', id).single()
-        if (modError) throw modError
-        setModulo(moduloData)
-
-        const { data: recursosData, error: recError } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
-        if (recError) throw recError
-        setRecursos(recursosData)
-
-        if (moduloData) {
-          const { data: mods } = await supabase.from('modulos').select('id, titulo, orden').eq('curso_id', moduloData.curso_id).eq('activo', true).order('orden')
-          setModulosCurso(mods || [])
-        }
-
-        if (recursosData && recursosData.length > 0) {
-          const ids = recursosData.map(r => r.id)
-          const { data: progreso } = await supabase.from('progreso_usuario').select('recurso_id, completado').eq('usuario_id', user.id).in('recurso_id', ids)
-          const map = {}
-          progreso?.forEach(p => { map[p.recurso_id] = p.completado })
+        const { data: m } = await supabase.from('modulos').select('*, cursos(id, titulo, gratuito)').eq('id', id).maybeSingle()
+        if (!m) { setLoading(false); return }
+        setModulo(m); setCurso(m.cursos)
+        const { data: rs } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
+        setRecursos(rs || [])
+        const { data: mods } = await supabase.from('modulos').select('id, titulo, orden')
+          .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
+        setModulosCurso(mods || [])
+        if (user && rs?.length) {
+          const { data: pr } = await supabase.from('progreso_usuario').select('recurso_id, completado')
+            .eq('usuario_id', user.id).in('recurso_id', rs.map(r => r.id))
+          const map = {}; pr?.forEach(p => { map[p.recurso_id] = p.completado })
           setProgresoRecursos(map)
         }
-      } catch (error) {
-        console.error('Error loading modulo:', error)
-      } finally {
-        setLoading(false)
-      }
+      } finally { setLoading(false) }
     }
-    loadData()
+    load()
   }, [id, user])
 
-  const handleMarcarVisto = async (recursoId) => {
-    const { error } = await supabase.from('progreso_usuario').upsert({ usuario_id: user.id, recurso_id: recursoId, completado: true, ultimo_acceso: new Date().toISOString() }, { onConflict: 'usuario_id, recurso_id' })
+  const bucket = curso?.gratuito ? BUCKET_TALLERES : BUCKET_PAGO
+
+  const marcarVisto = async (recursoId) => {
+    if (!user) return
+    const { error } = await supabase.from('progreso_usuario').upsert(
+      { usuario_id: user.id, recurso_id: recursoId, completado: true, ultimo_acceso: new Date().toISOString() },
+      { onConflict: 'usuario_id, recurso_id' })
     if (!error) setProgresoRecursos(prev => ({ ...prev, [recursoId]: true }))
   }
 
-  const currentIndex = modulosCurso.findIndex(m => m.id === parseInt(id))
-  const prevModulo = currentIndex > 0 ? modulosCurso[currentIndex - 1] : null
-  const nextModulo = currentIndex < modulosCurso.length - 1 ? modulosCurso[currentIndex + 1] : null
-  const esUltimo = currentIndex === modulosCurso.length - 1
+  const irA = (rid) => {
+    const el = document.getElementById(`r-${rid}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
-  if (loading) return <div className="loading">Cargando recursos...</div>
-  if (!modulo) return <div className="error">Módulo no encontrado</div>
+  if (loading) return <div className="loading">Cargando módulo...</div>
+  if (!modulo) return <div className="contenedor"><p className="aviso-error">Módulo no encontrado.</p></div>
+
+  const idx = modulosCurso.findIndex(m => m.id === parseInt(id))
+  const prev = idx > 0 ? modulosCurso[idx - 1] : null
+  const next = idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
+  const vistos = recursos.filter(r => progresoRecursos[r.id]).length
 
   return (
-    <section className="modulo-view">
-      <div className="modulo-header"><h1>{modulo.titulo}</h1><p>{modulo.descripcion}</p></div>
-      <div className="recursos-list">
-        {recursos.map((recurso) => {
-          const visto = progresoRecursos[recurso.id] || false
-          const sinBotonVisto = ['autoevaluacion', 'word', 'enlace'].includes(recurso.tipo)
-          return (
-            <div key={recurso.id} className="recurso-item">
-              <div className="recurso-header"><h3>{recurso.titulo}</h3>{visto && <span className="badge visto">✔ Visto</span>}</div>
-              <p>{recurso.descripcion}</p>
-              <div className="recurso-content">
-                {recurso.tipo === 'pdf' && <PdfViewer archivo={recurso.archivo} email={user.email} />}
-                {recurso.tipo === 'video' && <VideoPlayer url={recurso.url} email={user.email} />}
-                {recurso.tipo === 'autoevaluacion' && <Autoevaluacion url={recurso.url} recursoId={recurso.id} userId={user.id} onComplete={() => handleMarcarVisto(recurso.id)} />}
-                {recurso.tipo === 'word' && <DescargaWord archivo={recurso.archivo} titulo={recurso.titulo} />}
-                {recurso.tipo === 'enlace' && <EnlaceRecurso url={recurso.url} />}
-              </div>
-              {!visto && !sinBotonVisto && (
-                <button className="button secondary marcar-visto" onClick={() => handleMarcarVisto(recurso.id)}>Marcar como visto</button>
-              )}
+    <div className="contenedor">
+      <Breadcrumb items={[
+        { label: 'Inicio', to: '/' },
+        { label: curso?.titulo || 'Curso', to: `/curso/${curso?.id}` },
+        { label: modulo.titulo }
+      ]} />
+
+      <div className="modulo-layout">
+        <aside className="modulo-sidebar">
+          <div className="side-bloque">
+            <h4>Módulos del curso</h4>
+            <ul className="side-lista">
+              {modulosCurso.map((m, i) => (
+                <li key={m.id}>
+                  <Link to={`/modulo/${m.id}`} className={m.id === parseInt(id) ? 'activo' : ''}>
+                    <span className="side-num">{i + 1}</span>{m.titulo}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {recursos.length > 0 && (
+            <div className="side-bloque">
+              <h4>En este módulo</h4>
+              <ul className="side-lista compacta">
+                {recursos.map((r) => (
+                  <li key={r.id}>
+                    <button className="side-btn" onClick={() => irA(r.id)}>
+                      <span aria-hidden="true">{ICONO_TIPO[r.tipo] || '📌'}</span>
+                      <span className="side-txt">{r.titulo}</span>
+                      {progresoRecursos[r.id] && <span className="side-check">✔</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-          )
-        })}
+          )}
+
+          <div className="side-bloque atajos">
+            <h4>Atajos</h4>
+            <Link to="/" className="side-atajo">🏠 Inicio</Link>
+            <Link to={`/curso/${curso?.id}`} className="side-atajo">📚 Todo el curso</Link>
+            {user && <Link to="/perfil" className="side-atajo">👤 Mi perfil</Link>}
+            <a className="side-atajo" href={wa('Hola, tengo una duda sobre el material del aula.')}
+               target="_blank" rel="noopener noreferrer">💬 Dudas</a>
+          </div>
+        </aside>
+
+        <main className="modulo-main">
+          <header className="modulo-encabezado">
+            <h1>{modulo.titulo}</h1>
+            {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
+            {user && recursos.length > 0 && (
+              <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
+            )}
+          </header>
+
+          <div className="recursos-list">
+            {recursos.map((r) => (
+              <RecursoCard key={r.id} recurso={r} bucket={bucket} user={user}
+                           visto={!!progresoRecursos[r.id]} onMarcarVisto={marcarVisto} />
+            ))}
+            {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
+          </div>
+
+          <nav className="navegacion-modulos">
+            {prev && <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>}
+            {next && <button className="button primary" onClick={() => navigate(`/modulo/${next.id}`)}>{next.titulo} →</button>}
+            {!next && user && !curso?.gratuito &&
+              <Link to={`/constancia/${curso?.id}`} className="button constancia-btn">Obtener constancia</Link>}
+          </nav>
+        </main>
       </div>
-      <div className="navegacion-modulos">
-        <button className="button secondary" onClick={() => navigate('/')}>Inicio</button>
-        {prevModulo && <button className="button primary" onClick={() => navigate(`/modulo/${prevModulo.id}`)}>← Anterior: {prevModulo.titulo}</button>}
-        {nextModulo && <button className="button primary" onClick={() => navigate(`/modulo/${nextModulo.id}`)}>Siguiente: {nextModulo.titulo} →</button>}
-        {esUltimo && <Link to={`/constancia/${modulo.curso_id}`} className="button primary constancia-btn">Obtener constancia</Link>}
+    </div>
+  )
+}
+
+/* ============================================================
+   CONSTANCIA
+   ============================================================ */
+function Constancia({ user }) {
+  const { cursoId } = useParams()
+  const [perfil, setPerfil] = useState({ nombre: '', profesion: '' })
+  const [cargando, setCargando] = useState(true)
+  const [generando, setGenerando] = useState(false)
+  const [curso, setCurso] = useState(null)
+  const [puede, setPuede] = useState(false)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!user) { navigate('/acceso'); return }
+    async function load() {
+      const { data: p } = await supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).maybeSingle()
+      if (p) setPerfil({ nombre: p.nombre_completo || '', profesion: p.profesion || '' })
+      const { data: c } = await supabase.from('cursos').select('titulo').eq('id', cursoId).maybeSingle()
+      setCurso(c)
+      const { data: mods } = await supabase.from('modulos').select('id').eq('curso_id', cursoId)
+      if (mods?.length) {
+        const { data: rs } = await supabase.from('recursos').select('id').in('modulo_id', mods.map(m => m.id))
+        if (rs?.length) {
+          const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
+            .eq('usuario_id', user.id).in('recurso_id', rs.map(r => r.id)).eq('completado', true)
+          setPuede((comp?.length || 0) === rs.length)
+        }
+      }
+      setCargando(false)
+    }
+    load()
+  }, [cursoId, user, navigate])
+
+  const guardar = async () => {
+    const { error } = await supabase.from('perfiles').upsert(
+      { id: user.id, nombre_completo: perfil.nombre, profesion: perfil.profesion }, { onConflict: 'id' })
+    alert(error ? 'Error: ' + error.message : 'Datos guardados.')
+  }
+
+  const generar = async () => {
+    if (!perfil.nombre || !perfil.profesion) return alert('Completa tu nombre y profesión.')
+    setGenerando(true)
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+      const W = 297, H = 210
+      doc.setFillColor(250, 250, 248); doc.rect(0, 0, W, H, 'F')
+      doc.setDrawColor(193, 122, 94); doc.setLineWidth(1.5); doc.rect(10, 10, W - 20, H - 20)
+      doc.setDrawColor(27, 58, 75); doc.setLineWidth(0.3); doc.rect(13, 13, W - 26, H - 26)
+      doc.setTextColor(27, 58, 75); doc.setFont('times', 'normal'); doc.setFontSize(13)
+      doc.text('DR. ERNESTO COTONIETO', W / 2, 32, { align: 'center' })
+      doc.setFontSize(28); doc.setFont('times', 'bold')
+      doc.text('CONSTANCIA', W / 2, 52, { align: 'center' })
+      doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(122, 136, 145)
+      doc.text('Se otorga la presente a', W / 2, 68, { align: 'center' })
+      doc.setFontSize(24); doc.setFont('times', 'bold'); doc.setTextColor(27, 58, 75)
+      doc.text(perfil.nombre.toUpperCase(), W / 2, 84, { align: 'center' })
+      doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(122, 136, 145)
+      doc.text(perfil.profesion, W / 2, 93, { align: 'center' })
+      doc.text('por haber concluido satisfactoriamente', W / 2, 108, { align: 'center' })
+      doc.setFontSize(15); doc.setFont('times', 'bold'); doc.setTextColor(193, 122, 94)
+      doc.text(doc.splitTextToSize(curso?.titulo || '', W - 80), W / 2, 120, { align: 'center' })
+      const folio = `${(curso?.titulo || 'C').substring(0, 3).toUpperCase()}-${new Date().getFullYear()}-${user.id.substring(0, 6).toUpperCase()}`
+      doc.setDrawColor(27, 58, 75); doc.setLineWidth(0.4); doc.line(W / 2 - 45, 165, W / 2 + 45, 165)
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(27, 58, 75)
+      doc.text('Dr. Ernesto Cotonieto Martínez', W / 2, 172, { align: 'center' })
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(122, 136, 145)
+      doc.text('Cédula profesional 10521804', W / 2, 178, { align: 'center' })
+      doc.setFontSize(8)
+      doc.text(`Folio: ${folio}`, 22, H - 20)
+      doc.text(new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }), W - 22, H - 20, { align: 'right' })
+      doc.save(`constancia-${folio}.pdf`)
+    } catch (e) { alert('Error: ' + e.message) }
+    setGenerando(false)
+  }
+
+  if (!user) return null
+  if (cargando) return <div className="loading">Cargando...</div>
+
+  return (
+    <section className="contenedor estrecho">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Constancia' }]} />
+      <h1>Constancia de participación</h1>
+      <p className="sutil">Verifica tus datos: así aparecerán impresos en el documento.</p>
+      <div className="formulario-datos">
+        <label>Nombre completo</label>
+        <input type="text" value={perfil.nombre} onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })} />
+        <label>Profesión o especialidad</label>
+        <input type="text" value={perfil.profesion} onChange={(e) => setPerfil({ ...perfil, profesion: e.target.value })} />
+        <button className="button secondary" onClick={guardar}>Guardar datos</button>
       </div>
+      <div className="bloque-cerrado">
+        {puede
+          ? <>
+              <p className="aviso-ok">✔ Completaste todo el curso.</p>
+              <button className="button primary" onClick={generar} disabled={generando}>
+                {generando ? 'Generando...' : 'Descargar constancia'}
+              </button>
+            </>
+          : <p className="sutil">Aún no marcas todos los recursos como vistos. Al completarlos podrás descargar tu constancia.</p>}
+      </div>
+      <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
     </section>
   )
 }
 
-// ---------- APP ----------
+/* ============================================================
+   APP
+   ============================================================ */
 function App() {
   const [session, setSession] = useState(null)
+  const [esAdmin, setEsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
-    async function loadSession() {
+    async function load() {
       const { data } = await supabase.auth.getSession()
-      const currentSession = data?.session || null
-      if (currentSession) {
-        const loginTime = localStorage.getItem('login_time')
-        if (loginTime) {
-          const elapsed = Date.now() - parseInt(loginTime, 10)
-          if (elapsed > 30 * 24 * 60 * 60 * 1000) {
-            await supabase.auth.signOut()
-            localStorage.removeItem('login_time')
-            setSession(null)
-            setMessage('El acceso ha expirado (30 días).')
-            setLoading(false)
-            return
-          }
-        } else localStorage.setItem('login_time', String(Date.now()))
+      const s = data?.session || null
+      if (s) {
+        const t = localStorage.getItem('login_time')
+        if (t && Date.now() - parseInt(t, 10) > 30 * 24 * 60 * 60 * 1000) {
+          await supabase.auth.signOut(); localStorage.removeItem('login_time')
+          setSession(null); setMessage('Tu acceso expiró. Escríbeme para renovarlo.')
+          setLoading(false); return
+        }
+        if (!t) localStorage.setItem('login_time', String(Date.now()))
       }
-      setSession(currentSession || null)
-      setLoading(false)
+      setSession(s); setLoading(false)
     }
-    loadSession()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession)
-      if (!newSession) { localStorage.removeItem('login_time'); navigate('/') }
+    load()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s)
+      if (!s) { localStorage.removeItem('login_time'); setEsAdmin(false) }
     })
     return () => subscription.unsubscribe()
-  }, [navigate])
-
-  useEffect(() => {
-    const blockShortcuts = (e) => {
-      const key = e.key.toLowerCase()
-      if ((e.ctrlKey || e.metaKey) && ['p','s','u'].includes(key)) { e.preventDefault(); setMessage('Acción deshabilitada.') }
-      if (e.key === 'PrintScreen') setMessage('Material identificado.')
-    }
-    window.addEventListener('keydown', blockShortcuts)
-    return () => window.removeEventListener('keydown', blockShortcuts)
   }, [])
 
+  const user = session?.user || null
+
   useEffect(() => {
-    const handleVisibility = () => {
-      const content = document.querySelector('.protected-content')
-      if (content) {
-        if (document.hidden) content.classList.add('hidden')
-        else content.classList.remove('hidden')
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [])
+    if (!user) { setEsAdmin(false); return }
+    supabase.from('admins').select('email').eq('email', user.email).maybeSingle()
+      .then(({ data }) => setEsAdmin(!!data))
+  }, [user])
 
-  const handleLogin = () => setMessage('')
-  const handleLogout = async () => { await supabase.auth.signOut(); localStorage.removeItem('login_time'); setSession(null); navigate('/') }
+  const handleLogout = async () => {
+    await supabase.auth.signOut(); localStorage.removeItem('login_time')
+    setSession(null); navigate('/')
+  }
 
-  if (loading) return <div className="loading">Cargando...</div>
-  if (!session) return <Login onLogin={handleLogin} message={message} />
+  if (loading) return <div className="loading pantalla">Cargando...</div>
 
   return (
     <>
-      <Header user={session.user} onLogout={handleLogout} />
+      <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} />
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Dashboard user={session.user} />} />
-          <Route path="/perfil" element={<Perfil user={session.user} />} />
-          <Route path="/curso/:id" element={<CursoView user={session.user} />} />
-          <Route path="/modulo/:id" element={<ModuloView user={session.user} />} />
-          <Route path="/constancia/:cursoId" element={<Constancia user={session.user} />} />
+          <Route path="/" element={<Home user={user} />} />
+          <Route path="/acceso" element={<Login message={message} />} />
+          <Route path="/perfil" element={<Perfil user={user} />} />
+          <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
+          <Route path="/curso/:id" element={<CursoView user={user} />} />
+          <Route path="/modulo/:id" element={<ModuloView user={user} />} />
+          <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
         </Routes>
       </main>
+      <WhatsAppFlotante />
     </>
   )
 }
 
-// ---------- ENVOLTORIO ----------
 export default function Root() {
-  return (
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  )
+  return <BrowserRouter><App /></BrowserRouter>
 }
