@@ -1,0 +1,36 @@
+# Mantiene despierto el proyecto de Supabase.
+# El plan gratuito PAUSA el proyecto tras 7 días sin consultas a la base
+# de datos, y el portal deja de funcionar hasta reactivarlo a mano.
+# Este trabajo hace una consulta trivial cada 3 días. Costo: cero.
+#
+# Ubicación en tu repo:  .github/workflows/keep-alive.yml
+#
+# Antes de que funcione, agrega 2 secretos en GitHub:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     SUPABASE_URL       =  https://ohhdnaewtjfqszxemrju.supabase.co
+#     SUPABASE_ANON_KEY  =  tu clave publishable (la misma del .env)
+
+name: Mantener Supabase activo
+
+on:
+  schedule:
+    # Cada 3 días a las 12:00 UTC (6:00 a.m. en CDMX)
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:   # permite ejecutarlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar la base de datos
+        run: |
+          CODIGO=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/cursos?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "Respuesta de Supabase: $CODIGO"
+          if [ "$CODIGO" != "200" ]; then
+            echo "::error::Supabase respondió $CODIGO — revisa el proyecto."
+            exit 1
+          fi
+          echo "Proyecto activo."
