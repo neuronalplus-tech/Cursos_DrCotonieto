@@ -346,6 +346,13 @@ a { color: var(--primary); }
 .wa-flotante:hover { background: var(--wa-oscuro); transform: translateY(-2px); }
 .wa-icono { font-size: 17px; }
 
+/* ---------- NUEVOS: botón azul y etiqueta de grupo ---------- */
+.button.azul { background: var(--primary-claro); color: #fff; }
+.button.azul:hover { background: var(--primary); transform: translateY(-1px); }
+.etiqueta-grupo { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; background: var(--bg-card); color: var(--primary);
+  padding: 2px 8px; border-radius: 12px; margin-left: 8px; }
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 900px) {
   .modulo-layout { grid-template-columns: 1fr; gap: 22px; }
