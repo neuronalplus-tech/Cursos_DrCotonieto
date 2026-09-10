@@ -65,89 +65,139 @@ const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enl
 
 /* ============================================================
    PORTADAS VECTORIALES DE LOS CURSOS
-   Se dibujan en código: no pesan, no se rompen y usan tu paleta.
+   Se dibujan en código (SVG): no pesan, no se rompen y usan tu paleta.
+   Motivos: ondas · red · arcos · circulos · malla · prisma · espiral · escudo
    ============================================================ */
-function PortadaCurso({ variante, uid }) {
-  const id = `p${uid}`
+function PortadaCurso({ motivo, uid }) {
+  const gid = `p${uid}`
 
-  // Red de nodos — para supervisión clínica (retoma el motivo del logotipo)
-  if (variante === 'red') {
-    const nodos = [
-      [88, 108, 4], [148, 58, 5], [206, 96, 9], [132, 148, 4],
-      [252, 150, 5], [312, 74, 4], [330, 132, 3], [60, 60, 3]
-    ]
+  // Red de nodos — formulación / supervisión (motivo del logotipo)
+  if (motivo === 'red') {
+    const nodos = [[88,108,4],[148,58,5],[206,96,9],[132,148,4],[252,150,5],[312,74,4],[330,132,3],[60,60,3]]
     const aristas = [[0,1],[1,2],[0,3],[3,2],[2,4],[3,4],[2,5],[4,6],[5,6],[7,1],[7,0]]
     return (
-      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <rect width="400" height="200" fill="#F2EEE9" />
         <g stroke="#1B3A4B" strokeOpacity=".28" strokeWidth="1.4">
-          {aristas.map(([a, b], i) => (
-            <line key={i} x1={nodos[a][0]} y1={nodos[a][1]} x2={nodos[b][0]} y2={nodos[b][1]} />
-          ))}
+          {aristas.map(([a,b],i) => <line key={i} x1={nodos[a][0]} y1={nodos[a][1]} x2={nodos[b][0]} y2={nodos[b][1]} />)}
         </g>
-        {nodos.map(([cx, cy, r], i) => (
-          <circle key={i} cx={cx} cy={cy} r={r} fill={i === 2 ? '#C17A5E' : '#1B3A4B'} fillOpacity={i === 2 ? 1 : .82} />
-        ))}
+        {nodos.map(([cx,cy,r],i) => <circle key={i} cx={cx} cy={cy} r={r} fill={i===2?'#C17A5E':'#1B3A4B'} fillOpacity={i===2?1:.82} />)}
         <circle cx="206" cy="96" r="18" fill="none" stroke="#C17A5E" strokeOpacity=".38" strokeWidth="1.4" />
         <circle cx="206" cy="96" r="27" fill="none" stroke="#C17A5E" strokeOpacity=".18" strokeWidth="1.2" />
       </svg>
     )
   }
 
-  // Arcos abiertos — para talleres gratuitos
-  if (variante === 'abierto') {
+  // Arcos abiertos — talleres / difusión / bienestar
+  if (motivo === 'arcos') {
     return (
-      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
-        <defs>
-          <linearGradient id={`${id}a`} x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#B76F53" />
-            <stop offset="100%" stopColor="#D9A184" />
-          </linearGradient>
-        </defs>
-        <rect width="400" height="200" fill={`url(#${id}a)`} />
-        <g fill="none" stroke="#FAFAF8" strokeLinecap="round">
-          <circle cx="68" cy="172" r="44" strokeOpacity=".55" strokeWidth="1.8" />
-          <circle cx="68" cy="172" r="82" strokeOpacity=".42" strokeWidth="1.8" />
-          <circle cx="68" cy="172" r="120" strokeOpacity=".30" strokeWidth="1.8" />
-          <circle cx="68" cy="172" r="158" strokeOpacity=".20" strokeWidth="1.8" />
-          <circle cx="68" cy="172" r="196" strokeOpacity=".12" strokeWidth="1.8" />
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs><linearGradient id={`${gid}a`} x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#B76F53" /><stop offset="100%" stopColor="#D9A184" /></linearGradient></defs>
+        <rect width="400" height="200" fill={`url(#${gid}a)`} />
+        <g fill="none" stroke="#FAFAF8" strokeLinecap="round" strokeWidth="1.8">
+          <circle cx="68" cy="172" r="44" strokeOpacity=".55" /><circle cx="68" cy="172" r="82" strokeOpacity=".42" />
+          <circle cx="68" cy="172" r="120" strokeOpacity=".30" /><circle cx="68" cy="172" r="158" strokeOpacity=".20" />
+          <circle cx="68" cy="172" r="196" strokeOpacity=".12" />
         </g>
         <circle cx="68" cy="172" r="10" fill="#FAFAF8" />
-        <g fill="#FAFAF8" fillOpacity=".85">
-          <circle cx="262" cy="54" r="3.5" />
-          <circle cx="318" cy="96" r="2.5" />
-          <circle cx="214" cy="30" r="2" />
-        </g>
+        <g fill="#FAFAF8" fillOpacity=".85"><circle cx="262" cy="54" r="3.5" /><circle cx="318" cy="96" r="2.5" /><circle cx="214" cy="30" r="2" /></g>
       </svg>
     )
   }
 
-  // Ondas descendentes — para duelo (proceso y acompañamiento)
+  // Círculos concéntricos — ACT / mindfulness / presencia
+  if (motivo === 'circulos') {
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="400" height="200" fill="#1B3A4B" />
+        <g fill="none" stroke="#FAFAF8" strokeWidth="1.6">
+          {[20,42,64,86,108,130].map((r,i) => <circle key={i} cx="200" cy="100" r={r} strokeOpacity={0.5 - i*0.06} />)}
+        </g>
+        <circle cx="200" cy="100" r="9" fill="#C17A5E" />
+        <circle cx="200" cy="100" r="9" fill="none" stroke="#FAFAF8" strokeOpacity=".5" strokeWidth="1.4" />
+      </svg>
+    )
+  }
+
+  // Malla de puntos — neurodivergencia / diversidad
+  if (motivo === 'malla') {
+    const pts = []
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 12; c++) pts.push([28 + c*32, 24 + r*32])
+    const destacados = new Set([15, 28, 41, 54, 7, 62])
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="400" height="200" fill="#F2EEE9" />
+        {pts.map(([cx,cy],i) => destacados.has(i)
+          ? <circle key={i} cx={cx} cy={cy} r="6.5" fill="#C17A5E" />
+          : <circle key={i} cx={cx} cy={cy} r="3" fill="#1B3A4B" fillOpacity=".45" />)}
+      </svg>
+    )
+  }
+
+  // Prisma — análisis / diagnóstico diferencial / peritaje
+  if (motivo === 'prisma') {
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="400" height="200" fill="#1B3A4B" />
+        <polygon points="150,40 210,100 150,160" fill="none" stroke="#FAFAF8" strokeOpacity=".5" strokeWidth="1.6" />
+        <g strokeWidth="2" strokeLinecap="round">
+          <line x1="210" y1="100" x2="360" y2="60" stroke="#C17A5E" strokeOpacity=".9" />
+          <line x1="210" y1="100" x2="360" y2="86" stroke="#E0A88C" strokeOpacity=".8" />
+          <line x1="210" y1="100" x2="360" y2="112" stroke="#FAFAF8" strokeOpacity=".55" />
+          <line x1="210" y1="100" x2="360" y2="138" stroke="#8FB2C4" strokeOpacity=".5" />
+        </g>
+        <line x1="60" y1="100" x2="150" y2="100" stroke="#FAFAF8" strokeOpacity=".6" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
+  // Espiral — escritura reflexiva / procesos internos
+  if (motivo === 'espiral') {
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs><linearGradient id={`${gid}e`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#C17A5E" /><stop offset="100%" stopColor="#A5624A" /></linearGradient></defs>
+        <rect width="400" height="200" fill={`url(#${gid}e)`} />
+        <path d="M200 100 C 200 84 224 84 224 104 C 224 132 184 132 184 100 C 184 60 240 60 240 108 C 240 168 152 168 152 96"
+              fill="none" stroke="#FAFAF8" strokeOpacity=".85" strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="200" cy="100" r="4" fill="#FAFAF8" />
+      </svg>
+    )
+  }
+
+  // Escudo — riesgo / documentación / ética
+  if (motivo === 'escudo') {
+    return (
+      <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="400" height="200" fill="#EEF2F4" />
+        <path d="M200 40 L248 58 V104 C248 138 224 156 200 166 C176 156 152 138 152 104 V58 Z"
+              fill="#1B3A4B" fillOpacity=".9" />
+        <path d="M180 102 l14 14 l28 -30" fill="none" stroke="#C17A5E" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+        <g stroke="#1B3A4B" strokeOpacity=".18" strokeWidth="1.4"><line x1="60" y1="72" x2="130" y2="72" /><line x1="60" y1="100" x2="120" y2="100" /><line x1="60" y1="128" x2="132" y2="128" /><line x1="286" y1="72" x2="352" y2="72" /><line x1="296" y1="100" x2="352" y2="100" /><line x1="284" y1="128" x2="352" y2="128" /></g>
+      </svg>
+    )
+  }
+
+  // Ondas descendentes — duelo / proceso (por defecto)
   return (
-    <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
-      <defs>
-        <linearGradient id={`${id}o`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#1B3A4B" />
-          <stop offset="100%" stopColor="#2F5B72" />
-        </linearGradient>
-      </defs>
-      <rect width="400" height="200" fill={`url(#${id}o)`} />
+    <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id={`${gid}o`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#1B3A4B" /><stop offset="100%" stopColor="#2F5B72" /></linearGradient></defs>
+      <rect width="400" height="200" fill={`url(#${gid}o)`} />
       <g fill="none" stroke="#FAFAF8" strokeLinecap="round" strokeWidth="1.8">
         <path d="M-20 168 C 60 140, 130 192, 210 162 S 350 132, 420 156" strokeOpacity=".14" />
         <path d="M-20 146 C 60 118, 130 170, 210 140 S 350 110, 420 134" strokeOpacity=".20" />
         <path d="M-20 124 C 60 96, 130 148, 210 118 S 350 88, 420 112" strokeOpacity=".28" />
         <path d="M-20 102 C 60 74, 130 126, 210 96 S 350 66, 420 90" strokeOpacity=".36" />
       </g>
-      <path d="M-20 78 C 60 50, 130 102, 210 72 S 350 42, 420 66"
-            fill="none" stroke="#C17A5E" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M-20 78 C 60 50, 130 102, 210 72 S 350 42, 420 66" fill="none" stroke="#C17A5E" strokeWidth="2.6" strokeLinecap="round" />
       <circle cx="210" cy="72" r="5.5" fill="#C17A5E" />
       <circle cx="210" cy="72" r="13" fill="none" stroke="#C17A5E" strokeOpacity=".45" strokeWidth="1.4" />
     </svg>
   )
 }
 
-function varianteDe(curso) {
-  if (curso.gratuito) return 'abierto'
+function motivoDe(curso) {
+  if (curso.caratula) return curso.caratula
+  if (curso.gratuito) return 'arcos'
   if (/supervis/i.test(curso.titulo || '')) return 'red'
   return 'ondas'
 }
@@ -176,7 +226,6 @@ function WhatsAppFlotante() {
   )
 }
 
-// Construye la ruta de login recordando a dónde quería ir la persona
 const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(destino)}`
 
 /* ============================================================
@@ -215,7 +264,7 @@ function Header({ user, esAdmin, onLogout }) {
 }
 
 /* ============================================================
-   LOGIN (con retorno al curso solicitado)
+   LOGIN
    ============================================================ */
 function Login({ message }) {
   const [email, setEmail] = useState('')
@@ -225,7 +274,6 @@ function Login({ message }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Solo se aceptan rutas internas (evita redirecciones a sitios externos)
   const crudo = new URLSearchParams(location.search).get('redirigir')
   const destino = crudo && crudo.startsWith('/') && !crudo.startsWith('//') ? crudo : '/'
 
@@ -273,23 +321,22 @@ function Login({ message }) {
    ============================================================ */
 function CursoCard({ curso, user, tieneAcceso }) {
   const [abierto, setAbierto] = useState(false)
-  const [imgFalla, setImgFalla] = useState(false)
   const navigate = useNavigate()
   const gratis = !!curso.gratuito
-  const usarSvg = !curso.imagen_portada || imgFalla
+  const prox = !!curso.proximamente
 
   return (
-    <article className={`course-card ${gratis ? 'gratis' : ''}`}>
+    <article className={`course-card ${gratis ? 'gratis' : ''} ${prox ? 'proximo' : ''}`}>
       <div className="course-portada">
-        {usarSvg
-          ? <PortadaCurso variante={varianteDe(curso)} uid={curso.id} />
-          : <img src={curso.imagen_portada} alt="" className="course-image" onError={() => setImgFalla(true)} />}
+        <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+        {prox && <span className="cinta-prox">Próximamente</span>}
       </div>
 
       <div className="course-info">
-        {gratis ? <span className="badge verde">Acceso libre</span>
-          : tieneAcceso ? <span className="badge ok">✔ Estás inscrito</span>
-            : <span className="badge neutro">Requiere inscripción</span>}
+        {prox ? <span className="badge proximo">En preparación</span>
+          : gratis ? <span className="badge verde">Acceso libre</span>
+            : tieneAcceso ? <span className="badge ok">✔ Estás inscrito</span>
+              : <span className="badge neutro">Requiere inscripción</span>}
 
         <h3>{curso.titulo}</h3>
 
@@ -309,7 +356,12 @@ function CursoCard({ curso, user, tieneAcceso }) {
         )}
 
         <div className="course-acciones">
-          {gratis ? (
+          {prox ? (
+            <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
+               href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>
+              Me interesa · avísame
+            </a>
+          ) : gratis ? (
             <Link to={`/curso/${curso.id}`} className="button primary ancho">Entrar libremente</Link>
           ) : tieneAcceso ? (
             <Link to={`/curso/${curso.id}`} className="button primary ancho">Continuar curso</Link>
@@ -339,6 +391,7 @@ function Home({ user }) {
   const [accesos, setAccesos] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [lineaActiva, setLineaActiva] = useState('todas')
 
   useEffect(() => {
     async function load() {
@@ -357,6 +410,13 @@ function Home({ user }) {
     load()
   }, [user])
 
+  const lineas = []
+  cursos.forEach(c => { if (c.linea && !lineas.includes(c.linea)) lineas.push(c.linea) })
+
+  const cursosVisibles = lineaActiva === 'todas' ? cursos : cursos.filter(c => c.linea === lineaActiva)
+  const disponibles = cursosVisibles.filter(c => !c.proximamente)
+  const proximos = cursosVisibles.filter(c => c.proximamente)
+
   return (
     <div className="landing">
       <section className="hero">
@@ -368,38 +428,69 @@ function Home({ user }) {
         <p className="hero-credencial">{MARCA.credencial}</p>
         <p className="hero-slogan">“{MARCA.slogan}”</p>
         <p className="hero-sub">{MARCA.subtitulo}</p>
-        <p className="hero-bio">{MARCA.bio}</p>
         <div className="hero-cta">
           <a className="button whatsapp grande" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
             Agenda tu llamada sin costo
           </a>
           <a className="button secondary grande" href="#cursos">Ver cursos</a>
         </div>
-        <div className="redes">
-          {REDES.map((r) => (
-            <a key={r.nombre} className="red-btn" href={r.url} target="_blank" rel="noopener noreferrer" title={r.nombre}>
-              <span aria-hidden="true">{r.icono}</span><span>{r.corto}</span>
-            </a>
-          ))}
-        </div>
       </section>
 
       <section className="seccion" id="cursos">
         <h2>Cursos y talleres</h2>
         <p className="seccion-intro">
-          Formación clínica aplicada. Los talleres gratuitos son de acceso libre; los cursos requieren
-          inscripción. Toca “Saber más” para ver de qué trata cada uno.
+          Formación clínica aplicada, agrupada por línea temática. Los talleres gratuitos son de acceso
+          libre; los cursos requieren inscripción. Toca “Saber más” para ver de qué trata cada uno.
         </p>
+
+        {lineas.length > 0 && (
+          <div className="menu-lineas">
+            <button
+              type="button"
+              className={`linea-pill${lineaActiva === 'todas' ? ' activa' : ''}`}
+              onClick={() => setLineaActiva('todas')}
+            >
+              Todas
+            </button>
+            {lineas.map((l) => (
+              <button
+                type="button"
+                key={l}
+                className={`linea-pill${lineaActiva === l ? ' activa' : ''}`}
+                onClick={() => setLineaActiva(l)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading && <div className="loading">Cargando cursos...</div>}
         {error && <p className="aviso-error">No se pudo cargar el catálogo: {error}</p>}
         {!loading && !error && cursos.length === 0 &&
           <p className="aviso-error">El catálogo está vacío. Si acabas de publicar, recarga en un momento.</p>}
-        {!loading && cursos.length > 0 && (
+        {!loading && disponibles.length > 0 && (
           <div className="course-grid">
-            {cursos.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={accesos.has(c.id)} />)}
+            {disponibles.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={accesos.has(c.id)} />)}
           </div>
         )}
+        {!loading && !error && cursos.length > 0 && lineaActiva !== 'todas' && disponibles.length === 0 && proximos.length === 0 && (
+          <p className="aviso-error">Todavía no hay cursos publicados en esta línea.</p>
+        )}
       </section>
+
+      {!loading && proximos.length > 0 && (
+        <section className="seccion" id="proximos">
+          <h2>Próximamente</h2>
+          <p className="seccion-intro">
+            Estos cursos están en preparación. Toca “Me interesa” y te aviso en cuanto abra su inscripción —
+            así también sé qué producir primero.
+          </p>
+          <div className="course-grid">
+            {proximos.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={false} />)}
+          </div>
+        </section>
+      )}
 
       <section className="seccion">
         <h2>Servicios</h2>
@@ -414,6 +505,18 @@ function Home({ user }) {
         <h2>Casos que atiendo</h2>
         <div className="lista-chips">{CASOS.map((c, i) => <span key={i} className="chip">{c}</span>)}</div>
         <p className="enfoques"><strong>Enfoques:</strong> {ENFOQUES.join(' · ')}</p>
+      </section>
+
+      <section className="seccion sobre-mi">
+        <h2>Sobre mí</h2>
+        <p className="hero-bio">{MARCA.bio}</p>
+        <div className="redes">
+          {REDES.map((r) => (
+            <a key={r.nombre} className="red-btn" href={r.url} target="_blank" rel="noopener noreferrer" title={r.nombre}>
+              <span aria-hidden="true">{r.icono}</span><span>{r.corto}</span>
+            </a>
+          ))}
+        </div>
       </section>
 
       <section className="seccion cierre">
@@ -843,6 +946,7 @@ function CursoView({ user }) {
         if (eC) throw eC
         setCurso(c)
         if (!c) { setEstado('ok'); return }
+        if (c.proximamente) { setEstado('proximo'); return }
 
         if (!c.gratuito) {
           if (!user) { setEstado('requiere_login'); return }
@@ -879,22 +983,29 @@ function CursoView({ user }) {
   if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
 
-  if (estado === 'requiere_login' || estado === 'sin_acceso') {
+  if (estado === 'proximo' || estado === 'requiere_login' || estado === 'sin_acceso') {
+    const prox = estado === 'proximo'
     return (
       <section className="contenedor estrecho">
         <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
         <h1>{curso.titulo}</h1>
         <p>{curso.descripcion}</p>
         <div className="bloque-cerrado">
-          <p className="bloque-icono">🔒</p>
-          <p>{estado === 'requiere_login'
-            ? 'Este curso es para personas inscritas. Si ya tienes tus datos de acceso, inicia sesión y te traigo de vuelta aquí.'
-            : 'Tu cuenta aún no tiene acceso a este curso.'}</p>
+          <p className="bloque-icono">{prox ? '🗓️' : '🔒'}</p>
+          <p>{prox
+            ? 'Este curso está en preparación. Déjame tu interés por WhatsApp y te aviso en cuanto abra su inscripción.'
+            : estado === 'requiere_login'
+              ? 'Este curso es para personas inscritas. Si ya tienes tus datos de acceso, inicia sesión y te traigo de vuelta aquí.'
+              : 'Tu cuenta aún no tiene acceso a este curso.'}</p>
           <div className="bloque-botones">
             {estado === 'requiere_login' &&
               <button className="button primary" onClick={() => navigate(rutaAcceso(`/curso/${id}`))}>Iniciar sesión</button>}
             <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
-               href={wa(`Hola, me interesa inscribirme al curso "${curso.titulo}".`)}>Quiero inscribirme</a>
+               href={wa(prox
+                 ? `Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`
+                 : `Hola, me interesa inscribirme al curso "${curso.titulo}".`)}>
+              {prox ? 'Me interesa · avísame' : 'Quiero inscribirme'}
+            </a>
             <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
           </div>
         </div>
