@@ -60,6 +60,22 @@ const CASOS = [
 
 const ENFOQUES = ['Terapia de Aceptación y Compromiso (ACT)', 'Análisis funcional de la conducta', 'Terapia Dialéctico-Conductual (DBT)']
 
+/* ============================================================
+   COPY DEL CARRUSEL POR LÍNEA TEMÁTICA
+   Si aparece una línea nueva en la BD que no está aquí, se usa
+   un texto genérico (ver CarruselCursos) — no truena nada.
+   ============================================================ */
+const LINEA_COPY = {
+  'Formulación y terapias contextuales': { texto: 'Formulación de caso, ACT, DBT, mindfulness y análisis funcional para decidir con criterio clínico.', motivo: 'red' },
+  'Duelo y pérdida': { texto: 'Duelo normativo, complicado, infantil y escritura emocional reflexiva.', motivo: 'ondas' },
+  'Neurodivergencia': { texto: 'Detección, diagnóstico diferencial y acompañamiento afirmativo, con criterios DSM-5-TR.', motivo: 'malla' },
+  'Riesgo, documentación y ética': { texto: 'Evaluación de riesgo suicida, documentación clínica y límites éticos en la práctica.', motivo: 'escudo' },
+  'Peritaje psicológico': { texto: 'Fundamentos del peritaje y revisión metodológica de entrevistas forenses.', motivo: 'prisma' },
+  'Ciclo vital y bienestar': { texto: 'Mindfulness clínico, ansiedad y pánico, y bienestar en la adultez y la vejez.', motivo: 'circulos' },
+  'Práctica profesional': { texto: 'Supervisión clínica grupal, psicometría aplicada y prevención del desgaste profesional.', motivo: 'arcos' },
+  'Talleres gratuitos': { texto: 'Formación breve y de acceso libre para empezar a formarte hoy mismo.', motivo: 'arcos' }
+}
+
 const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', autoevaluacion: '✍️' }
 const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
 
@@ -200,6 +216,113 @@ function motivoDe(curso) {
   if (curso.gratuito) return 'arcos'
   if (/supervis/i.test(curso.titulo || '')) return 'red'
   return 'ondas'
+}
+
+/* ============================================================
+   CARRUSEL DE LÍNEAS TEMÁTICAS
+   Banner superior: una tarjeta por línea, con avance automático
+   y arrastre con el cursor/dedo. Cada tarjeta lleva a su línea
+   en el catálogo de abajo.
+   ============================================================ */
+function CarruselCursos({ lineas, cursos, onSelect }) {
+  const slides = lineas.map((l) => {
+    const info = LINEA_COPY[l]
+    const enLinea = cursos.filter((c) => c.linea === l)
+    const n = enLinea.length
+    return {
+      linea: l,
+      texto: info?.texto || `${n} ${n === 1 ? 'curso disponible' : 'cursos disponibles'} en esta línea.`,
+      motivo: info?.motivo || enLinea[0]?.caratula || 'espiral'
+    }
+  })
+
+  const [indice, setIndice] = useState(0)
+  const [offsetX, setOffsetX] = useState(0)
+  const [arrastrando, setArrastrando] = useState(false)
+  const inicioRef = useRef(0)
+  const pausadoRef = useRef(false)
+
+  useEffect(() => {
+    if (slides.length < 2) return
+    const id = setInterval(() => {
+      if (!pausadoRef.current) setIndice((i) => (i + 1) % slides.length)
+    }, 5500)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length])
+
+  useEffect(() => { if (indice >= slides.length) setIndice(0) }, [slides.length, indice])
+
+  if (slides.length === 0) return null
+
+  const irA = (i) => setIndice(((i % slides.length) + slides.length) % slides.length)
+
+  const onDown = (e) => {
+    setArrastrando(true)
+    pausadoRef.current = true
+    inicioRef.current = e.clientX
+  }
+  const onMove = (e) => { if (arrastrando) setOffsetX(e.clientX - inicioRef.current) }
+  const terminarArrastre = (dx) => {
+    setArrastrando(false)
+    setOffsetX(0)
+    pausadoRef.current = false
+    const umbral = 50
+    if (dx > umbral) irA(indice - 1)
+    else if (dx < -umbral) irA(indice + 1)
+  }
+  const onUp = (e) => terminarArrastre(e.clientX - inicioRef.current)
+  const onLeaveTrack = () => { if (arrastrando) terminarArrastre(0) }
+
+  return (
+    <div
+      className="carrusel"
+      onMouseEnter={() => { pausadoRef.current = true }}
+      onMouseLeave={() => { if (!arrastrando) pausadoRef.current = false }}
+    >
+      <div
+        className={`carrusel-track${arrastrando ? ' arrastrando' : ''}`}
+        style={{ transform: `translateX(calc(${-indice * 100}% + ${offsetX}px))` }}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerLeave={onLeaveTrack}
+        onPointerCancel={onLeaveTrack}
+      >
+        {slides.map((s, i) => (
+          <div className="carrusel-slide" key={s.linea}>
+            <div className="carrusel-fondo"><PortadaCurso motivo={s.motivo} uid={`car${i}`} /></div>
+            <div className="carrusel-velo" />
+            <div className="carrusel-texto">
+              <h3>{s.linea}</h3>
+              <p>{s.texto}</p>
+              <button type="button" className="button whatsapp" onClick={() => onSelect(s.linea)}>
+                Ver cursos
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {slides.length > 1 && (
+        <>
+          <button type="button" className="carrusel-flecha izq" aria-label="Línea anterior" onClick={() => irA(indice - 1)}>‹</button>
+          <button type="button" className="carrusel-flecha der" aria-label="Línea siguiente" onClick={() => irA(indice + 1)}>›</button>
+          <div className="carrusel-puntos">
+            {slides.map((s, i) => (
+              <button
+                type="button"
+                key={s.linea}
+                className={`punto${i === indice ? ' activo' : ''}`}
+                aria-label={`Ir a ${s.linea}`}
+                onClick={() => irA(i)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 /* ============================================================
@@ -417,23 +540,29 @@ function Home({ user }) {
   const disponibles = cursosVisibles.filter(c => !c.proximamente)
   const proximos = cursosVisibles.filter(c => c.proximamente)
 
+  const irACurso = (linea) => {
+    setLineaActiva(linea)
+    document.getElementById('cursos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <div className="landing">
-      <section className="hero">
-        <div className="hero-foto-zona">
-          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="hero-foto"
+      <section className="franja-superior">
+        <div className="mini-perfil">
+          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="mini-foto"
                onError={(e) => { e.currentTarget.src = LOGO_CLARO; e.currentTarget.classList.add('es-logo') }} />
+          <div className="mini-perfil-texto">
+            <h1>{MARCA.nombre}</h1>
+            <p className="mini-credencial">{MARCA.credencial}</p>
+            <p className="mini-slogan">“{MARCA.slogan}”</p>
+            <p className="mini-sub">{MARCA.subtitulo}</p>
+            <a className="button whatsapp" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
+              Agenda tu llamada sin costo
+            </a>
+          </div>
         </div>
-        <h1>{MARCA.nombre}</h1>
-        <p className="hero-credencial">{MARCA.credencial}</p>
-        <p className="hero-slogan">“{MARCA.slogan}”</p>
-        <p className="hero-sub">{MARCA.subtitulo}</p>
-        <div className="hero-cta">
-          <a className="button whatsapp grande" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
-            Agenda tu llamada sin costo
-          </a>
-          <a className="button secondary grande" href="#cursos">Ver cursos</a>
-        </div>
+
+        {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} />}
       </section>
 
       <section className="seccion" id="cursos">
