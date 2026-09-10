@@ -1075,7 +1075,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
 /* ============================================================
    CURSO
    ============================================================ */
-function CursoView({ user }) {
+function CursoView({ user, esAdmin }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [curso, setCurso] = useState(null)
@@ -1093,9 +1093,10 @@ function CursoView({ user }) {
         if (!c) { setEstado('ok'); return }
         if (c.proximamente) { setEstado('proximo'); return }
 
-        // Grupo del usuario en este curso (null si no aplica o es curso gratuito)
+        // Admin: acceso total, sin filtro de grupo.
+        // Alumno: hay que validar inscripción y leer su grupo.
         let miGrupo = null
-        if (!c.gratuito) {
+        if (!esAdmin && !c.gratuito) {
           if (!user) { setEstado('requiere_login'); return }
           const { data: acc } = await supabase.from('acceso')
             .select('id, grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
@@ -1107,9 +1108,10 @@ function CursoView({ user }) {
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
         if (eM) throw eM
 
-        // Módulos sin grupo: visibles a todo inscrito.
-        // Módulos con grupo: solo a quien tenga ese grupo en `acceso`.
-        const modsVisibles = (mods || []).filter(m => !m.grupo || m.grupo === miGrupo)
+        // Admin ve todos los módulos. Alumno ve los comunes + los de su grupo.
+        const modsVisibles = esAdmin
+          ? (mods || [])
+          : (mods || []).filter(m => !m.grupo || m.grupo === miGrupo)
         setModulos(modsVisibles)
 
         if (user && modsVisibles.length) {
@@ -1130,7 +1132,7 @@ function CursoView({ user }) {
       }
     }
     load()
-  }, [id, user])
+  }, [id, user, esAdmin])
 
   if (estado === 'cargando') return <div className="loading">Cargando...</div>
   if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
@@ -1208,7 +1210,7 @@ function CursoView({ user }) {
 /* ============================================================
    MÓDULO
    ============================================================ */
-function ModuloView({ user }) {
+function ModuloView({ user, esAdmin }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [modulo, setModulo] = useState(null)
@@ -1234,8 +1236,8 @@ function ModuloView({ user }) {
           miGrupo = accG?.grupo || null
         }
 
-        // Bloqueo: si el módulo pertenece a un grupo, solo ese grupo entra
-        if (m.grupo && m.grupo !== miGrupo) {
+        // Bloqueo: si el módulo pertenece a un grupo y no eres admin, solo ese grupo entra.
+        if (!esAdmin && m.grupo && m.grupo !== miGrupo) {
           setError('Este módulo pertenece a otro grupo de supervisión. Escríbeme para revisar tu acceso.')
           return
         }
@@ -1251,7 +1253,9 @@ function ModuloView({ user }) {
 
         const { data: mods } = await supabase.from('modulos').select('id, titulo, orden, grupo')
           .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
-        const modsSidebar = (mods || []).filter(x => !x.grupo || x.grupo === miGrupo)
+        const modsSidebar = esAdmin
+          ? (mods || [])
+          : (mods || []).filter(x => !x.grupo || x.grupo === miGrupo)
         setModulosCurso(modsSidebar)
 
         if (user && rs?.length) {
@@ -1265,7 +1269,7 @@ function ModuloView({ user }) {
       } finally { setLoading(false) }
     }
     load()
-  }, [id, user])
+  }, [id, user, esAdmin])
 
   const bucket = curso?.gratuito ? BUCKET_TALLERES : BUCKET_PAGO
 
@@ -1543,8 +1547,8 @@ function App() {
           <Route path="/acceso" element={<Login message={message} />} />
           <Route path="/perfil" element={<Perfil user={user} />} />
           <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
-          <Route path="/curso/:id" element={<CursoView user={user} />} />
-          <Route path="/modulo/:id" element={<ModuloView user={user} />} />
+          <Route path="/curso/:id" element={<CursoView user={user} esAdmin={esAdmin} />} />
+          <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
           <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
         </Routes>
       </main>
