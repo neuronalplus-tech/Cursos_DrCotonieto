@@ -110,6 +110,18 @@ a { color: var(--primary); }
 .titulo-seccion { font-size: 21px; margin: 34px 0 16px; }
 .cierre { text-align: center; }
 .cierre p { color: var(--gris); margin-bottom: 22px; }
+.sobre-mi { text-align: center; }
+.sobre-mi .hero-bio { margin-top: 6px; }
+.sobre-mi .redes { margin-top: 18px; }
+
+/* ---------- MENÚ DE LÍNEAS TEMÁTICAS ---------- */
+.menu-lineas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 30px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.linea-pill { flex: 0 0 auto; background: var(--blanco); border: 1px solid var(--borde); border-radius: 30px;
+  padding: 9px 18px; font-family: var(--texto); font-size: 13.5px; font-weight: 600; color: var(--primary);
+  cursor: pointer; transition: all .18s; white-space: nowrap; }
+.linea-pill:hover { border-color: var(--accent); background: var(--bg-card); }
+.linea-pill.activa { background: var(--primary); border-color: var(--primary); color: var(--blanco); }
 .pie-pagina { border-top: 1px solid var(--borde); padding: 30px 0 50px; text-align: center; font-size: 13.5px; color: var(--gris); }
 .pie-legal { max-width: 620px; margin: 12px auto 0; font-size: 12.5px; line-height: 1.6; }
 
@@ -129,6 +141,11 @@ a { color: var(--primary); }
 .badge.verde { background: var(--ok-bg); color: var(--ok); }
 .badge.ok { background: var(--ok-bg); color: var(--ok); }
 .badge.neutro { background: var(--bg-card); color: var(--gris); }
+.badge.proximo { background: #EDE4F0; color: #6B4A7A; }
+.course-card.proximo { opacity: .97; }
+.course-card.proximo .course-portada::after { content: ''; position: absolute; inset: 0; background: rgba(250,250,248,.28); }
+.cinta-prox { position: absolute; top: 12px; left: 12px; z-index: 2; background: rgba(27,58,75,.86); color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 4px 11px; border-radius: 20px; }
 .saber-mas { align-self: flex-start; background: none; border: none; padding: 2px 0;
   font-family: var(--texto); font-size: 13.5px; font-weight: 700; color: var(--accent);
   cursor: pointer; text-decoration: underline; }
