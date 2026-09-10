@@ -62,8 +62,6 @@ const ENFOQUES = ['Terapia de Aceptación y Compromiso (ACT)', 'Análisis funcio
 
 /* ============================================================
    COPY DEL CARRUSEL POR LÍNEA TEMÁTICA
-   Si aparece una línea nueva en la BD que no está aquí, se usa
-   un texto genérico (ver CarruselCursos) — no truena nada.
    ============================================================ */
 const LINEA_COPY = {
   'Formulación y terapias contextuales': { texto: 'Formulación de caso, ACT, DBT, mindfulness y análisis funcional para decidir con criterio clínico.', motivo: 'red' },
@@ -81,13 +79,10 @@ const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enl
 
 /* ============================================================
    PORTADAS VECTORIALES DE LOS CURSOS
-   Se dibujan en código (SVG): no pesan, no se rompen y usan tu paleta.
-   Motivos: ondas · red · arcos · circulos · malla · prisma · espiral · escudo
    ============================================================ */
 function PortadaCurso({ motivo, uid }) {
   const gid = `p${uid}`
 
-  // Red de nodos — formulación / supervisión (motivo del logotipo)
   if (motivo === 'red') {
     const nodos = [[88,108,4],[148,58,5],[206,96,9],[132,148,4],[252,150,5],[312,74,4],[330,132,3],[60,60,3]]
     const aristas = [[0,1],[1,2],[0,3],[3,2],[2,4],[3,4],[2,5],[4,6],[5,6],[7,1],[7,0]]
@@ -104,7 +99,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Arcos abiertos — talleres / difusión / bienestar
   if (motivo === 'arcos') {
     return (
       <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -121,7 +115,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Círculos concéntricos — ACT / mindfulness / presencia
   if (motivo === 'circulos') {
     return (
       <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -135,7 +128,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Malla de puntos — neurodivergencia / diversidad
   if (motivo === 'malla') {
     const pts = []
     for (let r = 0; r < 6; r++) for (let c = 0; c < 12; c++) pts.push([28 + c*32, 24 + r*32])
@@ -150,7 +142,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Prisma — análisis / diagnóstico diferencial / peritaje
   if (motivo === 'prisma') {
     return (
       <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -167,7 +158,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Espiral — escritura reflexiva / procesos internos
   if (motivo === 'espiral') {
     return (
       <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -180,7 +170,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Escudo — riesgo / documentación / ética
   if (motivo === 'escudo') {
     return (
       <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -193,7 +182,6 @@ function PortadaCurso({ motivo, uid }) {
     )
   }
 
-  // Ondas descendentes — duelo / proceso (por defecto)
   return (
     <svg className="portada-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs><linearGradient id={`${gid}o`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#1B3A4B" /><stop offset="100%" stopColor="#2F5B72" /></linearGradient></defs>
@@ -220,9 +208,6 @@ function motivoDe(curso) {
 
 /* ============================================================
    CARRUSEL DE LÍNEAS TEMÁTICAS
-   Banner superior: una tarjeta por línea, con avance automático
-   y arrastre con el cursor/dedo. Cada tarjeta lleva a su línea
-   en el catálogo de abajo.
    ============================================================ */
 function CarruselCursos({ lineas, cursos, onSelect }) {
   const slides = lineas.map((l) => {
@@ -485,7 +470,32 @@ function CursoCard({ curso, user, tieneAcceso }) {
               Me interesa · avísame
             </a>
           ) : gratis ? (
-            <Link to={`/curso/${curso.id}`} className="button primary ancho">Entrar libremente</Link>
+            <>
+              <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar al taller</Link>
+
+              {curso.link_sesion_vivo ? (
+                <a className="button azul ancho" target="_blank" rel="noopener noreferrer"
+                   href={curso.link_sesion_vivo}>
+                  📅 Registrarme a la sesión en vivo
+                </a>
+              ) : (
+                <a className="button azul ancho" target="_blank" rel="noopener noreferrer"
+                   href={wa(`Hola, me interesa el taller "${curso.titulo}". ¿Me avisas cuando abra el registro?`)}>
+                  📅 Próximamente — avísame
+                </a>
+              )}
+
+              {curso.link_grabacion ? (
+                <a className="button secondary ancho" target="_blank" rel="noopener noreferrer"
+                   href={curso.link_grabacion}>
+                  🎬 Ver grabación
+                </a>
+              ) : (
+                <button className="button secondary ancho" disabled>
+                  🎬 Grabación en proceso
+                </button>
+              )}
+            </>
           ) : tieneAcceso ? (
             <Link to={`/curso/${curso.id}`} className="button primary ancho">Continuar curso</Link>
           ) : (
@@ -554,7 +564,7 @@ function Home({ user }) {
           <div className="mini-perfil-texto">
             <h1>{MARCA.nombre}</h1>
             <p className="mini-credencial">{MARCA.credencial}</p>
-            <p className="mini-slogan">“{MARCA.slogan}”</p>
+            <p className="mini-slogan">"{MARCA.slogan}"</p>
             <p className="mini-sub">{MARCA.subtitulo}</p>
             <a className="button whatsapp" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
               Agenda tu llamada sin costo
@@ -569,7 +579,7 @@ function Home({ user }) {
         <h2>Cursos y talleres</h2>
         <p className="seccion-intro">
           Formación clínica aplicada, agrupada por línea temática. Los talleres gratuitos son de acceso
-          libre; los cursos requieren inscripción. Toca “Saber más” para ver de qué trata cada uno.
+          libre; los cursos requieren inscripción. Toca "Saber más" para ver de qué trata cada uno.
         </p>
 
         {lineas.length > 0 && (
@@ -612,7 +622,7 @@ function Home({ user }) {
         <section className="seccion" id="proximos">
           <h2>Próximamente</h2>
           <p className="seccion-intro">
-            Estos cursos están en preparación. Toca “Me interesa” y te aviso en cuanto abra su inscripción —
+            Estos cursos están en preparación. Toca "Me interesa" y te aviso en cuanto abra su inscripción —
             así también sé qué producir primero.
           </p>
           <div className="course-grid">
@@ -845,8 +855,9 @@ function Admin({ user, esAdmin }) {
       <div className="panel-info">
         <h3>Para inscribir a alguien</h3>
         <p className="sutil">
-          1) Authentication → Users → Add user (con “Auto Confirm User”).<br />
-          2) SQL Editor → el INSERT en <code>acceso</code> con su correo y el nombre del curso.
+          1) Authentication → Users → Add user (con "Auto Confirm User").<br />
+          2) SQL Editor → el INSERT en <code>acceso</code> con su correo y el nombre del curso.<br />
+          3) Si es de un grupo de supervisión, agrega también la columna <code>grupo</code> ('A', 'B' o 'C').
         </p>
       </div>
     </section>
@@ -927,6 +938,7 @@ function PdfPage({ page, n, total }) {
    OTROS RECURSOS
    ============================================================ */
 function VideoPlayer({ url }) {
+  if (!url) return <div className="aviso-error">La grabación todavía no está disponible. La subiré pronto.</div>
   return (
     <div className="video-wrapper">
       <iframe src={url} className="video-iframe" title="Video del curso"
@@ -977,6 +989,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo)
+  const videoSinUrl = recurso.tipo === 'video' && !recurso.url
 
   const abrirNuevaPestana = async () => {
     setOcupado(true)
@@ -1021,10 +1034,13 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
       {recurso.descripcion && <p className="recurso-desc">{recurso.descripcion}</p>}
 
       <div className="recurso-acciones">
-        {colapsable && (
+        {colapsable && !videoSinUrl && (
           <button className={`button ${abierto ? 'secondary' : 'primary'}`} onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
             {abierto ? 'Ocultar material' : 'Ver material'}
           </button>
+        )}
+        {videoSinUrl && (
+          <button className="button secondary" disabled>🎬 Grabación en proceso</button>
         )}
         {recurso.tipo === 'enlace' && (
           <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
@@ -1039,7 +1055,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
             {ocupado ? 'Descargando...' : 'Descargar documento'}
           </button>
         )}
-        {user && !visto && recurso.tipo !== 'autoevaluacion' && (
+        {user && !visto && recurso.tipo !== 'autoevaluacion' && !videoSinUrl && (
           <button className="button texto" onClick={() => onMarcarVisto(recurso.id)}>Marcar como visto</button>
         )}
       </div>
@@ -1077,20 +1093,28 @@ function CursoView({ user }) {
         if (!c) { setEstado('ok'); return }
         if (c.proximamente) { setEstado('proximo'); return }
 
+        // Grupo del usuario en este curso (null si no aplica o es curso gratuito)
+        let miGrupo = null
         if (!c.gratuito) {
           if (!user) { setEstado('requiere_login'); return }
-          const { data: acc } = await supabase.from('acceso').select('id').eq('usuario_id', user.id).eq('curso_id', id)
-          if (!acc || acc.length === 0) { setEstado('sin_acceso'); return }
+          const { data: acc } = await supabase.from('acceso')
+            .select('id, grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
+          if (!acc) { setEstado('sin_acceso'); return }
+          miGrupo = acc.grupo || null
         }
 
         const { data: mods, error: eM } = await supabase.from('modulos')
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
         if (eM) throw eM
-        setModulos(mods || [])
 
-        if (user && mods?.length) {
+        // Módulos sin grupo: visibles a todo inscrito.
+        // Módulos con grupo: solo a quien tenga ese grupo en `acceso`.
+        const modsVisibles = (mods || []).filter(m => !m.grupo || m.grupo === miGrupo)
+        setModulos(modsVisibles)
+
+        if (user && modsVisibles.length) {
           const ids = []
-          for (const m of mods) {
+          for (const m of modsVisibles) {
             const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
             ids.push(...(rs || []).map(r => r.id))
           }
@@ -1165,7 +1189,13 @@ function CursoView({ user }) {
         {modulos.map((m, i) => (
           <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">
             <span className="modulo-num">{i + 1}</span>
-            <div><h3>{m.titulo}</h3><p>{m.descripcion}</p></div>
+            <div>
+              <h3>
+                {m.titulo}
+                {m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}
+              </h3>
+              <p>{m.descripcion}</p>
+            </div>
             <span className="modulo-flecha">→</span>
           </Link>
         ))}
@@ -1195,6 +1225,21 @@ function ModuloView({ user }) {
         const { data: m, error: eM } = await supabase.from('modulos').select('*').eq('id', id).maybeSingle()
         if (eM) throw eM
         if (!m) { setError('Este módulo no existe o no tienes acceso a él.'); return }
+
+        // Grupo del usuario en este curso
+        let miGrupo = null
+        if (user) {
+          const { data: accG } = await supabase.from('acceso')
+            .select('grupo').eq('usuario_id', user.id).eq('curso_id', m.curso_id).maybeSingle()
+          miGrupo = accG?.grupo || null
+        }
+
+        // Bloqueo: si el módulo pertenece a un grupo, solo ese grupo entra
+        if (m.grupo && m.grupo !== miGrupo) {
+          setError('Este módulo pertenece a otro grupo de supervisión. Escríbeme para revisar tu acceso.')
+          return
+        }
+
         setModulo(m)
 
         const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito').eq('id', m.curso_id).maybeSingle()
@@ -1204,9 +1249,10 @@ function ModuloView({ user }) {
         if (eR) throw eR
         setRecursos(rs || [])
 
-        const { data: mods } = await supabase.from('modulos').select('id, titulo, orden')
+        const { data: mods } = await supabase.from('modulos').select('id, titulo, orden, grupo')
           .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
-        setModulosCurso(mods || [])
+        const modsSidebar = (mods || []).filter(x => !x.grupo || x.grupo === miGrupo)
+        setModulosCurso(modsSidebar)
 
         if (user && rs?.length) {
           const { data: pr } = await supabase.from('progreso_usuario').select('recurso_id, completado')
@@ -1303,7 +1349,10 @@ function ModuloView({ user }) {
 
         <main className="modulo-main">
           <header className="modulo-encabezado">
-            <h1>{modulo.titulo}</h1>
+            <h1>
+              {modulo.titulo}
+              {modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}
+            </h1>
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
             {user && recursos.length > 0 && (
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
