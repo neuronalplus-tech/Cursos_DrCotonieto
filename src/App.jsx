@@ -60,9 +60,6 @@ const CASOS = [
 
 const ENFOQUES = ['Terapia de Aceptación y Compromiso (ACT)', 'Análisis funcional de la conducta', 'Terapia Dialéctico-Conductual (DBT)']
 
-/* ============================================================
-   COPY DEL CARRUSEL POR LÍNEA TEMÁTICA
-   ============================================================ */
 const LINEA_COPY = {
   'Formulación y terapias contextuales': { texto: 'Formulación de caso, ACT, DBT, mindfulness y análisis funcional para decidir con criterio clínico.', motivo: 'red' },
   'Duelo y pérdida': { texto: 'Duelo normativo, complicado, infantil y escritura emocional reflexiva.', motivo: 'ondas' },
@@ -78,7 +75,24 @@ const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', a
 const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
 
 /* ============================================================
-   PORTADAS VECTORIALES DE LOS CURSOS
+   HELPERS
+   ============================================================ */
+function esContenedorTalleres(curso) {
+  if (!curso) return false
+  const t = (curso.titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return t.includes('taller') && t.includes('gratuit')
+}
+
+function esTallerIndividual(curso) {
+  // Taller hijo del contenedor: gratuito pero sin línea propia.
+  // Se oculta de la Home, solo aparece dentro del contenedor.
+  if (!curso || !curso.gratuito) return false
+  if (esContenedorTalleres(curso)) return false
+  return !curso.linea
+}
+
+/* ============================================================
+   PORTADAS VECTORIALES
    ============================================================ */
 function PortadaCurso({ motivo, uid }) {
   const gid = `p${uid}`
@@ -207,7 +221,7 @@ function motivoDe(curso) {
 }
 
 /* ============================================================
-   CARRUSEL DE LÍNEAS TEMÁTICAS
+   CARRUSEL
    ============================================================ */
 function CarruselCursos({ lineas, cursos, onSelect }) {
   const slides = lineas.map((l) => {
@@ -233,7 +247,6 @@ function CarruselCursos({ lineas, cursos, onSelect }) {
       if (!pausadoRef.current) setIndice((i) => (i + 1) % slides.length)
     }, 5500)
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides.length])
 
   useEffect(() => { if (indice >= slides.length) setIndice(0) }, [slides.length, indice])
@@ -241,39 +254,23 @@ function CarruselCursos({ lineas, cursos, onSelect }) {
   if (slides.length === 0) return null
 
   const irA = (i) => setIndice(((i % slides.length) + slides.length) % slides.length)
-
-  const onDown = (e) => {
-    setArrastrando(true)
-    pausadoRef.current = true
-    inicioRef.current = e.clientX
-  }
+  const onDown = (e) => { setArrastrando(true); pausadoRef.current = true; inicioRef.current = e.clientX }
   const onMove = (e) => { if (arrastrando) setOffsetX(e.clientX - inicioRef.current) }
   const terminarArrastre = (dx) => {
-    setArrastrando(false)
-    setOffsetX(0)
-    pausadoRef.current = false
-    const umbral = 50
-    if (dx > umbral) irA(indice - 1)
-    else if (dx < -umbral) irA(indice + 1)
+    setArrastrando(false); setOffsetX(0); pausadoRef.current = false
+    if (dx > 50) irA(indice - 1); else if (dx < -50) irA(indice + 1)
   }
   const onUp = (e) => terminarArrastre(e.clientX - inicioRef.current)
   const onLeaveTrack = () => { if (arrastrando) terminarArrastre(0) }
 
   return (
-    <div
-      className="carrusel"
+    <div className="carrusel"
       onMouseEnter={() => { pausadoRef.current = true }}
-      onMouseLeave={() => { if (!arrastrando) pausadoRef.current = false }}
-    >
-      <div
-        className={`carrusel-track${arrastrando ? ' arrastrando' : ''}`}
+      onMouseLeave={() => { if (!arrastrando) pausadoRef.current = false }}>
+      <div className={`carrusel-track${arrastrando ? ' arrastrando' : ''}`}
         style={{ transform: `translateX(calc(${-indice * 100}% + ${offsetX}px))` }}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerLeave={onLeaveTrack}
-        onPointerCancel={onLeaveTrack}
-      >
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
+        onPointerLeave={onLeaveTrack} onPointerCancel={onLeaveTrack}>
         {slides.map((s, i) => (
           <div className="carrusel-slide" key={s.linea}>
             <div className="carrusel-fondo"><PortadaCurso motivo={s.motivo} uid={`car${i}`} /></div>
@@ -281,27 +278,21 @@ function CarruselCursos({ lineas, cursos, onSelect }) {
             <div className="carrusel-texto">
               <h3>{s.linea}</h3>
               <p>{s.texto}</p>
-              <button type="button" className="button whatsapp" onClick={() => onSelect(s.linea)}>
-                Ver cursos
-              </button>
+              <button type="button" className="button whatsapp" onClick={() => onSelect(s.linea)}>Ver cursos</button>
             </div>
           </div>
         ))}
       </div>
-
       {slides.length > 1 && (
         <>
           <button type="button" className="carrusel-flecha izq" aria-label="Línea anterior" onClick={() => irA(indice - 1)}>‹</button>
           <button type="button" className="carrusel-flecha der" aria-label="Línea siguiente" onClick={() => irA(indice + 1)}>›</button>
           <div className="carrusel-puntos">
             {slides.map((s, i) => (
-              <button
-                type="button"
-                key={s.linea}
+              <button type="button" key={s.linea}
                 className={`punto${i === indice ? ' activo' : ''}`}
                 aria-label={`Ir a ${s.linea}`}
-                onClick={() => irA(i)}
-              />
+                onClick={() => irA(i)} />
             ))}
           </div>
         </>
@@ -432,6 +423,25 @@ function CursoCard({ curso, user, tieneAcceso }) {
   const navigate = useNavigate()
   const gratis = !!curso.gratuito
   const prox = !!curso.proximamente
+  const esContenedor = esContenedorTalleres(curso)
+
+  if (esContenedor) {
+    return (
+      <article className="course-card gratis contenedor">
+        <div className="course-portada">
+          <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+        </div>
+        <div className="course-info">
+          <span className="badge verde">Sección</span>
+          <h3>{curso.titulo}</h3>
+          <p className="contenedor-desc">{curso.descripcion}</p>
+          <div className="course-acciones">
+            <Link to={`/curso/${curso.id}`} className="button primary ancho">Ver todos los talleres →</Link>
+          </div>
+        </div>
+      </article>
+    )
+  }
 
   return (
     <article className={`course-card ${gratis ? 'gratis' : ''} ${prox ? 'proximo' : ''}`}>
@@ -448,6 +458,10 @@ function CursoCard({ curso, user, tieneAcceso }) {
 
         <h3>{curso.titulo}</h3>
 
+        {curso.fecha_sesion && (
+          <p className="fecha-sesion">📅 {curso.fecha_sesion}</p>
+        )}
+
         <button className="saber-mas" onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
           {abierto ? 'Ocultar detalles ▲' : 'Saber más ▼'}
         </button>
@@ -457,7 +471,7 @@ function CursoCard({ curso, user, tieneAcceso }) {
             <p>{curso.descripcion}</p>
             {curso.info_curso && (
               <div className="course-detalle-extra">
-                {curso.info_curso.split('\n').filter(Boolean).slice(0, 3).map((p, i) => <p key={i}>{p}</p>)}
+                {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
               </div>
             )}
           </div>
@@ -474,8 +488,7 @@ function CursoCard({ curso, user, tieneAcceso }) {
               <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar al taller</Link>
 
               {curso.link_sesion_vivo ? (
-                <a className="button azul ancho" target="_blank" rel="noopener noreferrer"
-                   href={curso.link_sesion_vivo}>
+                <a className="button azul ancho" target="_blank" rel="noopener noreferrer" href={curso.link_sesion_vivo}>
                   📅 Registrarme a la sesión en vivo
                 </a>
               ) : (
@@ -486,8 +499,7 @@ function CursoCard({ curso, user, tieneAcceso }) {
               )}
 
               {curso.link_grabacion ? (
-                <a className="button secondary ancho" target="_blank" rel="noopener noreferrer"
-                   href={curso.link_grabacion}>
+                <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
                   🎬 Ver grabación
                 </a>
               ) : (
@@ -531,7 +543,10 @@ function Home({ user }) {
       try {
         const { data, error } = await supabase.from('cursos').select('*').eq('activo', true).order('orden')
         if (error) throw error
-        setCursos(data || [])
+        // Los talleres individuales (gratuitos sin línea) viven dentro del contenedor,
+        // no se muestran en la Home para evitar duplicidad.
+        const cursosHome = (data || []).filter(c => !esTallerIndividual(c))
+        setCursos(cursosHome)
         if (user) {
           const { data: acc } = await supabase.from('acceso').select('curso_id').eq('usuario_id', user.id)
           setAccesos(new Set((acc || []).map(a => a.curso_id)))
@@ -571,7 +586,6 @@ function Home({ user }) {
             </a>
           </div>
         </div>
-
         {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} />}
       </section>
 
@@ -584,22 +598,12 @@ function Home({ user }) {
 
         {lineas.length > 0 && (
           <div className="menu-lineas">
-            <button
-              type="button"
-              className={`linea-pill${lineaActiva === 'todas' ? ' activa' : ''}`}
-              onClick={() => setLineaActiva('todas')}
-            >
-              Todas
-            </button>
+            <button type="button" className={`linea-pill${lineaActiva === 'todas' ? ' activa' : ''}`}
+              onClick={() => setLineaActiva('todas')}>Todas</button>
             {lineas.map((l) => (
-              <button
-                type="button"
-                key={l}
+              <button type="button" key={l}
                 className={`linea-pill${lineaActiva === l ? ' activa' : ''}`}
-                onClick={() => setLineaActiva(l)}
-              >
-                {l}
-              </button>
+                onClick={() => setLineaActiva(l)}>{l}</button>
             ))}
           </div>
         )}
@@ -780,7 +784,7 @@ function Perfil({ user }) {
 }
 
 /* ============================================================
-   PANEL DE ADMINISTRADOR
+   PANEL ADMIN
    ============================================================ */
 function Admin({ user, esAdmin }) {
   const [filas, setFilas] = useState([])
@@ -852,20 +856,12 @@ function Admin({ user, esAdmin }) {
           </tbody>
         </table>
       </div>
-      <div className="panel-info">
-        <h3>Para inscribir a alguien</h3>
-        <p className="sutil">
-          1) Authentication → Users → Add user (con "Auto Confirm User").<br />
-          2) SQL Editor → el INSERT en <code>acceso</code> con su correo y el nombre del curso.<br />
-          3) Si es de un grupo de supervisión, agrega también la columna <code>grupo</code> ('A', 'B' o 'C').
-        </p>
-      </div>
     </section>
   )
 }
 
 /* ============================================================
-   VISOR DE PDF
+   VISOR PDF
    ============================================================ */
 function PdfViewer({ archivo, bucket }) {
   const [pages, setPages] = useState([])
@@ -935,7 +931,7 @@ function PdfPage({ page, n, total }) {
 }
 
 /* ============================================================
-   OTROS RECURSOS
+   RECURSOS
    ============================================================ */
 function VideoPlayer({ url }) {
   if (!url) return <div className="aviso-error">La grabación todavía no está disponible. La subiré pronto.</div>
@@ -982,9 +978,6 @@ function Autoevaluacion({ url, recursoId, userId, onComplete }) {
   )
 }
 
-/* ============================================================
-   TARJETA DE RECURSO
-   ============================================================ */
 function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
@@ -1039,9 +1032,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
             {abierto ? 'Ocultar material' : 'Ver material'}
           </button>
         )}
-        {videoSinUrl && (
-          <button className="button secondary" disabled>🎬 Grabación en proceso</button>
-        )}
+        {videoSinUrl && <button className="button secondary" disabled>🎬 Grabación en proceso</button>}
         {recurso.tipo === 'enlace' && (
           <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
         )}
@@ -1094,22 +1085,15 @@ function CursoView({ user, esAdmin }) {
         if (!c) { setEstado('ok'); return }
         if (c.proximamente) { setEstado('proximo'); return }
 
-        // Contenedor "Talleres gratuitos": en vez de módulos, muestra los talleres como tarjetas.
-        const esContenedor = /talleres\s+gratuitos/i.test(c.titulo || '')
-        if (esContenedor) {
+        if (esContenedorTalleres(c)) {
           const { data: hermanos, error: eH } = await supabase.from('cursos')
-            .select('*')
-            .eq('gratuito', true)
-            .eq('activo', true)
-            .neq('id', c.id)
-            .order('orden')
+            .select('*').eq('gratuito', true).eq('activo', true).neq('id', c.id).order('orden')
           if (eH) throw eH
           setTalleres(hermanos || [])
           setEstado('talleres')
           return
         }
 
-        // Curso normal: valida acceso y carga módulos.
         let miGrupo = null
         if (!esAdmin && !c.gratuito) {
           if (!user) { setEstado('requiere_login'); return }
@@ -1152,7 +1136,6 @@ function CursoView({ user, esAdmin }) {
   if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
 
-  // --- VISTA: contenedor de talleres gratuitos ---
   if (estado === 'talleres') {
     return (
       <section className="contenedor">
@@ -1169,18 +1152,13 @@ function CursoView({ user, esAdmin }) {
         <h2 className="titulo-seccion">Talleres disponibles</h2>
         {talleres.length === 0
           ? <p className="sutil">Todavía no hay talleres publicados en esta sección.</p>
-          : (
-            <div className="course-grid">
-              {talleres.map(t => (
-                <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />
-              ))}
-            </div>
-          )}
+          : <div className="course-grid">
+              {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />)}
+            </div>}
       </section>
     )
   }
 
-  // --- VISTA: próximo / requiere login / sin acceso ---
   if (estado === 'proximo' || estado === 'requiere_login' || estado === 'sin_acceso') {
     const prox = estado === 'proximo'
     return (
@@ -1211,7 +1189,6 @@ function CursoView({ user, esAdmin }) {
     )
   }
 
-  // --- VISTA: curso normal con módulos ---
   return (
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
@@ -1236,10 +1213,7 @@ function CursoView({ user, esAdmin }) {
           <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">
             <span className="modulo-num">{i + 1}</span>
             <div>
-              <h3>
-                {m.titulo}
-                {m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}
-              </h3>
+              <h3>{m.titulo}{m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}</h3>
               <p>{m.descripcion}</p>
             </div>
             <span className="modulo-flecha">→</span>
@@ -1285,10 +1259,8 @@ function ModuloView({ user, esAdmin }) {
         }
 
         setModulo(m)
-
         const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito').eq('id', m.curso_id).maybeSingle()
         setCurso(c)
-
         const { data: rs, error: eR } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
         if (eR) throw eR
         setRecursos(rs || [])
@@ -1350,7 +1322,6 @@ function ModuloView({ user, esAdmin }) {
         { label: curso?.titulo || 'Curso', to: curso ? `/curso/${curso.id}` : '/' },
         { label: modulo.titulo }
       ]} />
-
       <div className="modulo-layout">
         <aside className="modulo-sidebar">
           <div className="side-bloque">
@@ -1365,7 +1336,6 @@ function ModuloView({ user, esAdmin }) {
               ))}
             </ul>
           </div>
-
           {recursos.length > 0 && (
             <div className="side-bloque">
               <h4>En este módulo</h4>
@@ -1382,7 +1352,6 @@ function ModuloView({ user, esAdmin }) {
               </ul>
             </div>
           )}
-
           <div className="side-bloque atajos">
             <h4>Atajos</h4>
             <Link to="/" className="side-atajo">🏠 Inicio</Link>
@@ -1395,16 +1364,12 @@ function ModuloView({ user, esAdmin }) {
 
         <main className="modulo-main">
           <header className="modulo-encabezado">
-            <h1>
-              {modulo.titulo}
-              {modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}
-            </h1>
+            <h1>{modulo.titulo}{modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}</h1>
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
             {user && recursos.length > 0 && (
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
             )}
           </header>
-
           <div className="recursos-list">
             {recursos.map((r) => (
               <RecursoCard key={r.id} recurso={r} bucket={bucket} user={user}
@@ -1412,7 +1377,6 @@ function ModuloView({ user, esAdmin }) {
             ))}
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
           </div>
-
           <nav className="navegacion-modulos">
             {prev
               ? <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>
