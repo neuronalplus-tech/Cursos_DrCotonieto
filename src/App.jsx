@@ -1080,6 +1080,7 @@ function CursoView({ user, esAdmin }) {
   const navigate = useNavigate()
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
+  const [talleres, setTalleres] = useState([])
   const [progreso, setProgreso] = useState(0)
   const [estado, setEstado] = useState('cargando')
   const [error, setError] = useState(null)
@@ -1093,8 +1094,22 @@ function CursoView({ user, esAdmin }) {
         if (!c) { setEstado('ok'); return }
         if (c.proximamente) { setEstado('proximo'); return }
 
-        // Admin: acceso total, sin filtro de grupo.
-        // Alumno: hay que validar inscripción y leer su grupo.
+        // Contenedor "Talleres gratuitos": en vez de módulos, muestra los talleres como tarjetas.
+        const esContenedor = /talleres\s+gratuitos/i.test(c.titulo || '')
+        if (esContenedor) {
+          const { data: hermanos, error: eH } = await supabase.from('cursos')
+            .select('*')
+            .eq('gratuito', true)
+            .eq('activo', true)
+            .neq('id', c.id)
+            .order('orden')
+          if (eH) throw eH
+          setTalleres(hermanos || [])
+          setEstado('talleres')
+          return
+        }
+
+        // Curso normal: valida acceso y carga módulos.
         let miGrupo = null
         if (!esAdmin && !c.gratuito) {
           if (!user) { setEstado('requiere_login'); return }
@@ -1108,7 +1123,6 @@ function CursoView({ user, esAdmin }) {
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
         if (eM) throw eM
 
-        // Admin ve todos los módulos. Alumno ve los comunes + los de su grupo.
         const modsVisibles = esAdmin
           ? (mods || [])
           : (mods || []).filter(m => !m.grupo || m.grupo === miGrupo)
@@ -1138,6 +1152,35 @@ function CursoView({ user, esAdmin }) {
   if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
 
+  // --- VISTA: contenedor de talleres gratuitos ---
+  if (estado === 'talleres') {
+    return (
+      <section className="contenedor">
+        <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
+        <div className="curso-encabezado">
+          <h1>{curso.titulo}</h1>
+          <p className="curso-desc">{curso.descripcion}</p>
+        </div>
+        {curso.info_curso && (
+          <div className="curso-info-extra">
+            {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+          </div>
+        )}
+        <h2 className="titulo-seccion">Talleres disponibles</h2>
+        {talleres.length === 0
+          ? <p className="sutil">Todavía no hay talleres publicados en esta sección.</p>
+          : (
+            <div className="course-grid">
+              {talleres.map(t => (
+                <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />
+              ))}
+            </div>
+          )}
+      </section>
+    )
+  }
+
+  // --- VISTA: próximo / requiere login / sin acceso ---
   if (estado === 'proximo' || estado === 'requiere_login' || estado === 'sin_acceso') {
     const prox = estado === 'proximo'
     return (
@@ -1168,6 +1211,7 @@ function CursoView({ user, esAdmin }) {
     )
   }
 
+  // --- VISTA: curso normal con módulos ---
   return (
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
@@ -1228,7 +1272,6 @@ function ModuloView({ user, esAdmin }) {
         if (eM) throw eM
         if (!m) { setError('Este módulo no existe o no tienes acceso a él.'); return }
 
-        // Grupo del usuario en este curso
         let miGrupo = null
         if (user) {
           const { data: accG } = await supabase.from('acceso')
@@ -1236,7 +1279,6 @@ function ModuloView({ user, esAdmin }) {
           miGrupo = accG?.grupo || null
         }
 
-        // Bloqueo: si el módulo pertenece a un grupo y no eres admin, solo ese grupo entra.
         if (!esAdmin && m.grupo && m.grupo !== miGrupo) {
           setError('Este módulo pertenece a otro grupo de supervisión. Escríbeme para revisar tu acceso.')
           return
