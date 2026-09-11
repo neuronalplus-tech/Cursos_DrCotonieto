@@ -398,3 +398,5 @@ a { color: var(--primary); }
   * { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+.modulo-card.bloqueado { opacity: .6; cursor: not-allowed; pointer-events: none; }
+.modulo-card.bloqueado:hover { transform: none; border-color: var(--borde); box-shadow: none; }
