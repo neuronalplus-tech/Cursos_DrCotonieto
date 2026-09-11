@@ -95,6 +95,7 @@ const DETALLES_DUELO = {
   subtitulo: 'Dos rutas paralelas, mismo rigor clínico, distinto punto de partida.',
   rutas: {
     acompanamiento: {
+      grupo: 'Acompañamiento',
       nombre: 'Ruta Acompañamiento',
       dirigida: 'Para profesionales que acompañan personas en duelo sin ser especialistas en salud mental.',
       paraTiSi: 'En tu trabajo te toca sostener a alguien que perdió a alguien, y muchas veces no sabes qué decir. Te preocupa meter la pata, decir algo que empeore las cosas, o darte cuenta tarde de que esa persona necesitaba más ayuda de la que tú podías darle.',
@@ -110,6 +111,7 @@ const DETALLES_DUELO = {
       materiales: 'Cuadernillo de trabajo por módulo · guía de exploración · rejilla de señales de alarma · banco de frases · mapa de alcance y ruta de derivación · grabación · constancia de participación.'
     },
     clinica: {
+      grupo: 'Clínica',
       nombre: 'Ruta Clínica',
       dirigida: 'Para profesionales de salud mental que atienden duelo en consulta.',
       paraTiSi: 'Atiendes casos de duelo en consulta y quieres pasar de acompañar con oficio a formular con método. Te interesa entender por qué esta persona sigue atascada y qué cadena concreta la mantiene ahí.',
@@ -1375,7 +1377,6 @@ function CursoView({ user, esAdmin }) {
           return
         }
 
-        // Cargamos módulos aunque no haya login. Si no hay usuario, miGrupo = null y todo queda bloqueado pero visible.
         let grupo = null
         if (!esAdmin && !c.gratuito && user) {
           const { data: acc } = await supabase.from('acceso')
@@ -1639,19 +1640,35 @@ function CursoView({ user, esAdmin }) {
 /* ============================================================
    DETALLE DEL CURSO (página de rutas lado a lado)
    ============================================================ */
-function CursoDetalle() {
+function CursoDetalle({ user, esAdmin }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [curso, setCurso] = useState(null)
+  const [modulos, setModulos] = useState([])
+  const [miGrupo, setMiGrupo] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('cursos').select('*').eq('id', id).maybeSingle()
-      setCurso(data); setLoading(false)
+      const { data: c } = await supabase.from('cursos').select('*').eq('id', id).maybeSingle()
+      setCurso(c)
+
+      let grupo = null
+      if (!esAdmin && user) {
+        const { data: acc } = await supabase.from('acceso')
+          .select('grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
+        if (acc) grupo = acc.grupo || null
+      }
+      setMiGrupo(grupo)
+
+      const { data: mods } = await supabase.from('modulos')
+        .select('id, titulo, orden, grupo, disponible, activo')
+        .eq('curso_id', id).eq('activo', true).order('orden')
+      setModulos(mods || [])
+      setLoading(false)
     }
     load()
-  }, [id])
+  }, [id, user, esAdmin])
 
   if (loading) return <div className="loading">Cargando detalles...</div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
@@ -1670,39 +1687,81 @@ function CursoDetalle() {
 
   const { acompanamiento, clinica } = DETALLES_DUELO.rutas
 
-  const RutaCol = ({ ruta }) => (
-    <article className="ruta-col">
-      <header className="ruta-header">
-        <h2>{ruta.nombre}</h2>
-        <p className="ruta-dirigida">{ruta.dirigida}</p>
-      </header>
+  const tieneAccesoAlGrupo = (g) => {
+    if (esAdmin) return true
+    if (!user) return false
+    if (!g) return true
+    return miGrupo === g
+  }
 
-      <div className="ruta-para-ti">
-        <p className="ruta-para-ti-titulo">Esta ruta es para ti si…</p>
-        <p>{ruta.paraTiSi}</p>
-        <p className="ruta-publicos">{ruta.publicos}</p>
-        <p className="ruta-nota">{ruta.notaFinal}</p>
-      </div>
+  const RutaCol = ({ ruta }) => {
+    const tieneAcceso = tieneAccesoAlGrupo(ruta.grupo)
+    const modsRuta = modulos
+      .filter(m => m.grupo === ruta.grupo)
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+    const primerModulo = modsRuta.find(m => esAdmin || (m.disponible !== false && tieneAcceso))
 
-      <h3 className="ruta-subtitulo">Los cuatro módulos</h3>
-      <ol className="ruta-modulos">
-        {ruta.modulos.map(m => (
-          <li key={m.num}>
-            <div className="ruta-mod-num">Módulo {m.num}</div>
-            <h4>{m.titulo}</h4>
-            <p>{m.descripcion}</p>
-          </li>
-        ))}
-      </ol>
+    return (
+      <article className="ruta-col">
+        <header className="ruta-header">
+          <h2>{ruta.nombre}</h2>
+          <p className="ruta-dirigida">{ruta.dirigida}</p>
+        </header>
 
-      <div className="ruta-info">
-        <h4>Metodología</h4>
-        <p>{ruta.metodologia}</p>
-        <h4>Materiales</h4>
-        <p>{ruta.materiales}</p>
-      </div>
-    </article>
-  )
+        <div className="ruta-para-ti">
+          <p className="ruta-para-ti-titulo">Esta ruta es para ti si…</p>
+          <p>{ruta.paraTiSi}</p>
+          <p className="ruta-publicos">{ruta.publicos}</p>
+          <p className="ruta-nota">{ruta.notaFinal}</p>
+        </div>
+
+        <h3 className="ruta-subtitulo">Los cuatro módulos</h3>
+        <ol className="ruta-modulos">
+          {ruta.modulos.map(m => (
+            <li key={m.num}>
+              <div className="ruta-mod-num">Módulo {m.num}</div>
+              <h4>{m.titulo}</h4>
+              <p>{m.descripcion}</p>
+            </li>
+          ))}
+        </ol>
+
+        <div className="ruta-info">
+          <h4>Metodología</h4>
+          <p>{ruta.metodologia}</p>
+          <h4>Materiales</h4>
+          <p>{ruta.materiales}</p>
+        </div>
+
+        {!tieneAcceso && (
+          <p className="ruta-section-lock" style={{ marginTop: 18 }}>
+            {!user
+              ? '🔒 Esta ruta requiere inscripción. Solicita información o inicia sesión si ya tienes acceso.'
+              : '🔒 Aún no tienes acceso a esta ruta. Solicita información o usa la cuenta correcta.'}
+          </p>
+        )}
+
+        <div className="ruta-cta">
+          <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+             href={wa(`Hola, me interesa la ${ruta.nombre} del curso "${curso.titulo}". ¿Me compartes información e inscripción?`)}>
+            💬 Solicitar información
+          </a>
+          <button className="button secondary ancho" onClick={() => {
+            if (esAdmin || tieneAcceso) {
+              if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
+              else navigate(`/curso/${id}`)
+            } else if (!user) {
+              navigate(rutaAcceso(`/curso/${id}/detalles`))
+            } else {
+              alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
+            }
+          }}>
+            {esAdmin || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
+          </button>
+        </div>
+      </article>
+    )
+  }
 
   return (
     <section className="contenedor">
@@ -1716,6 +1775,12 @@ function CursoDetalle() {
           <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
         </p>
       </header>
+
+      {!user && (
+        <div className="admin-banner" style={{ background: '#EEF2F4', borderLeftColor: '#1B3A4B', color: '#1B3A4B', marginBottom: 28 }}>
+          Estás viendo los detalles de las dos rutas. Para acceder a los materiales, <strong>inicia sesión</strong> con tus datos o escríbeme para inscribirte en la ruta que te corresponde.
+        </div>
+      )}
 
       <div className="rutas-grid">
         <RutaCol ruta={acompanamiento} />
@@ -2130,7 +2195,7 @@ function App() {
           <Route path="/perfil" element={<Perfil user={user} />} />
           <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
           <Route path="/curso/:id" element={<CursoView user={user} esAdmin={esAdmin} />} />
-          <Route path="/curso/:id/detalles" element={<CursoDetalle />} />
+          <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} esAdmin={esAdmin} />} />
           <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
           <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
         </Routes>
