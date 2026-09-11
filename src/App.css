@@ -683,6 +683,45 @@ a { color: var(--primary); }
   gap: 14px;
   justify-content: center;
   flex-wrap: wrap;
+  /* ============================================================
+   RUTAS DEL CURSO (agrupación de módulos por ruta)
+   ============================================================ */
+.ruta-section {
+  margin-top: 36px;
+  padding-top: 30px;
+  border-top: 1px solid var(--borde);
+}
+.ruta-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 18px;
+}
+.ruta-section-header { margin-bottom: 20px; }
+.ruta-section-header .titulo-seccion { margin: 0 0 6px; }
+.ruta-section-sub {
+  color: var(--gris);
+  font-size: 14.5px;
+  margin: 0;
+  max-width: 680px;
+}
+.ruta-section-lock {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: #FBF3EF;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--primary);
+}
+.ruta-cta {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.ruta-cta .button {
+  flex: 1 1 220px;
+}
   margin-top: 40px;
   padding-top: 32px;
   border-top: 1px solid var(--borde);
