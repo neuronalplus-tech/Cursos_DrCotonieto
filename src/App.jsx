@@ -26,6 +26,7 @@ const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
 const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
 
 const FOTO_PERFIL = '/foto-perfil.jpg'
+const FOTO_HEADER = '/foto_perfil_instagram_facebook.jpg'
 const LOGO_CLARO = '/logo_claro_1024.png'
 const LOGO_BLANCO = '/logo_blanco_1024.png'
 
@@ -76,6 +77,57 @@ const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', a
 const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
 
 /* ============================================================
+   CURSOS CON METADATOS ESPECIALES (aviso de disponibilidad)
+   ============================================================ */
+const CURSOS_ESPECIALES = {
+  duelo: {
+    patron: /duelo\s+normativo/i,
+    disponibleDesde: '1 de octubre',
+    detallesKey: 'duelo'
+  }
+}
+
+/* ============================================================
+   CONTENIDO DE LA PÁGINA DE DETALLES DEL CURSO DE DUELO
+   ============================================================ */
+const DETALLES_DUELO = {
+  intro: 'Evaluación y acompañamiento en duelo normativo y prolongado',
+  subtitulo: 'Dos rutas paralelas, mismo rigor clínico, distinto punto de partida.',
+  rutas: {
+    acompanamiento: {
+      nombre: 'Ruta Acompañamiento',
+      dirigida: 'Para profesionales que acompañan personas en duelo sin ser especialistas en salud mental.',
+      paraTiSi: 'En tu trabajo te toca sostener a alguien que perdió a alguien, y muchas veces no sabes qué decir. Te preocupa meter la pata, decir algo que empeore las cosas, o darte cuenta tarde de que esa persona necesitaba más ayuda de la que tú podías darle.',
+      publicos: 'Docencia · salud · recursos humanos · trabajo social · acompañamiento espiritual · tanatología · servicios funerarios · voluntariado · y cualquier profesión donde acompañar sea parte del trabajo.',
+      notaFinal: 'No necesitas formación en salud mental. Aquí aprendes a acompañar bien y a derivar a tiempo.',
+      modulos: [
+        { num: 1, titulo: 'Leer el duelo con modelo, no con intuición', descripcion: 'Los modelos que sí se sostienen con evidencia: la oscilación entre pérdida y restauración (Proceso Dual), las tareas del duelo (Worden) y la transformación del vínculo (vínculos continuos). Por qué las "cinco etapas" se malinterpretaron y qué usar en su lugar. Cómo se ve, concretamente, un duelo que avanza aunque duela.' },
+        { num: 2, titulo: 'Distinguir lo normativo de lo prolongado', descripcion: 'Los criterios actuales (DSM-5-TR) explicados y aplicados sobre dos casos gemelos, uno al lado del otro. Qué es realmente una señal de alarma y qué solo parece serlo. La pregunta que decide: ¿el vínculo acompaña la vida o la sustituye?' },
+        { num: 3, titulo: 'Acompañar con técnica', descripcion: 'Validación que no refuerza la evitación, con las frases exactas y las que hay que dejar de decir. Anclaje y regulación para sostener a alguien desbordado. Activación por valores. Desgaste por empatía y cómo prevenirlo.' },
+        { num: 4, titulo: 'Riesgo, límites y derivación', descripcion: 'Cómo preguntar por ideación suicida sin rodeos y sin miedo. Qué hacer con cada respuesta (semáforo de conducta). Dónde termina tu rol y empieza el de salud mental, según tu profesión. Cómo derivar sin que se viva como abandono.' }
+      ],
+      metodologia: 'Cuatro sesiones en vivo, una por semana. Cápsula breve antes de cada una; la sesión se usa para trabajar casos, no para exponer. Ejercicios de refuerzo autocalificables y opcionales. Dos casos gemelos te acompañan las cuatro semanas.',
+      materiales: 'Cuadernillo de trabajo por módulo · guía de exploración · rejilla de señales de alarma · banco de frases · mapa de alcance y ruta de derivación · grabación de la exposición docente · constancia de participación.'
+    },
+    clinica: {
+      nombre: 'Ruta Clínica',
+      dirigida: 'Para profesionales de salud mental que atienden duelo en consulta.',
+      paraTiSi: 'Atiendes casos de duelo en consulta y quieres pasar de acompañar con oficio a formular con método. Te interesa entender por qué esta persona sigue atascada y qué cadena concreta la mantiene ahí —y traducir esa lectura en un plan con orden justificado.',
+      publicos: 'Psicología clínica · psiquiatría · psicoterapia · estudiantes de posgrado en salud mental · profesionales en formación clínica supervisada.',
+      notaFinal: 'Requiere formación en salud mental. Aquí trabajas evaluación diferencial, formulación funcional y diseño de intervención.',
+      modulos: [
+        { num: 1, titulo: 'Evaluación diferencial del duelo', descripcion: 'Criterios DSM-5-TR de trastorno de duelo prolongado aplicados reactivo por reactivo sobre dos casos gemelos. Tamizaje con PG-13-R. Diferencial fino contra depresión, TEPT y trastorno adaptativo. Exploración estructurada de riesgo suicida.' },
+        { num: 2, titulo: 'Formulación funcional del caso', descripcion: 'Arquitectura Nezu, Nezu y Lombardo completa: variables distales, antecedentes proximales, variables organísmicas, cuatro canales de respuesta y análisis funcional del mantenimiento. Construyes el Mapa de Patogénesis y el Mapa de Alcance de Metas.' },
+        { num: 3, titulo: 'Intervención: autorregulación y exposición graduada', descripcion: 'Secuencia DBT de tolerancia al malestar. Anclaje mindfulness como prerrequisito. Defusión desde ACT. Jerarquía de exposición derivada del análisis funcional. Alternancia pérdida↔restauración según el Modelo de Proceso Dual.' },
+        { num: 4, titulo: 'Riesgo, límites y derivación', descripcion: 'Plan de seguridad co-construido. Manejo del ámbar sostenido. Qué tiene evidencia para duelo prolongado (Terapia de Shear, 16 sesiones). Límites por profesión. Documentación mínima defendible alineada a NOM-004.' }
+      ],
+      metodologia: 'Cuatro sesiones en vivo, una por semana. Cápsula breve antes de cada una para llegar con el marco leído; la sesión se usa para formular, no para exponer. Dos casos gemelos te acompañan las cuatro semanas.',
+      materiales: 'Cuadernillo clínico por módulo · formatos de formulación y mapas · rejilla de diferencial · guía de exploración de riesgo · formato de nota clínica alineado a la NOM-004-SSA3-2012 · grabación de la exposición docente · constancia de participación.'
+    }
+  }
+}
+
+/* ============================================================
    HELPERS
    ============================================================ */
 function esContenedorTalleres(curso) {
@@ -109,6 +161,11 @@ function emiteConstancia(curso) {
   if (curso.gratuito) return false
   if (curso.constancia === false) return false
   return true
+}
+
+function cursoEspecial(curso) {
+  if (!curso) return null
+  return Object.values(CURSOS_ESPECIALES).find(e => e.patron.test(curso.titulo || '')) || null
 }
 
 /* ============================================================
@@ -287,7 +344,7 @@ function CarruselCursos({ lineas, cursos, onSelect }) {
     <div className="carrusel"
       onMouseEnter={() => { pausadoRef.current = true }}
       onMouseLeave={() => { if (!arrastrando) pausadoRef.current = false }}>
-      <div className={`carrusel-track${arrastrando ? ' arrastrando' : ''}`}
+      <div className={`carrusel-track${arrastrando ? ' arrastando' : ''}`}
         style={{ transform: `translateX(calc(${-indice * 100}% + ${offsetX}px))` }}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
         onPointerLeave={onLeaveTrack} onPointerCancel={onLeaveTrack}>
@@ -345,6 +402,47 @@ function WhatsAppFlotante() {
   )
 }
 
+/* ============================================================
+   NAVEGACIÓN FLOTANTE EN MÓDULOS
+   ============================================================ */
+function NavegacionFlotante({ prev, next, curso, mostrarConstancia }) {
+  const navigate = useNavigate()
+  return (
+    <nav className="nav-flotante" aria-label="Navegación del módulo">
+      <button type="button" className="nav-flotante-btn" onClick={() => navigate('/')}>
+        <span className="nav-flotante-icono">🏠</span>
+        <span className="nav-flotante-texto">Inicio</span>
+      </button>
+      <button type="button" className="nav-flotante-btn" disabled={!prev}
+              onClick={() => prev && navigate(`/modulo/${prev.id}`)}>
+        <span className="nav-flotante-icono">←</span>
+        <span className="nav-flotante-texto">Anterior</span>
+      </button>
+      {curso && (
+        <button type="button" className="nav-flotante-btn" onClick={() => navigate(`/curso/${curso.id}`)}>
+          <span className="nav-flotante-icono">📚</span>
+          <span className="nav-flotante-texto">Curso</span>
+        </button>
+      )}
+      {next ? (
+        <button type="button" className="nav-flotante-btn destacado" onClick={() => navigate(`/modulo/${next.id}`)}>
+          <span className="nav-flotante-texto">Siguiente</span>
+          <span className="nav-flotante-icono">→</span>
+        </button>
+      ) : (mostrarConstancia && curso) ? (
+        <button type="button" className="nav-flotante-btn constancia" onClick={() => navigate(`/constancia/${curso.id}`)}>
+          <span className="nav-flotante-icono">🏆</span>
+          <span className="nav-flotante-texto">Constancia</span>
+        </button>
+      ) : (
+        <button type="button" className="nav-flotante-btn" disabled>
+          <span className="nav-flotante-texto">Fin</span>
+        </button>
+      )}
+    </nav>
+  )
+}
+
 const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(destino)}`
 
 /* ============================================================
@@ -360,7 +458,8 @@ function Header({ user, esAdmin, onLogout }) {
       <div className="header-content">
         <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
              onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
-          <img src={LOGO_BLANCO} alt="" className="logo" />
+          <img src={FOTO_HEADER} alt="Dr. Ernesto Cotonieto" className="logo-foto"
+               onError={(e) => { e.currentTarget.src = LOGO_BLANCO; e.currentTarget.classList.add('es-logo') }} />
           <span className="brand-name">Dr. Ernesto Cotonieto</span>
         </div>
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
@@ -446,6 +545,8 @@ function CursoCard({ curso, user, tieneAcceso }) {
   const prox = !!curso.proximamente
   const esContenedor = esContenedorTalleres(curso)
   const mostrarCustom = !gratis && !prox && !esContenedor
+  const especial = cursoEspecial(curso)
+  const tieneDetalles = !!especial
 
   if (esContenedor) {
     return (
@@ -479,6 +580,13 @@ function CursoCard({ curso, user, tieneAcceso }) {
               : <span className="badge neutro">Requiere inscripción</span>}
 
         <h3>{curso.titulo}</h3>
+
+        {especial && (
+          <p className="curso-disponible-card">
+            <span className="curso-disponible-label">Disponible a partir del</span>
+            <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+          </p>
+        )}
 
         {curso.fecha_sesion && (
           <p className="fecha-sesion">📅 {curso.fecha_sesion}</p>
@@ -522,6 +630,11 @@ function CursoCard({ curso, user, tieneAcceso }) {
         )}
 
         <div className="course-acciones">
+          {tieneDetalles && (
+            <Link to={`/curso/${curso.id}/detalles`} className="button secondary ancho">
+              📋 Ver detalles y rutas
+            </Link>
+          )}
           {prox ? (
             <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
                href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>
@@ -1106,6 +1219,131 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
 }
 
 /* ============================================================
+   EXAMEN POR MÓDULO
+   ============================================================ */
+function ExamenModulo({ moduloId, user }) {
+  const [examen, setExamen] = useState(null)
+  const [intentos, setIntentos] = useState([])
+  const [respuestas, setRespuestas] = useState({})
+  const [enviando, setEnviando] = useState(false)
+  const [resultado, setResultado] = useState(null)
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const { data: ex } = await supabase.from('examenes').select('*')
+        .eq('modulo_id', moduloId).eq('activo', true).maybeSingle()
+      setExamen(ex)
+      if (ex && user) {
+        const { data: int } = await supabase.from('intentos_examen')
+          .select('*').eq('usuario_id', user.id).eq('examen_id', ex.id)
+          .order('fecha', { ascending: false })
+        setIntentos(int || [])
+      }
+      setCargando(false)
+    }
+    load()
+  }, [moduloId, user])
+
+  if (cargando) return null
+  if (!examen) return null
+  if (!user) return null
+
+  const calificar = () => {
+    const preguntas = examen.preguntas || []
+    let correctas = 0
+    preguntas.forEach(p => {
+      const idx = respuestas[p.id]
+      if (idx != null && p.opciones?.[idx]?.correcta) correctas++
+    })
+    const calificacion = preguntas.length ? Math.round((correctas / preguntas.length) * 100) : 0
+    return { calificacion, aprobado: calificacion >= examen.umbral_aprobacion }
+  }
+
+  const enviar = async () => {
+    const preguntas = examen.preguntas || []
+    if (Object.keys(respuestas).length < preguntas.length) {
+      alert('Responde todas las preguntas antes de enviar.'); return
+    }
+    setEnviando(true)
+    const { calificacion, aprobado } = calificar()
+    const { error } = await supabase.from('intentos_examen').insert({
+      usuario_id: user.id,
+      examen_id: examen.id,
+      respuestas,
+      calificacion,
+      aprobado
+    })
+    if (error) { alert('Error al guardar: ' + error.message); setEnviando(false); return }
+    setResultado({ calificacion, aprobado })
+    setIntentos(prev => [{ calificacion, aprobado, fecha: new Date().toISOString() }, ...prev])
+    setEnviando(false)
+  }
+
+  const reintentar = () => { setRespuestas({}); setResultado(null) }
+  const mejor = intentos.reduce((m, i) => Math.max(m, i.calificacion), 0)
+
+  return (
+    <div className="examen-bloque">
+      <header className="examen-header">
+        <span className="recurso-icono">✍️</span>
+        <div>
+          <h3>{examen.titulo}</h3>
+          {examen.descripcion && <p className="recurso-desc">{examen.descripcion}</p>}
+          <p className="examen-meta">Aprobación con {examen.umbral_aprobacion}% · Mejor intento: {mejor}%</p>
+        </div>
+      </header>
+
+      {resultado ? (
+        <div className={resultado.aprobado ? 'aviso-ok' : 'aviso-error'}>
+          <strong>{resultado.aprobado ? '✅ Aprobado' : '❌ No aprobado'}</strong> — {resultado.calificacion}%
+          <div style={{ marginTop: 10 }}>
+            <button className="button secondary" onClick={reintentar}>Volver a intentar</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <ol className="examen-preguntas">
+            {(examen.preguntas || []).map((p) => (
+              <li key={p.id}>
+                <p className="examen-pregunta">{p.pregunta}</p>
+                <div className="examen-opciones">
+                  {p.opciones.map((o, j) => (
+                    <label key={j} className={`examen-opcion ${respuestas[p.id] === j ? 'sel' : ''}`}>
+                      <input type="radio" name={p.id}
+                             checked={respuestas[p.id] === j}
+                             onChange={() => setRespuestas(r => ({ ...r, [p.id]: j }))} />
+                      <span>{o.texto}</span>
+                    </label>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+          <button className="button primary" onClick={enviar} disabled={enviando}>
+            {enviando ? 'Enviando...' : 'Enviar respuestas'}
+          </button>
+        </>
+      )}
+
+      {intentos.length > 0 && (
+        <details className="examen-historial">
+          <summary>Historial de intentos ({intentos.length})</summary>
+          <ul>
+            {intentos.map((it, i) => (
+              <li key={i}>
+                {new Date(it.fecha).toLocaleDateString('es-MX')} — {it.calificacion}%{' '}
+                {it.aprobado ? '✅' : '❌'}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  )
+}
+
+/* ============================================================
    CURSO
    ============================================================ */
 function CursoView({ user, esAdmin }) {
@@ -1230,11 +1468,19 @@ function CursoView({ user, esAdmin }) {
     )
   }
 
+  const especial = cursoEspecial(curso)
+
   return (
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
       <div className="curso-encabezado">
         <h1>{curso.titulo}</h1>
+        {especial && (
+          <p className="curso-disponible">
+            <span className="curso-disponible-label">Disponible a partir del</span>
+            <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+          </p>
+        )}
         <p className="curso-desc">{curso.descripcion}</p>
       </div>
       {curso.info_curso && (
@@ -1284,6 +1530,103 @@ function CursoView({ user, esAdmin }) {
             : <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
         })}
         {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
+      </div>
+    </section>
+  )
+}
+
+/* ============================================================
+   DETALLE DEL CURSO (página de rutas lado a lado)
+   ============================================================ */
+function CursoDetalle() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [curso, setCurso] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('cursos').select('*').eq('id', id).maybeSingle()
+      setCurso(data); setLoading(false)
+    }
+    load()
+  }, [id])
+
+  if (loading) return <div className="loading">Cargando detalles...</div>
+  if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
+
+  const especial = cursoEspecial(curso)
+  if (!especial || especial.detallesKey !== 'duelo') {
+    return (
+      <section className="contenedor">
+        <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo, to: `/curso/${id}` }, { label: 'Detalles' }]} />
+        <h1>{curso.titulo}</h1>
+        <p className="curso-desc">{curso.descripcion}</p>
+        <button className="button secondary" onClick={() => navigate(`/curso/${id}`)}>← Volver al curso</button>
+      </section>
+    )
+  }
+
+  const { acompanamiento, clinica } = DETALLES_DUELO.rutas
+
+  const RutaCol = ({ ruta }) => (
+    <article className="ruta-col">
+      <header className="ruta-header">
+        <h2>{ruta.nombre}</h2>
+        <p className="ruta-dirigida">{ruta.dirigida}</p>
+      </header>
+
+      <div className="ruta-para-ti">
+        <p className="ruta-para-ti-titulo">Esta ruta es para ti si…</p>
+        <p>{ruta.paraTiSi}</p>
+        <p className="ruta-publicos">{ruta.publicos}</p>
+        <p className="ruta-nota">{ruta.notaFinal}</p>
+      </div>
+
+      <h3 className="ruta-subtitulo">Los cuatro módulos</h3>
+      <ol className="ruta-modulos">
+        {ruta.modulos.map(m => (
+          <li key={m.num}>
+            <div className="ruta-mod-num">Módulo {m.num}</div>
+            <h4>{m.titulo}</h4>
+            <p>{m.descripcion}</p>
+          </li>
+        ))}
+      </ol>
+
+      <div className="ruta-info">
+        <h4>Metodología</h4>
+        <p>{ruta.metodologia}</p>
+        <h4>Materiales</h4>
+        <p>{ruta.materiales}</p>
+      </div>
+    </article>
+  )
+
+  return (
+    <section className="contenedor">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo, to: `/curso/${id}` }, { label: 'Detalles' }]} />
+
+      <header className="detalle-header">
+        <h1>{DETALLES_DUELO.intro}</h1>
+        <p className="detalle-sub">{DETALLES_DUELO.subtitulo}</p>
+        <p className="curso-disponible">
+          <span className="curso-disponible-label">Disponible a partir del</span>
+          <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+        </p>
+      </header>
+
+      <div className="rutas-grid">
+        <RutaCol ruta={acompanamiento} />
+        <RutaCol ruta={clinica} />
+      </div>
+
+      <div className="detalle-cta">
+        <a className="button whatsapp grande" target="_blank" rel="noopener noreferrer"
+           href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me compartes más información?`)}>
+          Quiero información e inscripción
+        </a>
+        <button className="button secondary" onClick={() => navigate(`/curso/${id}`)}>← Volver al curso</button>
       </div>
     </section>
   )
@@ -1434,13 +1777,21 @@ function ModuloView({ user, esAdmin }) {
               </ul>
             </div>
           )}
+          <div className="side-bloque contacto-bloque">
+            <img src={FOTO_HEADER} alt="Dr. Ernesto Cotonieto" className="contacto-foto"
+                 onError={(e) => { e.currentTarget.src = LOGO_CLARO }} />
+            <h4 className="contacto-titulo">¿Dudas con el material?</h4>
+            <p className="contacto-nombre">Dr. Ernesto Cotonieto</p>
+            <p className="contacto-credencial">Cédula profesional 10521804</p>
+            <a className="button whatsapp ancho" href={wa('Hola, tengo una duda sobre el material del aula.')}
+               target="_blank" rel="noopener noreferrer">💬 Escríbeme</a>
+            <a className="button secondary ancho" href={`mailto:${CONTACTO_EMAIL}`}>✉️ Por correo</a>
+          </div>
           <div className="side-bloque atajos">
             <h4>Atajos</h4>
             <Link to="/" className="side-atajo">🏠 Inicio</Link>
             {curso && <Link to={`/curso/${curso.id}`} className="side-atajo">📚 Todo el curso</Link>}
             {user && <Link to="/perfil" className="side-atajo">👤 Mi perfil</Link>}
-            <a className="side-atajo" href={wa('Hola, tengo una duda sobre el material del aula.')}
-               target="_blank" rel="noopener noreferrer">💬 Dudas</a>
           </div>
         </aside>
 
@@ -1464,6 +1815,7 @@ function ModuloView({ user, esAdmin }) {
             ))}
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
           </div>
+          <ExamenModulo moduloId={modulo.id} user={user} />
           <nav className="navegacion-modulos">
             {prev
               ? <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>
@@ -1474,6 +1826,13 @@ function ModuloView({ user, esAdmin }) {
           </nav>
         </main>
       </div>
+
+      <NavegacionFlotante
+        prev={prev}
+        next={next}
+        curso={curso}
+        mostrarConstancia={mostrarConstancia}
+      />
     </div>
   )
 }
@@ -1670,6 +2029,7 @@ function App() {
           <Route path="/perfil" element={<Perfil user={user} />} />
           <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
           <Route path="/curso/:id" element={<CursoView user={user} esAdmin={esAdmin} />} />
+          <Route path="/curso/:id/detalles" element={<CursoDetalle />} />
           <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
           <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
         </Routes>
