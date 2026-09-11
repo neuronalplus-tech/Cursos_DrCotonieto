@@ -104,7 +104,6 @@ function moduloBloqueadoParaAlumno(m) {
   return m && m.disponible === false
 }
 
-// ¿Este curso emite constancia?
 function emiteConstancia(curso) {
   if (!curso) return false
   if (curso.gratuito) return false
@@ -441,10 +440,12 @@ function Login({ message }) {
    ============================================================ */
 function CursoCard({ curso, user, tieneAcceso }) {
   const [abierto, setAbierto] = useState(false)
+  const [abiertoCustom, setAbiertoCustom] = useState(false)
   const navigate = useNavigate()
   const gratis = !!curso.gratuito
   const prox = !!curso.proximamente
   const esContenedor = esContenedorTalleres(curso)
+  const mostrarCustom = !gratis && !prox && !esContenedor
 
   if (esContenedor) {
     return (
@@ -496,6 +497,28 @@ function CursoCard({ curso, user, tieneAcceso }) {
               </div>
             )}
           </div>
+        )}
+
+        {mostrarCustom && (
+          <>
+            <button className="saber-mas" onClick={() => setAbiertoCustom(v => !v)} aria-expanded={abiertoCustom}>
+              {abiertoCustom ? 'Ocultar información ▲' : '¿Quieres un curso a la medida? ▼'}
+            </button>
+
+            {abiertoCustom && (
+              <div className="course-detalle">
+                <p>
+                  Diseño cursos y talleres <strong>personalizados</strong> para instituciones educativas,
+                  hospitales, equipos clínicos y organizaciones. Si quieres capacitar a tu equipo en un tema
+                  específico, armamos juntos el programa, los materiales y la logística.
+                </p>
+                <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+                   href={wa(`Hola, me interesa un curso personalizado para mí o mi institución. Me gustó la línea del curso "${curso.titulo}" y quiero algo a la medida.`)}>
+                  💬 Quiero mi curso personalizado
+                </a>
+              </div>
+            )}
+          </>
         )}
 
         <div className="course-acciones">
@@ -1476,14 +1499,11 @@ function Constancia({ user }) {
       const { data: c } = await supabase.from('cursos')
         .select('titulo, constancia, gratuito').eq('id', cursoId).maybeSingle()
       setCurso(c)
-
-      // Si el curso no emite constancia (gratuito o constancia=false), no calculamos nada más.
       if (!c || !emiteConstancia(c)) {
         setNoEmite(true)
         setCargando(false)
         return
       }
-
       const { data: mods } = await supabase.from('modulos').select('id, disponible').eq('curso_id', cursoId)
       const modsActivos = (mods || []).filter(m => m.disponible !== false)
       if (modsActivos.length) {
@@ -1544,7 +1564,6 @@ function Constancia({ user }) {
   if (!user) return null
   if (cargando) return <div className="loading">Cargando...</div>
 
-  // Curso sin constancia: mensaje claro y no se permite generar nada.
   if (noEmite) {
     return (
       <section className="contenedor estrecho">
