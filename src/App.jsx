@@ -104,6 +104,14 @@ function moduloBloqueadoParaAlumno(m) {
   return m && m.disponible === false
 }
 
+// ¿Este curso emite constancia?
+function emiteConstancia(curso) {
+  if (!curso) return false
+  if (curso.gratuito) return false
+  if (curso.constancia === false) return false
+  return true
+}
+
 /* ============================================================
    PORTADAS VECTORIALES
    ============================================================ */
@@ -1297,7 +1305,7 @@ function ModuloView({ user, esAdmin }) {
         }
 
         setModulo(m)
-        const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito').eq('id', m.curso_id).maybeSingle()
+        const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito, constancia').eq('id', m.curso_id).maybeSingle()
         setCurso(c)
         const { data: rs, error: eR } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
         if (eR) throw eR
@@ -1356,6 +1364,7 @@ function ModuloView({ user, esAdmin }) {
   const next = idx >= 0 && idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
   const vistos = recursos.filter(r => progresoRecursos[r.id]).length
   const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(modulo)
+  const mostrarConstancia = emiteConstancia(curso)
 
   return (
     <div className="contenedor">
@@ -1437,7 +1446,7 @@ function ModuloView({ user, esAdmin }) {
               ? <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>
               : <span />}
             {next && <button className="button primary" onClick={() => navigate(`/modulo/${next.id}`)}>{next.titulo} →</button>}
-            {!next && user && curso && !curso.gratuito &&
+            {!next && user && mostrarConstancia &&
               <Link to={`/constancia/${curso.id}`} className="button constancia-btn">Obtener constancia</Link>}
           </nav>
         </main>
@@ -1456,6 +1465,7 @@ function Constancia({ user }) {
   const [generando, setGenerando] = useState(false)
   const [curso, setCurso] = useState(null)
   const [puede, setPuede] = useState(false)
+  const [noEmite, setNoEmite] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1463,8 +1473,17 @@ function Constancia({ user }) {
     async function load() {
       const { data: p } = await supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).maybeSingle()
       if (p) setPerfil({ nombre: p.nombre_completo || '', profesion: p.profesion || '' })
-      const { data: c } = await supabase.from('cursos').select('titulo').eq('id', cursoId).maybeSingle()
+      const { data: c } = await supabase.from('cursos')
+        .select('titulo, constancia, gratuito').eq('id', cursoId).maybeSingle()
       setCurso(c)
+
+      // Si el curso no emite constancia (gratuito o constancia=false), no calculamos nada más.
+      if (!c || !emiteConstancia(c)) {
+        setNoEmite(true)
+        setCargando(false)
+        return
+      }
+
       const { data: mods } = await supabase.from('modulos').select('id, disponible').eq('curso_id', cursoId)
       const modsActivos = (mods || []).filter(m => m.disponible !== false)
       if (modsActivos.length) {
@@ -1524,6 +1543,28 @@ function Constancia({ user }) {
 
   if (!user) return null
   if (cargando) return <div className="loading">Cargando...</div>
+
+  // Curso sin constancia: mensaje claro y no se permite generar nada.
+  if (noEmite) {
+    return (
+      <section className="contenedor estrecho">
+        <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Constancia' }]} />
+        <h1>Constancia no disponible</h1>
+        <p className="sutil">Este curso no emite constancia de participación.</p>
+        <div className="bloque-cerrado">
+          <p className="bloque-icono">ℹ️</p>
+          <p>Si necesitas un comprobante de tu participación, escríbeme por WhatsApp y lo vemos.</p>
+          <div className="bloque-botones">
+            <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
+               href={wa(`Hola, quiero un comprobante del curso "${curso?.titulo || ''}".`)}>
+              Escríbeme por WhatsApp
+            </a>
+            <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="contenedor estrecho">
