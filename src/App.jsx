@@ -1375,15 +1375,14 @@ function CursoView({ user, esAdmin }) {
           return
         }
 
+        // Cargamos módulos aunque no haya login. Si no hay usuario, miGrupo = null y todo queda bloqueado pero visible.
         let grupo = null
-        if (!esAdmin && !c.gratuito) {
-          if (!user) { setEstado('requiere_login'); return }
+        if (!esAdmin && !c.gratuito && user) {
           const { data: acc } = await supabase.from('acceso')
             .select('id, grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
-          if (!acc) { setEstado('sin_acceso'); return }
-          grupo = acc.grupo || null
-          setMiGrupo(grupo)
+          if (acc) grupo = acc.grupo || null
         }
+        setMiGrupo(grupo)
 
         const { data: mods, error: eM } = await supabase.from('modulos')
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
@@ -1445,28 +1444,19 @@ function CursoView({ user, esAdmin }) {
     )
   }
 
-  if (estado === 'proximo' || estado === 'requiere_login' || estado === 'sin_acceso') {
-    const prox = estado === 'proximo'
+  if (estado === 'proximo') {
     return (
       <section className="contenedor estrecho">
         <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
         <h1>{curso.titulo}</h1>
         <p>{curso.descripcion}</p>
         <div className="bloque-cerrado">
-          <p className="bloque-icono">{prox ? '🗓️' : '🔒'}</p>
-          <p>{prox
-            ? 'Este curso está en preparación. Déjame tu interés por WhatsApp y te aviso en cuanto abra su inscripción.'
-            : estado === 'requiere_login'
-              ? 'Este curso es para personas inscritas. Si ya tienes tus datos de acceso, inicia sesión y te traigo de vuelta aquí.'
-              : 'Tu cuenta aún no tiene acceso a este curso.'}</p>
+          <p className="bloque-icono">🗓️</p>
+          <p>Este curso está en preparación. Déjame tu interés por WhatsApp y te aviso en cuanto abra su inscripción.</p>
           <div className="bloque-botones">
-            {estado === 'requiere_login' &&
-              <button className="button primary" onClick={() => navigate(rutaAcceso(`/curso/${id}`))}>Iniciar sesión</button>}
             <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
-               href={wa(prox
-                 ? `Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`
-                 : `Hola, me interesa inscribirme al curso "${curso.titulo}".`)}>
-              {prox ? 'Me interesa · avísame' : 'Quiero inscribirme'}
+               href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>
+              Me interesa · avísame
             </a>
             <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
           </div>
@@ -1497,6 +1487,7 @@ function CursoView({ user, esAdmin }) {
 
   const tieneAccesoAlGrupo = (g) => {
     if (esAdmin) return true
+    if (!user) return false
     if (!g) return true
     return miGrupo === g
   }
@@ -1504,14 +1495,16 @@ function CursoView({ user, esAdmin }) {
   const esModuloBloqueado = (m) => {
     if (esAdmin) return false
     if (m.disponible === false) return true
+    if (!user) return true
     if (m.grupo && miGrupo !== m.grupo) return true
     return false
   }
 
   const renderModulo = (m, i) => {
     const bloqueado = esModuloBloqueado(m)
-    const bloqueadoPorRuta = bloqueado && m.grupo && miGrupo !== m.grupo && !esAdmin
+    const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !esAdmin
     const bloqueadoPorDisponibilidad = bloqueado && m.disponible === false && !esAdmin
+    const bloqueadoPorLogin = bloqueado && !user && !esAdmin
 
     const contenido = (
       <>
@@ -1519,6 +1512,7 @@ function CursoView({ user, esAdmin }) {
         <div>
           <h3>
             {m.titulo}
+            {bloqueadoPorLogin && <span className="etiqueta-grupo">🔒 Requiere acceso</span>}
             {bloqueadoPorRuta && <span className="etiqueta-grupo">🔒 Otra ruta</span>}
             {bloqueadoPorDisponibilidad && <span className="etiqueta-grupo">🔒 Próximamente</span>}
             {esAdmin && m.disponible === false && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
@@ -1560,6 +1554,12 @@ function CursoView({ user, esAdmin }) {
         </div>
       )}
 
+      {!user && (
+        <div className="admin-banner" style={{ background: '#EEF2F4', borderLeftColor: '#1B3A4B', color: '#1B3A4B' }}>
+          Estás viendo la estructura del curso. Para acceder a los materiales, <strong>inicia sesión</strong> con tus datos o escríbeme para inscribirte.
+        </div>
+      )}
+
       {user && !curso.gratuito && (
         <div className="progreso-container">
           <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
@@ -1584,7 +1584,9 @@ function CursoView({ user, esAdmin }) {
                 <p className="ruta-section-sub">{rutaDescripcion(g)}</p>
                 {!tieneAcceso && (
                   <p className="ruta-section-lock">
-                    🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión si ya estás inscrito.
+                    {!user
+                      ? '🔒 Esta ruta requiere inscripción. Inicia sesión si ya tienes acceso, o solicita información para inscribirte.'
+                      : '🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión con la cuenta correcta.'}
                   </p>
                 )}
               </header>
