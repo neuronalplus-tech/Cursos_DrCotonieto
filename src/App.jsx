@@ -89,7 +89,6 @@ function esTallerIndividual(curso) {
   return !curso.linea
 }
 
-// Visibilidad de un módulo (oculto = solo logueados; grupo = solo ese grupo).
 function moduloVisible(m, { user, esAdmin, miGrupo }) {
   if (esAdmin) return true
   if (m.oculto && !user) return false
@@ -98,6 +97,11 @@ function moduloVisible(m, { user, esAdmin, miGrupo }) {
     if (m.grupo !== miGrupo) return false
   }
   return true
+}
+
+// ¿El módulo está bloqueado para alumnos (no disponible todavía)?
+function moduloBloqueadoParaAlumno(m) {
+  return m && m.disponible === false
 }
 
 /* ============================================================
@@ -1118,10 +1122,11 @@ function CursoView({ user, esAdmin }) {
         setModulos(modsVisibles)
 
         if (user && modsVisibles.length) {
-          // Solo contamos los recursos de módulos disponibles para el progreso.
-          const modsDisponibles = modsVisibles.filter(m => esAdmin || m.disponible !== false)
+          // El progreso solo cuenta módulos disponibles para el alumno.
+          // Para admin se cuentan todos, así ve su propio 100%.
+          const modsParaConteo = modsVisibles.filter(m => esAdmin || m.disponible !== false)
           const ids = []
-          for (const m of modsDisponibles) {
+          for (const m of modsParaConteo) {
             const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
             ids.push(...(rs || []).map(r => r.id))
           }
@@ -1208,32 +1213,44 @@ function CursoView({ user, esAdmin }) {
           {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
         </div>
       )}
+
+      {esAdmin && (
+        <div className="admin-banner">
+          <strong>Vista de administrador.</strong> Los módulos marcados como <em>🔒 Bloqueado (solo admin)</em> aún no son visibles para alumnos.
+        </div>
+      )}
+
       {user && !curso.gratuito && (
         <div className="progreso-container">
           <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
           <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }} /></div>
         </div>
       )}
+
       <h2 className="titulo-seccion">Contenido del curso</h2>
       <div className="modulo-grid">
         {modulos.map((m, i) => {
-          const bloqueado = !esAdmin && m.disponible === false
+          const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(m)
+          const bloqueadoEnUI = bloqueadoParaAlumno && !esAdmin
+
           const contenido = (
             <>
               <span className="modulo-num">{i + 1}</span>
               <div>
                 <h3>
                   {m.titulo}
-                  {bloqueado && <span className="etiqueta-grupo">🔒 Próximamente</span>}
-                  {m.oculto && !bloqueado && <span className="etiqueta-grupo">🔒 Privado</span>}
+                  {bloqueadoEnUI && <span className="etiqueta-grupo">🔒 Próximamente</span>}
+                  {bloqueadoParaAlumno && esAdmin && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
+                  {!bloqueadoParaAlumno && m.oculto && <span className="etiqueta-grupo">🔒 Privado</span>}
                   {m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}
                 </h3>
                 <p>{m.descripcion}</p>
               </div>
-              <span className="modulo-flecha">{bloqueado ? '🔒' : '→'}</span>
+              <span className="modulo-flecha">{bloqueadoEnUI ? '🔒' : '→'}</span>
             </>
           )
-          return bloqueado
+
+          return bloqueadoEnUI
             ? <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
             : <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
         })}
@@ -1276,7 +1293,6 @@ function ModuloView({ user, esAdmin }) {
           return
         }
 
-        // Bloqueo por "no disponible todavía"
         if (!esAdmin && m.disponible === false) {
           setError('Este módulo todavía no está abierto. Te avisaré por WhatsApp cuando esté disponible.')
           return
@@ -1341,6 +1357,7 @@ function ModuloView({ user, esAdmin }) {
   const prev = idx > 0 ? modulosCurso[idx - 1] : null
   const next = idx >= 0 && idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
   const vistos = recursos.filter(r => progresoRecursos[r.id]).length
+  const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(modulo)
 
   return (
     <div className="contenedor">
@@ -1349,6 +1366,14 @@ function ModuloView({ user, esAdmin }) {
         { label: curso?.titulo || 'Curso', to: curso ? `/curso/${curso.id}` : '/' },
         { label: modulo.titulo }
       ]} />
+
+      {esAdmin && bloqueadoParaAlumno && (
+        <div className="admin-banner">
+          <strong>Vista de administrador.</strong> Este módulo aún no está visible para alumnos (disponible = false).
+          Para abrirlo: <code>update modulos set disponible = true where id = {modulo.id};</code>
+        </div>
+      )}
+
       <div className="modulo-layout">
         <aside className="modulo-sidebar">
           <div className="side-bloque">
@@ -1393,7 +1418,8 @@ function ModuloView({ user, esAdmin }) {
           <header className="modulo-encabezado">
             <h1>
               {modulo.titulo}
-              {modulo.oculto && <span className="etiqueta-grupo">🔒 Privado</span>}
+              {bloqueadoParaAlumno && esAdmin && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
+              {!bloqueadoParaAlumno && modulo.oculto && <span className="etiqueta-grupo">🔒 Privado</span>}
               {modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}
             </h1>
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
