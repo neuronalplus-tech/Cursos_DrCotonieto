@@ -77,7 +77,7 @@ const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', a
 const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
 
 /* ============================================================
-   CURSOS CON METADATOS ESPECIALES (aviso de disponibilidad)
+   CURSOS CON METADATOS ESPECIALES
    ============================================================ */
 const CURSOS_ESPECIALES = {
   duelo: {
@@ -88,7 +88,7 @@ const CURSOS_ESPECIALES = {
 }
 
 /* ============================================================
-   CONTENIDO DE LA PÁGINA DE DETALLES DEL CURSO DE DUELO
+   DETALLES DEL CURSO DE DUELO
    ============================================================ */
 const DETALLES_DUELO = {
   intro: 'Evaluación y acompañamiento en duelo normativo y prolongado',
@@ -101,28 +101,28 @@ const DETALLES_DUELO = {
       publicos: 'Docencia · salud · recursos humanos · trabajo social · acompañamiento espiritual · tanatología · servicios funerarios · voluntariado · y cualquier profesión donde acompañar sea parte del trabajo.',
       notaFinal: 'No necesitas formación en salud mental. Aquí aprendes a acompañar bien y a derivar a tiempo.',
       modulos: [
-        { num: 1, titulo: 'Leer el duelo con modelo, no con intuición', descripcion: 'Los modelos que sí se sostienen con evidencia: la oscilación entre pérdida y restauración (Proceso Dual), las tareas del duelo (Worden) y la transformación del vínculo (vínculos continuos). Por qué las "cinco etapas" se malinterpretaron y qué usar en su lugar. Cómo se ve, concretamente, un duelo que avanza aunque duela.' },
-        { num: 2, titulo: 'Distinguir lo normativo de lo prolongado', descripcion: 'Los criterios actuales (DSM-5-TR) explicados y aplicados sobre dos casos gemelos, uno al lado del otro. Qué es realmente una señal de alarma y qué solo parece serlo. La pregunta que decide: ¿el vínculo acompaña la vida o la sustituye?' },
-        { num: 3, titulo: 'Acompañar con técnica', descripcion: 'Validación que no refuerza la evitación, con las frases exactas y las que hay que dejar de decir. Anclaje y regulación para sostener a alguien desbordado. Activación por valores. Desgaste por empatía y cómo prevenirlo.' },
-        { num: 4, titulo: 'Riesgo, límites y derivación', descripcion: 'Cómo preguntar por ideación suicida sin rodeos y sin miedo. Qué hacer con cada respuesta (semáforo de conducta). Dónde termina tu rol y empieza el de salud mental, según tu profesión. Cómo derivar sin que se viva como abandono.' }
+        { num: 1, titulo: 'Leer el duelo con modelo, no con intuición', descripcion: 'Los modelos que sí se sostienen con evidencia: la oscilación entre pérdida y restauración (Proceso Dual), las tareas del duelo (Worden) y la transformación del vínculo (vínculos continuos). Por qué las "cinco etapas" se malinterpretaron y qué usar en su lugar.' },
+        { num: 2, titulo: 'Distinguir lo normativo de lo prolongado', descripcion: 'Los criterios actuales (DSM-5-TR) explicados y aplicados sobre dos casos gemelos, uno al lado del otro. Qué es realmente una señal de alarma y qué solo parece serlo.' },
+        { num: 3, titulo: 'Acompañar con técnica', descripcion: 'Validación que no refuerza la evitación. Anclaje y regulación para sostener a alguien desbordado. Activación por valores. Desgaste por empatía y cómo prevenirlo.' },
+        { num: 4, titulo: 'Riesgo, límites y derivación', descripcion: 'Cómo preguntar por ideación suicida sin rodeos. Semáforo de conducta. Dónde termina tu rol y empieza el de salud mental. Cómo derivar sin que se viva como abandono.' }
       ],
-      metodologia: 'Cuatro sesiones en vivo, una por semana. Cápsula breve antes de cada una; la sesión se usa para trabajar casos, no para exponer. Ejercicios de refuerzo autocalificables y opcionales. Dos casos gemelos te acompañan las cuatro semanas.',
-      materiales: 'Cuadernillo de trabajo por módulo · guía de exploración · rejilla de señales de alarma · banco de frases · mapa de alcance y ruta de derivación · grabación de la exposición docente · constancia de participación.'
+      metodologia: 'Cuatro sesiones en vivo, una por semana. Cápsula breve antes de cada una; la sesión se usa para trabajar casos, no para exponer. Dos casos gemelos te acompañan las cuatro semanas.',
+      materiales: 'Cuadernillo de trabajo por módulo · guía de exploración · rejilla de señales de alarma · banco de frases · mapa de alcance y ruta de derivación · grabación · constancia de participación.'
     },
     clinica: {
       nombre: 'Ruta Clínica',
       dirigida: 'Para profesionales de salud mental que atienden duelo en consulta.',
-      paraTiSi: 'Atiendes casos de duelo en consulta y quieres pasar de acompañar con oficio a formular con método. Te interesa entender por qué esta persona sigue atascada y qué cadena concreta la mantiene ahí —y traducir esa lectura en un plan con orden justificado.',
+      paraTiSi: 'Atiendes casos de duelo en consulta y quieres pasar de acompañar con oficio a formular con método. Te interesa entender por qué esta persona sigue atascada y qué cadena concreta la mantiene ahí.',
       publicos: 'Psicología clínica · psiquiatría · psicoterapia · estudiantes de posgrado en salud mental · profesionales en formación clínica supervisada.',
       notaFinal: 'Requiere formación en salud mental. Aquí trabajas evaluación diferencial, formulación funcional y diseño de intervención.',
       modulos: [
-        { num: 1, titulo: 'Evaluación diferencial del duelo', descripcion: 'Criterios DSM-5-TR de trastorno de duelo prolongado aplicados reactivo por reactivo sobre dos casos gemelos. Tamizaje con PG-13-R. Diferencial fino contra depresión, TEPT y trastorno adaptativo. Exploración estructurada de riesgo suicida.' },
-        { num: 2, titulo: 'Formulación funcional del caso', descripcion: 'Arquitectura Nezu, Nezu y Lombardo completa: variables distales, antecedentes proximales, variables organísmicas, cuatro canales de respuesta y análisis funcional del mantenimiento. Construyes el Mapa de Patogénesis y el Mapa de Alcance de Metas.' },
-        { num: 3, titulo: 'Intervención: autorregulación y exposición graduada', descripcion: 'Secuencia DBT de tolerancia al malestar. Anclaje mindfulness como prerrequisito. Defusión desde ACT. Jerarquía de exposición derivada del análisis funcional. Alternancia pérdida↔restauración según el Modelo de Proceso Dual.' },
-        { num: 4, titulo: 'Riesgo, límites y derivación', descripcion: 'Plan de seguridad co-construido. Manejo del ámbar sostenido. Qué tiene evidencia para duelo prolongado (Terapia de Shear, 16 sesiones). Límites por profesión. Documentación mínima defendible alineada a NOM-004.' }
+        { num: 1, titulo: 'Evaluación diferencial del duelo', descripcion: 'Criterios DSM-5-TR aplicados reactivo por reactivo sobre dos casos gemelos. PG-13-R. Diferencial contra depresión, TEPT y adaptativo. Exploración de riesgo suicida.' },
+        { num: 2, titulo: 'Formulación funcional del caso', descripcion: 'Arquitectura Nezu, Nezu y Lombardo completa. Análisis funcional del mantenimiento. Mapa de Patogénesis y Mapa de Alcance de Metas.' },
+        { num: 3, titulo: 'Intervención: autorregulación y exposición graduada', descripcion: 'Secuencia DBT de tolerancia al malestar. Anclaje mindfulness. Defusión desde ACT. Jerarquía de exposición. Alternancia pérdida↔restauración.' },
+        { num: 4, titulo: 'Riesgo, límites y derivación', descripcion: 'Plan de seguridad co-construido. Manejo del ámbar sostenido. Terapia de Shear (16 sesiones). Límites por profesión. Documentación alineada a NOM-004.' }
       ],
-      metodologia: 'Cuatro sesiones en vivo, una por semana. Cápsula breve antes de cada una para llegar con el marco leído; la sesión se usa para formular, no para exponer. Dos casos gemelos te acompañan las cuatro semanas.',
-      materiales: 'Cuadernillo clínico por módulo · formatos de formulación y mapas · rejilla de diferencial · guía de exploración de riesgo · formato de nota clínica alineado a la NOM-004-SSA3-2012 · grabación de la exposición docente · constancia de participación.'
+      metodologia: 'Cuatro sesiones en vivo, una por semana. Cápsula breve antes de cada una para llegar con el marco leído; la sesión se usa para formular, no para exponer.',
+      materiales: 'Cuadernillo clínico por módulo · formatos de formulación y mapas · rejilla de diferencial · guía de exploración de riesgo · formato de nota clínica NOM-004 · grabación · constancia de participación.'
     }
   }
 }
@@ -1352,6 +1352,7 @@ function CursoView({ user, esAdmin }) {
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [talleres, setTalleres] = useState([])
+  const [miGrupo, setMiGrupo] = useState(null)
   const [progreso, setProgreso] = useState(0)
   const [estado, setEstado] = useState('cargando')
   const [error, setError] = useState(null)
@@ -1374,26 +1375,32 @@ function CursoView({ user, esAdmin }) {
           return
         }
 
-        let miGrupo = null
+        let grupo = null
         if (!esAdmin && !c.gratuito) {
           if (!user) { setEstado('requiere_login'); return }
           const { data: acc } = await supabase.from('acceso')
             .select('id, grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
           if (!acc) { setEstado('sin_acceso'); return }
-          miGrupo = acc.grupo || null
+          grupo = acc.grupo || null
+          setMiGrupo(grupo)
         }
 
         const { data: mods, error: eM } = await supabase.from('modulos')
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
         if (eM) throw eM
 
-        const modsVisibles = (mods || []).filter(m => moduloVisible(m, { user, esAdmin, miGrupo }))
-        setModulos(modsVisibles)
+        const visibles = (mods || []).filter(m => esAdmin || !m.oculto || !!user)
+        setModulos(visibles)
 
-        if (user && modsVisibles.length) {
-          const modsParaConteo = modsVisibles.filter(m => esAdmin || m.disponible !== false)
+        if (user && visibles.length) {
+          const modsConAcceso = visibles.filter(m => {
+            if (esAdmin) return true
+            if (m.disponible === false) return false
+            if (m.grupo && m.grupo !== grupo) return false
+            return true
+          })
           const ids = []
-          for (const m of modsParaConteo) {
+          for (const m of modsConAcceso) {
             const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
             ids.push(...(rs || []).map(r => r.id))
           }
@@ -1470,6 +1477,64 @@ function CursoView({ user, esAdmin }) {
 
   const especial = cursoEspecial(curso)
 
+  const grupos = []
+  modulos.forEach(m => {
+    if (m.grupo && !grupos.includes(m.grupo)) grupos.push(m.grupo)
+  })
+  const modsSinGrupo = modulos.filter(m => !m.grupo)
+
+  const rutaLabel = (g) =>
+    g === 'Acompañamiento' ? 'Ruta Acompañamiento'
+    : g === 'Clínica' ? 'Ruta Clínica'
+    : `Ruta ${g}`
+
+  const rutaDescripcion = (g) =>
+    g === 'Acompañamiento'
+      ? 'Para profesionales que acompañan personas en duelo sin ser especialistas en salud mental.'
+      : g === 'Clínica'
+      ? 'Para profesionales de salud mental que atienden duelo en consulta.'
+      : ''
+
+  const tieneAccesoAlGrupo = (g) => {
+    if (esAdmin) return true
+    if (!g) return true
+    return miGrupo === g
+  }
+
+  const esModuloBloqueado = (m) => {
+    if (esAdmin) return false
+    if (m.disponible === false) return true
+    if (m.grupo && miGrupo !== m.grupo) return true
+    return false
+  }
+
+  const renderModulo = (m, i) => {
+    const bloqueado = esModuloBloqueado(m)
+    const bloqueadoPorRuta = bloqueado && m.grupo && miGrupo !== m.grupo && !esAdmin
+    const bloqueadoPorDisponibilidad = bloqueado && m.disponible === false && !esAdmin
+
+    const contenido = (
+      <>
+        <span className="modulo-num">{i + 1}</span>
+        <div>
+          <h3>
+            {m.titulo}
+            {bloqueadoPorRuta && <span className="etiqueta-grupo">🔒 Otra ruta</span>}
+            {bloqueadoPorDisponibilidad && <span className="etiqueta-grupo">🔒 Próximamente</span>}
+            {esAdmin && m.disponible === false && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
+            {esAdmin && m.grupo && <span className="etiqueta-grupo">{m.grupo}</span>}
+          </h3>
+          <p>{m.descripcion}</p>
+        </div>
+        <span className="modulo-flecha">{bloqueado ? '🔒' : '→'}</span>
+      </>
+    )
+
+    return bloqueado
+      ? <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
+      : <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+  }
+
   return (
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo }]} />
@@ -1491,7 +1556,7 @@ function CursoView({ user, esAdmin }) {
 
       {esAdmin && (
         <div className="admin-banner">
-          <strong>Vista de administrador.</strong> Los módulos marcados como <em>🔒 Bloqueado (solo admin)</em> aún no son visibles para alumnos.
+          <strong>Vista de administrador.</strong> Ves todas las rutas y módulos. Los módulos con <em>🔒 Bloqueado (solo admin)</em> no están abiertos todavía para alumnos.
         </div>
       )}
 
@@ -1503,34 +1568,68 @@ function CursoView({ user, esAdmin }) {
       )}
 
       <h2 className="titulo-seccion">Contenido del curso</h2>
-      <div className="modulo-grid">
-        {modulos.map((m, i) => {
-          const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(m)
-          const bloqueadoEnUI = bloqueadoParaAlumno && !esAdmin
 
-          const contenido = (
-            <>
-              <span className="modulo-num">{i + 1}</span>
-              <div>
-                <h3>
-                  {m.titulo}
-                  {bloqueadoEnUI && <span className="etiqueta-grupo">🔒 Próximamente</span>}
-                  {bloqueadoParaAlumno && esAdmin && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
-                  {!bloqueadoParaAlumno && m.oculto && <span className="etiqueta-grupo">🔒 Privado</span>}
-                  {m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}
-                </h3>
-                <p>{m.descripcion}</p>
+      {grupos.length > 0 ? (
+        grupos.map(g => {
+          const modsRuta = modulos
+            .filter(m => m.grupo === g)
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+          const tieneAcceso = tieneAccesoAlGrupo(g)
+          const primerModulo = modsRuta.find(m => !esModuloBloqueado(m))
+
+          return (
+            <section key={g} className="ruta-section">
+              <header className="ruta-section-header">
+                <h2 className="titulo-seccion">{rutaLabel(g)}</h2>
+                <p className="ruta-section-sub">{rutaDescripcion(g)}</p>
+                {!tieneAcceso && (
+                  <p className="ruta-section-lock">
+                    🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión si ya estás inscrito.
+                  </p>
+                )}
+              </header>
+
+              <div className="modulo-grid">
+                {modsRuta.map((m, i) => renderModulo(m, i))}
+                {modsRuta.length === 0 && <p className="sutil">Esta ruta aún no tiene módulos publicados.</p>}
               </div>
-              <span className="modulo-flecha">{bloqueadoEnUI ? '🔒' : '→'}</span>
-            </>
-          )
 
-          return bloqueadoEnUI
-            ? <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
-            : <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
-        })}
-        {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
-      </div>
+              <div className="ruta-cta">
+                <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+                   href={wa(`Hola, me interesa la ${rutaLabel(g)} del curso "${curso.titulo}". ¿Me compartes información e inscripción?`)}>
+                  💬 Solicitar información
+                </a>
+                <button className="button secondary ancho" onClick={() => {
+                  if (esAdmin || tieneAcceso) {
+                    if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
+                    else alert('Esta ruta aún no tiene módulos abiertos.')
+                  } else if (!user) {
+                    navigate(rutaAcceso(`/curso/${id}`))
+                  } else {
+                    alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
+                  }
+                }}>
+                  {esAdmin || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
+                </button>
+              </div>
+            </section>
+          )
+        })
+      ) : (
+        <div className="modulo-grid">
+          {modulos.map((m, i) => renderModulo(m, i))}
+          {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
+        </div>
+      )}
+
+      {modsSinGrupo.length > 0 && grupos.length > 0 && (
+        <section className="ruta-section">
+          <h2 className="titulo-seccion">Otros módulos</h2>
+          <div className="modulo-grid">
+            {modsSinGrupo.map((m, i) => renderModulo(m, i))}
+          </div>
+        </section>
+      )}
     </section>
   )
 }
