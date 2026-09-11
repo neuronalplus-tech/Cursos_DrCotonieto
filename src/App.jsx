@@ -84,11 +84,20 @@ function esContenedorTalleres(curso) {
 }
 
 function esTallerIndividual(curso) {
-  // Taller hijo del contenedor: gratuito pero sin línea propia.
-  // Se oculta de la Home, solo aparece dentro del contenedor.
   if (!curso || !curso.gratuito) return false
   if (esContenedorTalleres(curso)) return false
   return !curso.linea
+}
+
+// Visibilidad de un módulo (oculto = solo logueados; grupo = solo ese grupo).
+function moduloVisible(m, { user, esAdmin, miGrupo }) {
+  if (esAdmin) return true
+  if (m.oculto && !user) return false
+  if (m.grupo) {
+    if (!user) return false
+    if (m.grupo !== miGrupo) return false
+  }
+  return true
 }
 
 /* ============================================================
@@ -543,8 +552,6 @@ function Home({ user }) {
       try {
         const { data, error } = await supabase.from('cursos').select('*').eq('activo', true).order('orden')
         if (error) throw error
-        // Los talleres individuales (gratuitos sin línea) viven dentro del contenedor,
-        // no se muestran en la Home para evitar duplicidad.
         const cursosHome = (data || []).filter(c => !esTallerIndividual(c))
         setCursos(cursosHome)
         if (user) {
@@ -1107,14 +1114,14 @@ function CursoView({ user, esAdmin }) {
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
         if (eM) throw eM
 
-        const modsVisibles = esAdmin
-          ? (mods || [])
-          : (mods || []).filter(m => !m.grupo || m.grupo === miGrupo)
+        const modsVisibles = (mods || []).filter(m => moduloVisible(m, { user, esAdmin, miGrupo }))
         setModulos(modsVisibles)
 
         if (user && modsVisibles.length) {
+          // Solo contamos los recursos de módulos disponibles para el progreso.
+          const modsDisponibles = modsVisibles.filter(m => esAdmin || m.disponible !== false)
           const ids = []
-          for (const m of modsVisibles) {
+          for (const m of modsDisponibles) {
             const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
             ids.push(...(rs || []).map(r => r.id))
           }
@@ -1209,16 +1216,27 @@ function CursoView({ user, esAdmin }) {
       )}
       <h2 className="titulo-seccion">Contenido del curso</h2>
       <div className="modulo-grid">
-        {modulos.map((m, i) => (
-          <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">
-            <span className="modulo-num">{i + 1}</span>
-            <div>
-              <h3>{m.titulo}{m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}</h3>
-              <p>{m.descripcion}</p>
-            </div>
-            <span className="modulo-flecha">→</span>
-          </Link>
-        ))}
+        {modulos.map((m, i) => {
+          const bloqueado = !esAdmin && m.disponible === false
+          const contenido = (
+            <>
+              <span className="modulo-num">{i + 1}</span>
+              <div>
+                <h3>
+                  {m.titulo}
+                  {bloqueado && <span className="etiqueta-grupo">🔒 Próximamente</span>}
+                  {m.oculto && !bloqueado && <span className="etiqueta-grupo">🔒 Privado</span>}
+                  {m.grupo && <span className="etiqueta-grupo">Grupo {m.grupo}</span>}
+                </h3>
+                <p>{m.descripcion}</p>
+              </div>
+              <span className="modulo-flecha">{bloqueado ? '🔒' : '→'}</span>
+            </>
+          )
+          return bloqueado
+            ? <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
+            : <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+        })}
         {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
       </div>
     </section>
@@ -1253,8 +1271,14 @@ function ModuloView({ user, esAdmin }) {
           miGrupo = accG?.grupo || null
         }
 
-        if (!esAdmin && m.grupo && m.grupo !== miGrupo) {
-          setError('Este módulo pertenece a otro grupo de supervisión. Escríbeme para revisar tu acceso.')
+        if (!moduloVisible(m, { user, esAdmin, miGrupo })) {
+          setError('Este módulo es privado. Inicia sesión con tu cuenta autorizada para verlo.')
+          return
+        }
+
+        // Bloqueo por "no disponible todavía"
+        if (!esAdmin && m.disponible === false) {
+          setError('Este módulo todavía no está abierto. Te avisaré por WhatsApp cuando esté disponible.')
           return
         }
 
@@ -1265,11 +1289,11 @@ function ModuloView({ user, esAdmin }) {
         if (eR) throw eR
         setRecursos(rs || [])
 
-        const { data: mods } = await supabase.from('modulos').select('id, titulo, orden, grupo')
+        const { data: mods } = await supabase.from('modulos').select('id, titulo, orden, grupo, oculto, disponible')
           .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
-        const modsSidebar = esAdmin
-          ? (mods || [])
-          : (mods || []).filter(x => !x.grupo || x.grupo === miGrupo)
+        const modsSidebar = (mods || [])
+          .filter(x => moduloVisible(x, { user, esAdmin, miGrupo }))
+          .filter(x => esAdmin || x.disponible !== false)
         setModulosCurso(modsSidebar)
 
         if (user && rs?.length) {
@@ -1305,7 +1329,10 @@ function ModuloView({ user, esAdmin }) {
     <div className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Módulo' }]} />
       <p className="aviso-error">{error}</p>
-      <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
+      <div className="bloque-botones" style={{ justifyContent: 'flex-start' }}>
+        {!user && <button className="button primary" onClick={() => navigate(rutaAcceso(`/modulo/${id}`))}>Iniciar sesión</button>}
+        <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
+      </div>
     </div>
   )
   if (!modulo) return <div className="contenedor"><p className="aviso-error">Módulo no encontrado.</p></div>
@@ -1364,7 +1391,11 @@ function ModuloView({ user, esAdmin }) {
 
         <main className="modulo-main">
           <header className="modulo-encabezado">
-            <h1>{modulo.titulo}{modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}</h1>
+            <h1>
+              {modulo.titulo}
+              {modulo.oculto && <span className="etiqueta-grupo">🔒 Privado</span>}
+              {modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}
+            </h1>
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
             {user && recursos.length > 0 && (
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
@@ -1410,9 +1441,10 @@ function Constancia({ user }) {
       if (p) setPerfil({ nombre: p.nombre_completo || '', profesion: p.profesion || '' })
       const { data: c } = await supabase.from('cursos').select('titulo').eq('id', cursoId).maybeSingle()
       setCurso(c)
-      const { data: mods } = await supabase.from('modulos').select('id').eq('curso_id', cursoId)
-      if (mods?.length) {
-        const { data: rs } = await supabase.from('recursos').select('id').in('modulo_id', mods.map(m => m.id))
+      const { data: mods } = await supabase.from('modulos').select('id, disponible').eq('curso_id', cursoId)
+      const modsActivos = (mods || []).filter(m => m.disponible !== false)
+      if (modsActivos.length) {
+        const { data: rs } = await supabase.from('recursos').select('id').in('modulo_id', modsActivos.map(m => m.id))
         if (rs?.length) {
           const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
             .eq('usuario_id', user.id).in('recurso_id', rs.map(r => r.id)).eq('completado', true)
