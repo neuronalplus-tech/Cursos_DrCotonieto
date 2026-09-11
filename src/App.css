@@ -808,3 +808,22 @@ a { color: var(--primary); }
 }
 .examen-historial summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 .examen-historial ul { margin: 8px 0 0; padding-left: 20px; }
+/* Logo en el header */
+.logo-header {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+/* Foto de perfil en la sección Sobre mí */
+.sobre-mi-foto {
+  display: block;
+  margin: 0 auto 20px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center top;
+  border: 4px solid var(--blanco);
+  box-shadow: 0 6px 28px rgba(27,58,75,.18);
+}

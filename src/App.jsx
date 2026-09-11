@@ -25,10 +25,9 @@ const WHATSAPP = '5215637841931'
 const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
 const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
 
-const FOTO_PERFIL = '/foto-perfil.jpg'
-const FOTO_HEADER = '/foto_perfil_instagram_facebook.jpg'
-const LOGO_CLARO = '/logo_claro_1024.png'
 const LOGO_BLANCO = '/logo_blanco_1024.png'
+const LOGO_CLARO = '/logo_claro_1024.png'
+const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/public/avatares/foto_perfil_instagram_facebook.png'
 
 const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',
@@ -460,8 +459,7 @@ function Header({ user, esAdmin, onLogout }) {
       <div className="header-content">
         <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
              onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
-          <img src={FOTO_HEADER} alt="Dr. Ernesto Cotonieto" className="logo-foto"
-               onError={(e) => { e.currentTarget.src = LOGO_BLANCO; e.currentTarget.classList.add('es-logo') }} />
+          <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="logo-header" />
           <span className="brand-name">Dr. Ernesto Cotonieto</span>
         </div>
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
@@ -731,8 +729,7 @@ function Home({ user }) {
     <div className="landing">
       <section className="franja-superior">
         <div className="mini-perfil">
-          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="mini-foto"
-               onError={(e) => { e.currentTarget.src = LOGO_CLARO; e.currentTarget.classList.add('es-logo') }} />
+          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="mini-foto" />
           <div className="mini-perfil-texto">
             <h1>{MARCA.nombre}</h1>
             <p className="mini-credencial">{MARCA.credencial}</p>
@@ -809,6 +806,7 @@ function Home({ user }) {
 
       <section className="seccion sobre-mi">
         <h2>Sobre mí</h2>
+        <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="sobre-mi-foto" />
         <p className="hero-bio">{MARCA.bio}</p>
         <div className="redes">
           {REDES.map((r) => (
@@ -1944,8 +1942,7 @@ function ModuloView({ user, esAdmin }) {
             </div>
           )}
           <div className="side-bloque contacto-bloque">
-            <img src={FOTO_HEADER} alt="Dr. Ernesto Cotonieto" className="contacto-foto"
-                 onError={(e) => { e.currentTarget.src = LOGO_CLARO }} />
+            <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="contacto-foto" />
             <h4 className="contacto-titulo">¿Dudas con el material?</h4>
             <p className="contacto-nombre">Dr. Ernesto Cotonieto</p>
             <p className="contacto-credencial">Cédula profesional 10521804</p>
