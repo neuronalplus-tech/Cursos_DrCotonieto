@@ -68,7 +68,8 @@ const LINEA_COPY = {
   'Peritaje psicológico': { texto: 'Fundamentos del peritaje y revisión metodológica de entrevistas forenses.', motivo: 'prisma' },
   'Ciclo vital y bienestar': { texto: 'Mindfulness clínico, ansiedad y pánico, y bienestar en la adultez y la vejez.', motivo: 'circulos' },
   'Práctica profesional': { texto: 'Supervisión clínica grupal, psicometría aplicada y prevención del desgaste profesional.', motivo: 'arcos' },
-  'Talleres gratuitos': { texto: 'Formación breve y de acceso libre para empezar a formarte hoy mismo.', motivo: 'arcos' }
+  'Talleres gratuitos': { texto: 'Formación breve y de acceso libre para empezar a formarte hoy mismo.', motivo: 'arcos' },
+  'Educación': { texto: 'Debates contemporáneos y herramientas aplicables para profesionales de la educación.', motivo: 'prisma' }
 }
 
 const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', autoevaluacion: '✍️' }
@@ -99,7 +100,6 @@ function moduloVisible(m, { user, esAdmin, miGrupo }) {
   return true
 }
 
-// ¿El módulo está bloqueado para alumnos (no disponible todavía)?
 function moduloBloqueadoParaAlumno(m) {
   return m && m.disponible === false
 }
@@ -1122,8 +1122,6 @@ function CursoView({ user, esAdmin }) {
         setModulos(modsVisibles)
 
         if (user && modsVisibles.length) {
-          // El progreso solo cuenta módulos disponibles para el alumno.
-          // Para admin se cuentan todos, así ve su propio 100%.
           const modsParaConteo = modsVisibles.filter(m => esAdmin || m.disponible !== false)
           const ids = []
           for (const m of modsParaConteo) {
