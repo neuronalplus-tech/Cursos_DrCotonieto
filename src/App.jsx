@@ -29,6 +29,13 @@ const LOGO_BLANCO = '/logo_blanco_1024.png'
 const LOGO_CLARO = '/logo_claro_1024.png'
 const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/public/avatares/foto_perfil_instagram_facebook.png'
 
+// Enlaces externos (diapositivas y entregables)
+const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
+const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
+
+// ID del curso de "Problemas contemporáneos" (ajústalo al ID real de tu tabla `cursos`)
+const CURSO_PROBLEMAS_CONTEMPORANEOS_ID = null // Ej: 4
+
 const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',
   credencial: 'Cédula profesional 10521804 · Doctorado en Ciencias del Comportamiento Saludable',
@@ -167,6 +174,12 @@ function emiteConstancia(curso) {
 function cursoEspecial(curso) {
   if (!curso) return null
   return Object.values(CURSOS_ESPECIALES).find(e => e.patron.test(curso.titulo || '')) || null
+}
+
+function esCursoProblemasContemporaneos(curso) {
+  if (!curso) return false
+  const t = (curso.titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return t.includes('problemas') && t.includes('contempor')
 }
 
 /* ============================================================
@@ -404,6 +417,44 @@ function WhatsAppFlotante() {
 }
 
 /* ============================================================
+   BANDA DE REDES SOCIALES (FOOTER GLOBAL)
+   ============================================================ */
+function BandaRedes() {
+  return (
+    <section className="banda-redes">
+      <div className="banda-redes-inner">
+        <div className="banda-redes-marca">
+          <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="banda-redes-logo" />
+          <div>
+            <p className="banda-redes-nombre">{MARCA.nombre}</p>
+            <p className="banda-redes-credencial">{MARCA.credencial}</p>
+          </div>
+        </div>
+        <div className="banda-redes-sociales">
+          <p className="banda-redes-titulo">Sígueme</p>
+          <div className="banda-redes-iconos">
+            {REDES.map((r) => (
+              <a key={r.nombre} className="banda-redes-icono" href={r.url}
+                 target="_blank" rel="noopener noreferrer" title={r.nombre}>
+                <span aria-hidden="true">{r.icono}</span>
+                <span>{r.corto}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+        <div className="banda-redes-legal">
+          <p className="banda-redes-legal-texto">
+            El contenido de este sitio es informativo y formativo, y no sustituye la atención clínica individual.
+            Si estás en una situación de urgencia, comunícate al <strong>911</strong> o a la Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
+          </p>
+          <p className="banda-redes-copy">© {new Date().getFullYear()} Dr. Ernesto Cotonieto. Todos los derechos reservados.</p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ============================================================
    NAVEGACIÓN FLOTANTE EN MÓDULOS
    ============================================================ */
 function NavegacionFlotante({ prev, next, curso, mostrarConstancia }) {
@@ -449,7 +500,7 @@ const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(destino)
 /* ============================================================
    HEADER
    ============================================================ */
-function Header({ user, esAdmin, onLogout }) {
+function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -469,7 +520,9 @@ function Header({ user, esAdmin, onLogout }) {
           {esAdmin && <button className="nav-link destacado" onClick={() => ir('/admin')}>Panel</button>}
           {user ? (
             <>
-              <span className="user-email" title={user.email}>{user.email}</span>
+              <span className="user-email" title={nombreUsuario || user.email}>
+                {nombreUsuario || user.email}
+              </span>
               <button className="button secundario-claro" onClick={onLogout}>Salir</button>
             </>
           ) : (
@@ -825,14 +878,7 @@ function Home({ user }) {
         </a>
       </section>
 
-      <footer className="pie-pagina">
-        <p><strong>{MARCA.nombre}</strong> · {MARCA.credencial}</p>
-        <p className="pie-legal">
-          El contenido de este sitio es informativo y formativo, y no sustituye la atención clínica
-          individual. Si estás en una situación de urgencia, comunícate al <strong>911</strong> o a la
-          Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
-        </p>
-      </footer>
+      <BandaRedes />
     </div>
   )
 }
@@ -934,6 +980,7 @@ function Perfil({ user }) {
           ? <ul className="lista-cursos">{misCursos.map((c) => <li key={c.id}><Link to={`/curso/${c.id}`}>{c.titulo}</Link></li>)}</ul>
           : <p className="sutil">Aún no estás inscrito en ningún curso.</p>}
       </div>
+      <BandaRedes />
     </section>
   )
 }
@@ -1011,6 +1058,7 @@ function Admin({ user, esAdmin }) {
           </tbody>
         </table>
       </div>
+      <BandaRedes />
     </section>
   )
 }
@@ -1215,6 +1263,64 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
         </div>
       )}
     </article>
+  )
+}
+
+/* ============================================================
+   DIAPOSITIVAS PARA PRESENTAR CASO
+   ============================================================ */
+function DiapositivasPresentarCaso() {
+  return (
+    <section className="diapositivas-bloque">
+      <header className="diapositivas-header">
+        <span className="recurso-icono">📽️</span>
+        <div>
+          <h3>Diapositivas para presentar tu caso</h3>
+          <p className="recurso-desc">
+            Usa esta plantilla para estructurar la presentación de tu caso en la sesión de supervisión.
+            Incluye los apartados que revisaremos juntos: motivo de consulta, análisis funcional, hipótesis y plan.
+          </p>
+        </div>
+      </header>
+      <div className="diapositivas-acciones">
+        <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
+           href={ENLACE_DIAPOSITIVAS_PRESENTAR_CASO}>
+          📽️ Abrir diapositivas en OneDrive
+        </a>
+        <p className="nota" style={{ marginTop: 8 }}>
+          Se abre en una pestaña nueva. Puedes descargarla y editarla con tu propio caso.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+/* ============================================================
+   ENTREGABLES / PRODUCTOS
+   ============================================================ */
+function Entregables() {
+  return (
+    <section className="entregables-bloque">
+      <header className="entregables-header">
+        <span className="recurso-icono">📤</span>
+        <div>
+          <h3>Entregables / productos</h3>
+          <p className="recurso-desc">
+            Sube aquí las actividades y productos de cada módulo. Asegúrate de nombrar cada archivo con
+            tu nombre y el número de módulo (ej. <em>García_M1_análisis.pdf</em>).
+          </p>
+        </div>
+      </header>
+      <div className="entregables-acciones">
+        <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+           href={ENLACE_ENTREGABLES}>
+          📤 Subir mi entregable a OneDrive
+        </a>
+        <p className="nota" style={{ marginTop: 8 }}>
+          Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.
+        </p>
+      </div>
+    </section>
   )
 }
 
@@ -1439,6 +1545,7 @@ function CursoView({ user, esAdmin }) {
           : <div className="course-grid">
               {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />)}
             </div>}
+        <BandaRedes />
       </section>
     )
   }
@@ -1460,6 +1567,7 @@ function CursoView({ user, esAdmin }) {
             <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
           </div>
         </div>
+        <BandaRedes />
       </section>
     )
   }
@@ -1631,6 +1739,8 @@ function CursoView({ user, esAdmin }) {
           </div>
         </section>
       )}
+
+      <BandaRedes />
     </section>
   )
 }
@@ -1679,6 +1789,7 @@ function CursoDetalle({ user, esAdmin }) {
         <h1>{curso.titulo}</h1>
         <p className="curso-desc">{curso.descripcion}</p>
         <button className="button secondary" onClick={() => navigate(`/curso/${id}`)}>← Volver al curso</button>
+        <BandaRedes />
       </section>
     )
   }
@@ -1792,6 +1903,8 @@ function CursoDetalle({ user, esAdmin }) {
         </a>
         <button className="button secondary" onClick={() => navigate(`/curso/${id}`)}>← Volver al curso</button>
       </div>
+
+      <BandaRedes />
     </section>
   )
 }
@@ -1885,6 +1998,7 @@ function ModuloView({ user, esAdmin }) {
         {!user && <button className="button primary" onClick={() => navigate(rutaAcceso(`/modulo/${id}`))}>Iniciar sesión</button>}
         <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
       </div>
+      <BandaRedes />
     </div>
   )
   if (!modulo) return <div className="contenedor"><p className="aviso-error">Módulo no encontrado.</p></div>
@@ -1895,6 +2009,8 @@ function ModuloView({ user, esAdmin }) {
   const vistos = recursos.filter(r => progresoRecursos[r.id]).length
   const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(modulo)
   const mostrarConstancia = emiteConstancia(curso)
+  const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
+  const mostrarEntregables = curso && esCursoProblemasContemporaneos(curso)
 
   return (
     <div className="contenedor">
@@ -1971,6 +2087,10 @@ function ModuloView({ user, esAdmin }) {
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
             )}
           </header>
+
+          {mostrarDiapositivas && <DiapositivasPresentarCaso />}
+          {mostrarEntregables && <Entregables />}
+
           <div className="recursos-list">
             {recursos.map((r) => (
               <RecursoCard key={r.id} recurso={r} bucket={bucket} user={user}
@@ -1996,6 +2116,8 @@ function ModuloView({ user, esAdmin }) {
         curso={curso}
         mostrarConstancia={mostrarConstancia}
       />
+
+      <BandaRedes />
     </div>
   )
 }
@@ -2103,6 +2225,7 @@ function Constancia({ user }) {
             <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
           </div>
         </div>
+        <BandaRedes />
       </section>
     )
   }
@@ -2130,6 +2253,7 @@ function Constancia({ user }) {
           : <p className="sutil">Aún no marcas todos los recursos como vistos. Al completarlos podrás descargar tu constancia.</p>}
       </div>
       <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
+      <BandaRedes />
     </section>
   )
 }
@@ -2142,6 +2266,7 @@ function App() {
   const [esAdmin, setEsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [nombreUsuario, setNombreUsuario] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -2162,7 +2287,7 @@ function App() {
     load()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s)
-      if (!s) { localStorage.removeItem('login_time'); setEsAdmin(false) }
+      if (!s) { localStorage.removeItem('login_time'); setEsAdmin(false); setNombreUsuario('') }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -2170,9 +2295,15 @@ function App() {
   const user = session?.user || null
 
   useEffect(() => {
-    if (!user) { setEsAdmin(false); return }
+    if (!user) { setEsAdmin(false); setNombreUsuario(''); return }
     supabase.from('admins').select('email').eq('email', user.email).maybeSingle()
       .then(({ data }) => setEsAdmin(!!data))
+
+    // Cargar nombre del usuario desde la tabla `perfiles`
+    supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle()
+      .then(({ data }) => {
+        if (data?.nombre_completo) setNombreUsuario(data.nombre_completo)
+      })
   }, [user])
 
   const handleLogout = async () => {
@@ -2184,7 +2315,7 @@ function App() {
 
   return (
     <>
-      <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} />
+      <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} nombreUsuario={nombreUsuario} />
       <main className="app-main">
         <Routes>
           <Route path="/" element={<Home user={user} />} />
