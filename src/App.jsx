@@ -1306,8 +1306,9 @@ function Entregables() {
         <div>
           <h3>Entregables / productos</h3>
           <p className="recurso-desc">
-            Sube aquí las actividades y productos de cada módulo. Asegúrate de nombrar cada archivo con
-            tu nombre y el número de módulo (ej. <em>García_M1_análisis.pdf</em>).
+            Las actividades de las <strong>sesiones 1 y 2</strong> se realizan <strong>en equipo durante la sesión</strong>
+            {' '}y se suben como entregables al final de cada una. Nombren cada archivo haciendo referencia al{' '}
+            <strong>nombre de su región</strong> (ej. <em>Región_Norte_S1_análisis.pdf</em>).
           </p>
         </div>
       </header>
