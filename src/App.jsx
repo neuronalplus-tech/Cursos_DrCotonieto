@@ -995,6 +995,15 @@ function Admin({ user, esAdmin }) {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
 
+  // Estado del formulario de nuevo usuario
+  const [formAbierto, setFormAbierto] = useState(false)
+  const [nuevoEmail, setNuevoEmail] = useState('')
+  const [nuevoPass, setNuevoPass] = useState('')
+  const [cursosLista, setCursosLista] = useState([])
+  const [cursosSeleccionados, setCursosSeleccionados] = useState([])
+  const [creando, setCreando] = useState(false)
+  const [msg, setMsg] = useState('')
+
   useEffect(() => {
     if (!user) { navigate(rutaAcceso('/admin')); return }
     async function load() {
@@ -1005,6 +1014,63 @@ function Admin({ user, esAdmin }) {
     }
     load()
   }, [user, navigate])
+
+  // Cargar lista de cursos activos (solo cuando el admin entra)
+  useEffect(() => {
+    if (!esAdmin) return
+    supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
+      .then(({ data }) => setCursosLista(data || []))
+  }, [esAdmin])
+
+  const toggleCurso = (id) => {
+    setCursosSeleccionados(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const crearUsuario = async () => {
+    setMsg('')
+    if (!nuevoEmail || !nuevoPass) { setMsg('Error: correo y contraseña son obligatorios'); return }
+    if (nuevoPass.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    if (cursosSeleccionados.length === 0) { setMsg('Error: selecciona al menos un curso'); return }
+
+    setCreando(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) { setMsg('Error: no hay sesión activa'); setCreando(false); return }
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuario`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: nuevoEmail,
+          password: nuevoPass,
+          curso_ids: cursosSeleccionados
+        })
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setMsg('Error: ' + (json.error || 'desconocido'))
+      } else {
+        setMsg(`✅ Usuario ${json.email} creado y asignado a ${cursosSeleccionados.length} curso(s)`)
+        setNuevoEmail('')
+        setNuevoPass('')
+        setCursosSeleccionados([])
+        // Refrescar la tabla
+        const { data } = await supabase.from('vista_admin_inscripciones')
+          .select('*').order('inscrito_el', { ascending: false })
+        setFilas(data || [])
+      }
+    } catch (e) {
+      setMsg('Error inesperado: ' + e.message)
+    }
+    setCreando(false)
+  }
 
   if (!user) return null
   if (!esAdmin) return <div className="contenedor"><p className="aviso-error">No tienes permisos para ver esta sección.</p></div>
@@ -1020,6 +1086,60 @@ function Admin({ user, esAdmin }) {
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
       <h1>Panel de administración</h1>
+
+      {/* Formulario de nuevo usuario */}
+      <div className="admin-bloque-nuevo">
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => setFormAbierto(v => !v)}
+        >
+          {formAbierto ? '✕ Cerrar' : '➕ Crear nuevo usuario'}
+        </button>
+
+        {formAbierto && (
+          <div className="nuevo-usuario-form">
+            <h3>Nuevo usuario</h3>
+            <label>Correo electrónico</label>
+            <input
+              type="email"
+              value={nuevoEmail}
+              onChange={e => setNuevoEmail(e.target.value)}
+              placeholder="alumno@ejemplo.com"
+            />
+            <label>Contraseña temporal</label>
+            <input
+              type="text"
+              value={nuevoPass}
+              onChange={e => setNuevoPass(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+            />
+            <label>Cursos a los que tendrá acceso</label>
+            <div className="cursos-checkboxes">
+              {cursosLista.map(c => (
+                <label key={c.id} className="curso-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={cursosSeleccionados.includes(c.id)}
+                    onChange={() => toggleCurso(c.id)}
+                  />
+                  <span>{c.titulo}</span>
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="button whatsapp"
+              onClick={crearUsuario}
+              disabled={creando}
+            >
+              {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
+            </button>
+            {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
+          </div>
+        )}
+      </div>
+
       <div className="kpi-fila">
         <div className="kpi"><span className="kpi-num">{alumnosUnicos}</span><span className="kpi-lbl">Alumnos</span></div>
         <div className="kpi"><span className="kpi-num">{filas.length}</span><span className="kpi-lbl">Inscripciones</span></div>
