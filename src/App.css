@@ -973,3 +973,127 @@ a { color: var(--primary); }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(193,122,94,.15);
 }
+/* ============================================================
+   MÉTRICAS / ANALYTICS
+   ============================================================ */
+.metricas-bloque {
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 22px 26px;
+  margin-top: 22px;
+}
+
+.metricas-titulo {
+  font-family: var(--titulo);
+  font-size: 18px;
+  color: var(--primary);
+  margin: 0 0 18px;
+}
+
+/* Gráfico de barras verticales (inscripciones por mes) */
+.grafico-barras-vertical {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 180px;
+  padding: 12px 0;
+  border-bottom: 2px solid var(--borde);
+}
+
+.barra-v-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
+
+.barra-v-valor {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 4px;
+  height: 14px;
+}
+
+.barra-v-relleno {
+  width: 100%;
+  max-width: 40px;
+  background: linear-gradient(180deg, var(--accent-claro) 0%, var(--accent) 100%);
+  border-radius: 4px 4px 0 0;
+  transition: height .3s ease;
+}
+
+.barra-v-label {
+  font-size: 10.5px;
+  color: var(--gris);
+  margin-top: 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-transform: capitalize;
+}
+
+/* Gráfico de barras horizontales (por curso) */
+.grafico-barras-horizontal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.barra-h-fila {
+  display: grid;
+  grid-template-columns: 200px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+}
+
+.barra-h-label {
+  font-size: 13px;
+  color: var(--body);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barra-h-track {
+  height: 20px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.barra-h-relleno {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-claro) 0%, var(--accent) 100%);
+  border-radius: 10px;
+  transition: width .4s ease;
+}
+
+.barra-h-relleno.azul {
+  background: linear-gradient(90deg, var(--primary-claro) 0%, var(--primary) 100%);
+}
+
+.barra-h-valor {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .barra-h-fila {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .barra-h-label { font-size: 12px; }
+  .barra-h-valor { text-align: left; }
+  .grafico-barras-vertical { height: 140px; gap: 4px; }
+  .barra-v-label { font-size: 9px; }
+}
