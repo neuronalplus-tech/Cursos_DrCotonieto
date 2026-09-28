@@ -1231,59 +1231,53 @@ function Admin({ user, esAdmin }) {
     }
   }
 
-  const ejecutarBulk = async () => {
-    if (!bulkCursoId) { setMsgGestion('Error: elige un curso'); return }
-    const usuariosArr = [...seleccionados]
-    if (usuariosArr.length === 0) { setMsgGestion('Error: no hay usuarios seleccionados'); return }
+const ejecutarBulk = async () => {
+  if (!bulkCursoId) { setMsgGestion('Error: elige un curso'); return }
+  const usuariosArr = [...seleccionados]
+  if (usuariosArr.length === 0) { setMsgGestion('Error: no hay usuarios seleccionados'); return }
 
-    if (bulkAccion === 'quitar') {
-      const ok = await new Promise(resolve => {
-        setConfirmacion({
-          mensaje: `¿Quitar acceso al curso seleccionado a ${usuariosArr.length} usuario(s)?`,
-          onConfirm: () => { setConfirmacion(null); resolve(true) },
-          onCancel: () => { setConfirmacion(null); resolve(false) }
-        })
+  if (bulkAccion === 'quitar') {
+    const ok = await new Promise(resolve => {
+      setConfirmacion({
+        mensaje: `¿Quitar acceso al curso seleccionado a ${usuariosArr.length} usuario(s)?`,
+        onConfirm: () => { setConfirmacion(null); resolve(true) },
+        onCancel: () => { setConfirmacion(null); resolve(false) }
       })
-      if (!ok) return
-    }
+    })
+    if (!ok) return
+  }
 
-    setBulkProcesando(true)
-    let okCount = 0
-    let errCount = 0
+  setBulkProcesando(true)
+  setMsgGestion('')
 
-    for (const uid of usuariosArr) {
-      try {
-        if (bulkAccion === 'dar') {
-          const { error } = await supabase
-            .from('acceso')
-            .insert({ usuario_id: uid, curso_id: parseInt(bulkCursoId), grupo: null })
-          if (error && !error.message.includes('duplicate')) throw error
-          setAccesos(prev => {
-            const nuevo = { ...prev }
-            nuevo[uid] = new Set(nuevo[uid] || [])
-            nuevo[uid].add(parseInt(bulkCursoId))
-            return nuevo
-          })
-        } else {
-          const { error } = await supabase
-            .from('acceso')
-            .delete()
-            .eq('usuario_id', uid)
-            .eq('curso_id', parseInt(bulkCursoId))
-          if (error) throw error
-          setAccesos(prev => {
-            const nuevo = { ...prev }
-            nuevo[uid] = new Set(nuevo[uid] || [])
-            nuevo[uid].delete(parseInt(bulkCursoId))
-            return nuevo
-          })
-        }
-        okCount++
-      } catch (e) {
-        console.error('Error bulk:', e)
-        errCount++
-      }
-    }
+  try {
+    const rpcName = bulkAccion === 'dar' ? 'bulk_grant_course_access' : 'bulk_remove_course_access'
+    
+    const { error } = await supabase.rpc(rpcName, {
+      user_ids: usuariosArr,
+      target_course_id: parseInt(bulkCursoId)
+    })
+
+    if (error) throw error
+
+    setMsgGestion(`✓ Acción completada para ${usuariosArr.length} usuario(s)`)
+    setSeleccionados(new Set())
+    
+    // Recargar la vista de inscripciones
+    const { data } = await supabase.from('vista_admin_inscripciones')
+      .select('*').order('inscrito_el', { ascending: false })
+    setFilas(data || [])
+    
+    // Recargar la gestión de usuarios para actualizar los contadores
+    await cargarGestion()
+    
+  } catch (e) {
+    console.error('Error bulk:', e)
+    setMsgGestion('Error en la acción masiva: ' + e.message)
+  } finally {
+    setBulkProcesando(false)
+  }
+}
 
     setMsgGestion(`✓ Bulk completado: ${okCount} OK${errCount > 0 ? `, ${errCount} con error` : ''}`)
     setSeleccionados(new Set())
