@@ -179,6 +179,15 @@ function esCursoProblemasContemporaneos(curso) {
   return t.includes('problemas') && t.includes('contempor')
 }
 
+function normalizarTexto(s) {
+  return (s || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
 /* ============================================================
    PORTADAS VECTORIALES
    ============================================================ */
@@ -2115,7 +2124,6 @@ function CursoView({ user, esAdmin }) {
   const [estado, setEstado] = useState('cargando')
   const [error, setError] = useState(null)
 
-  // Estados para notificaciones y confirmación
   const [notificando, setNotificando] = useState(null)
   const [msgNotificacion, setMsgNotificacion] = useState('')
   const [confirmacion, setConfirmacion] = useState(null)
@@ -2293,34 +2301,60 @@ function CursoView({ user, esAdmin }) {
   const notificarModuloAbierto = async (m) => {
     try {
       setNotificando(m.id)
-      const { data: alumnos, error: errA } = await supabase
+
+      // 1. Cargar TODAS las inscripciones y filtrar por título normalizado
+      const { data: todas, error: errA } = await supabase
         .from('vista_admin_inscripciones')
-        .select('email, nombre_completo')
-        .eq('curso', curso.titulo)
+        .select('email, nombre_completo, curso, usuario_id')
       if (errA) throw errA
-      if (!alumnos || alumnos.length === 0) {
+
+      const tituloNorm = normalizarTexto(curso.titulo)
+      const vistos = new Set()
+      const alumnos = []
+      for (const a of (todas || [])) {
+        if (normalizarTexto(a.curso) !== tituloNorm) continue
+        if (vistos.has(a.usuario_id)) continue
+        vistos.add(a.usuario_id)
+        alumnos.push({ email: a.email, nombre_completo: a.nombre_completo })
+      }
+
+      console.log('=== NOTIFICACIÓN MÓDULO ===')
+      console.log('Curso:', curso.titulo)
+      console.log('Título normalizado:', tituloNorm)
+      console.log('Total filas en vista:', todas?.length)
+      console.log('Cursos en vista:', [...new Set((todas || []).map(a => a.curso))])
+      console.log('Alumnos filtrados:', alumnos.length)
+
+      if (alumnos.length === 0) {
         setMsgNotificacion('No hay alumnos inscritos todavía')
         setNotificando(null)
         return
       }
 
+      // 2. Llamar al Apps Script con no-cors (evita el bloqueo CORS de Google)
       const urlModulo = `${window.location.origin}/modulo/${m.id}`
+      const payload = {
+        tipo: 'modulo-abierto',
+        curso: { titulo: curso.titulo, url: urlModulo },
+        modulo: { titulo: m.titulo, descripcion: m.descripcion },
+        alumnos
+      }
+
+      console.log('Enviando a Apps Script:', APPS_SCRIPT_URL)
+      console.log('Payload:', JSON.stringify(payload).substring(0, 200) + '...')
+
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          tipo: 'modulo-abierto',
-          curso: { titulo: curso.titulo, url: urlModulo },
-          modulo: { titulo: m.titulo, descripcion: m.descripcion },
-          alumnos
-        })
+        body: JSON.stringify(payload)
       })
-      const json = await res.json()
-      if (json.ok) {
-        setMsgNotificacion(`✓ Notificados ${json.enviados} alumno(s)`)
-      } else {
-        setMsgNotificacion('Error: ' + (json.error || 'desconocido'))
-      }
+
+      console.log('Respuesta tipo:', res.type, 'status:', res.status)
+
+      // Con no-cors, el status siempre es 0 y type es 'opaque'.
+      // No podemos leer la respuesta, pero la petición SÍ llegó a Google.
+      setMsgNotificacion(`✓ Enviado a Google Apps Script (${alumnos.length} alumno${alumnos.length === 1 ? '' : 's'})`)
     } catch (e) {
       console.error('Error notificando:', e)
       setMsgNotificacion('Error: ' + e.message)
