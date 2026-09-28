@@ -1051,7 +1051,8 @@ function Admin({ user, esAdmin }) {
   const [comunicadoPreview, setComunicadoPreview] = useState(false)
   const [comunicadoEditorKey, setComunicadoEditorKey] = useState(0)
   const comunicadoEditorRef = useRef(null)
-
+  const [editorHtmlAbierto, setEditorHtmlAbierto] = useState(false)
+  const [editorHtmlTexto, setEditorHtmlTexto] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1346,7 +1347,19 @@ function Admin({ user, esAdmin }) {
       setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
     }
   }
+  const abrirEditorHtml = () => {
+    const htmlActual = comunicadoEditorRef.current?.innerHTML || comunicadoCuerpo || ''
+    setEditorHtmlTexto(htmlActual)
+    setEditorHtmlAbierto(true)
+  }
 
+  const aplicarEditorHtml = () => {
+    if (comunicadoEditorRef.current) {
+      comunicadoEditorRef.current.innerHTML = editorHtmlTexto
+    }
+    setComunicadoCuerpo(editorHtmlTexto)
+    setEditorHtmlAbierto(false)
+  }
   const limpiarEditor = () => {
     setComunicadoAsunto('')
     setComunicadoCuerpo('')
@@ -2431,6 +2444,12 @@ function Admin({ user, esAdmin }) {
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => ejecutarComando('justifyRight')}>
                   ➡
+                                <span className="editor-sep" />
+                <button type="button" className="editor-btn editor-btn-html" title="Editar HTML directamente"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={abrirEditorHtml}>
+                  &lt;/&gt; HTML
+                </button>
                 </button>
                 <span className="editor-sep" />
                 <button type="button" className="editor-btn editor-btn-peligro" title="Quitar todo el formato"
@@ -2530,7 +2549,40 @@ function Admin({ user, esAdmin }) {
           </section>
         </>
       )}
-
+      {editorHtmlAbierto && (
+        <div className="modal-overlay" onClick={() => setEditorHtmlAbierto(false)}>
+          <div className="modal-box modal-html" onClick={e => e.stopPropagation()}>
+            <h3>Código HTML del mensaje</h3>
+            <p className="sutil" style={{ marginBottom: 14 }}>
+              Pega o edita el HTML directamente. Al aplicar, se actualizará el editor.
+            </p>
+            <textarea
+              className="modal-textarea modal-textarea-html"
+              value={editorHtmlTexto}
+              onChange={e => setEditorHtmlTexto(e.target.value)}
+              spellCheck={false}
+              autoFocus
+            />
+            <div className="modal-botones">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setEditorHtmlAbierto(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                onClick={aplicarEditorHtml}
+              >
+                Aplicar HTML
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {modalNotas && (
         <div className="modal-overlay" onClick={() => !guardandoNota && setModalNotas(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
