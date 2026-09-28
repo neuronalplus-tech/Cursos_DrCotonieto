@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation
 import { createClient } from '@supabase/supabase-js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { jsPDF } from 'jspdf'
+import { jsPDF } from 'jspdf'  
 import './App.css'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
@@ -996,7 +996,6 @@ function Perfil({ user }) {
    MENSAJES · INBOX (Supabase Realtime)
    ============================================================ */
 function MensajesInbox({ user, esAdmin }) {
-  // Conversaciones y chat 1-a-1
   const [conversaciones, setConversaciones] = useState([])
   const [chatCon, setChatCon] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -1009,23 +1008,19 @@ function MensajesInbox({ user, esAdmin }) {
   const mensajesEndRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Tabs sidebar (admin)
   const [vistaSidebar, setVistaSidebar] = useState('conversaciones')
   const [contactos, setContactos] = useState([])
   const [cargandoContactos, setCargandoContactos] = useState(false)
   const [cursosLista, setCursosLista] = useState([])
   const [cursoFiltro, setCursoFiltro] = useState('todos')
 
-  // Multi-selección
   const [seleccionadosContactos, setSeleccionadosContactos] = useState(new Set())
   const [modoEnvioMultiple, setModoEnvioMultiple] = useState(false)
 
-  // Adjuntos
   const [archivoAdjunto, setArchivoAdjunto] = useState(null)
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
   const fileInputRef = useRef(null)
 
-  // 1. adminId para alumnos
   useEffect(() => {
     if (!user || esAdmin) return
     supabase.rpc('get_admin_id').then(({ data, error }) => {
@@ -1034,14 +1029,12 @@ function MensajesInbox({ user, esAdmin }) {
     })
   }, [user, esAdmin])
 
-  // 2. Cursos para dropdown
   useEffect(() => {
     if (!esAdmin || !user) return
     supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin, user])
 
-  // 3. Conversaciones existentes (admin)
   useEffect(() => {
     if (!esAdmin || !user) return
     async function load() {
@@ -1074,7 +1067,6 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [esAdmin, user, mensajes.length])
 
-  // 4. Contactos (admin)
   useEffect(() => {
     if (!esAdmin || !user || vistaSidebar !== 'contactos') return
     async function load() {
@@ -1104,7 +1096,6 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [esAdmin, user, vistaSidebar])
 
-  // 5. Mensajes de la conversación activa
   useEffect(() => {
     if (!user || !chatCon || modoEnvioMultiple) return
     async function load() {
@@ -1119,7 +1110,6 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [user, chatCon, modoEnvioMultiple])
 
-  // 6. Realtime
   useEffect(() => {
     if (!user) return
     const canal = supabase
@@ -1143,7 +1133,6 @@ function MensajesInbox({ user, esAdmin }) {
     return () => { supabase.removeChannel(canal) }
   }, [user, chatCon, modoEnvioMultiple])
 
-  // 7. Marcar como leídos
   useEffect(() => {
     if (!user || !chatCon || modoEnvioMultiple) return
     supabase.from('mensajes')
@@ -1160,12 +1149,10 @@ function MensajesInbox({ user, esAdmin }) {
       })
   }, [user, chatCon, mensajes.length, esAdmin, modoEnvioMultiple])
 
-  // 8. Scroll al final
   useEffect(() => {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes])
 
-  // ===== MULTI-SELECCIÓN =====
   const toggleSeleccionContacto = (id) => {
     setSeleccionadosContactos(prev => {
       const nuevo = new Set(prev)
@@ -1195,26 +1182,23 @@ function MensajesInbox({ user, esAdmin }) {
   const abrirEnvioMultiple = () => {
     if (seleccionadosContactos.size === 0) return
     if (seleccionadosContactos.size === 1) {
-      // 1 solo → abrir chat normal
       const soloId = [...seleccionadosContactos][0]
       setChatCon(soloId)
       setModoEnvioMultiple(false)
       setSeleccionadosContactos(new Set())
       return
     }
-    // 2+ → modo grupal
     setModoEnvioMultiple(true)
     setChatCon(null)
     setNuevoMensaje('')
     setArchivoAdjunto(null)
   }
 
-  // ===== ARCHIVOS =====
   const seleccionarArchivo = () => fileInputRef.current?.click()
 
   const onArchivoSeleccionado = (e) => {
     const file = e.target.files?.[0]
-    e.target.value = '' // permite volver a subir el mismo
+    e.target.value = ''
     if (!file) return
     if (file.size > 10 * 1024 * 1024) {
       setError('El archivo supera los 10 MB. Comprime o elige otro.')
@@ -1246,7 +1230,6 @@ function MensajesInbox({ user, esAdmin }) {
     }
   }
 
-  // ===== ENVIAR =====
   const enviar = async () => {
     const texto = nuevoMensaje.trim()
     if ((!texto && !archivoAdjunto) || !user || enviando) return
@@ -1258,7 +1241,6 @@ function MensajesInbox({ user, esAdmin }) {
       let adjunto = null
       if (archivoAdjunto) adjunto = await subirArchivo()
 
-      // Modo grupal
       if (modoEnvioMultiple && seleccionadosContactos.size > 0) {
         const destinatarios = [...seleccionadosContactos]
         const inserts = destinatarios.map(para_id => ({
@@ -1282,7 +1264,6 @@ function MensajesInbox({ user, esAdmin }) {
         return
       }
 
-      // Modo 1-a-1
       if (!chatCon) return
       const { error: errI } = await supabase.from('mensajes').insert({
         de_id: user.id,
@@ -1303,7 +1284,6 @@ function MensajesInbox({ user, esAdmin }) {
     }
   }
 
-  // ===== FILTROS =====
   const conversacionesFiltradas = conversaciones.filter(c => {
     if (!busqueda.trim()) return true
     const t = busqueda.toLowerCase()
@@ -1328,7 +1308,6 @@ function MensajesInbox({ user, esAdmin }) {
     return 'Alumno'
   }
 
-  // Convierte URLs en links clicables
   const renderizarTexto = (texto) => {
     if (!texto) return null
     const regex = /(https?:\/\/[^\s]+)/g
@@ -1340,7 +1319,6 @@ function MensajesInbox({ user, esAdmin }) {
     )
   }
 
-  // Renderiza adjunto de un mensaje
   const renderAdjunto = (m) => {
     if (!m.adjunto_url) return null
     if (m.adjunto_tipo === 'imagen') {
@@ -1357,7 +1335,6 @@ function MensajesInbox({ user, esAdmin }) {
     )
   }
 
-  // Input file oculto (se usa en todos los composers)
   const inputFileOculto = (
     <input
       ref={fileInputRef}
@@ -1368,7 +1345,6 @@ function MensajesInbox({ user, esAdmin }) {
     />
   )
 
-  // Preview del adjunto pendiente
   const previewAdjunto = archivoAdjunto && (
     <div className="chat-adjunto-preview">
       <span className="chat-adjunto-preview-icono">
@@ -1386,7 +1362,6 @@ function MensajesInbox({ user, esAdmin }) {
 
   if (!user) return null
 
-  // ===== VISTA ALUMNO =====
   if (!esAdmin) {
     return (
       <div className="inbox-simple">
@@ -1453,7 +1428,6 @@ function MensajesInbox({ user, esAdmin }) {
     )
   }
 
-  // ===== VISTA ADMIN =====
   const seleccionArray = [...seleccionadosContactos]
   const nombresSeleccionados = seleccionArray
     .map(id => contactos.find(c => c.usuario_id === id))
@@ -1476,7 +1450,6 @@ function MensajesInbox({ user, esAdmin }) {
           >👥 Contactos</button>
         </div>
 
-        {/* Barra de selección múltiple */}
         {vistaSidebar === 'contactos' && seleccionadosContactos.size > 0 && (
           <div className="inbox-seleccion-bar">
             <span className="inbox-seleccion-count">
@@ -1623,7 +1596,6 @@ function MensajesInbox({ user, esAdmin }) {
       </aside>
 
       <main className="inbox-chat">
-        {/* Modo grupal */}
         {modoEnvioMultiple ? (
           <div className="inbox-chat-multiple">
             <div className="inbox-multiple-header">
@@ -1807,7 +1779,6 @@ function Admin({ user, esAdmin }) {
 
   const [confirmacion, setConfirmacion] = useState(null)
 
-  // Inscripción masiva
   const [masivoAbierto, setMasivoAbierto] = useState(false)
   const [emailsMasivos, setEmailsMasivos] = useState('')
   const [passMasivo, setPassMasivo] = useState('')
@@ -1817,7 +1788,6 @@ function Admin({ user, esAdmin }) {
   const [resultadoMasivo, setResultadoMasivo] = useState(null)
   const [msgMasivo, setMsgMasivo] = useState('')
 
-  // Comunicados masivos
   const [comunicadoDestino, setComunicadoDestino] = useState('todos')
   const [comunicadoCursoId, setComunicadoCursoId] = useState('')
   const [comunicadoManual, setComunicadoManual] = useState('')
@@ -2052,7 +2022,6 @@ function Admin({ user, esAdmin }) {
     }
   }
 
-  // ===== COMUNICADOS =====
   const calcularDestinatarios = () => {
     const hoy = Date.now()
     const dedup = new Map()
@@ -2215,7 +2184,6 @@ function Admin({ user, esAdmin }) {
       setComunicadoEnviando(false)
     }
   }
-  // ===== FIN COMUNICADOS =====
 
   const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
     if (tiene) {
@@ -2363,7 +2331,6 @@ function Admin({ user, esAdmin }) {
     }
   }
 
-  // ===== MÉTRICAS =====
   const calcularMetricas = () => {
     if (!filas || filas.length === 0) {
       return {
@@ -2463,7 +2430,6 @@ function Admin({ user, esAdmin }) {
   const metricas = calcularMetricas()
   const maxInscripcionesMes = Math.max(...metricas.inscripcionesPorMes.map(m => m.count), 1)
   const maxAlumnosCurso = Math.max(...metricas.alumnosPorCurso.map(c => c.alumnos), 1)
-  // ===== FIN MÉTRICAS =====
 
   const usuariosFiltrados = usuarios.filter(u => {
     const t = busqueda.toLowerCase()
@@ -2520,46 +2486,6 @@ function Admin({ user, esAdmin }) {
                 <label>Contraseña temporal</label>
                 <input type="text" value={nuevoPass} onChange={e => setNuevoPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
                 <label>Cursos a los que tendrá acceso</label>
-                <div className="cursos-checkboxes">
-                  {cursosLista.map(c => (
-                    <label key={c.id} className="curso-checkbox">
-                      <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
-                      <span>{c.titulo}</span>
-                    </label>
-                  ))}
-                </div>
-                <button type="button" className="button whatsapp" onClick={crearUsuario} disabled={creando}>
-                  {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
-                </button>
-                {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
-              </div>
-            )}
-          </div>
-
-          <div className="admin-bloque-nuevo">
-            <button type="button" className="button secondary" onClick={() => setMasivoAbierto(v => !v)}>
-              {masivoAbierto ? '✕ Cerrar inscripción masiva' : '📥 Inscripción masiva (hasta 200 correos)'}
-            </button>
-
-            {masivoAbierto && (
-              <div className="nuevo-usuario-form">
-                <h3>Inscripción masiva de usuarios</h3>
-                <p className="sutil" style={{ marginTop: 0, marginBottom: 14 }}>
-                  Pega los correos separados por coma, punto y coma o salto de línea.
-                  Se crearán todos con la misma contraseña temporal y se asignarán a los cursos que elijas.
-                </p>
-
-                <label>Correos electrónicos</label>
-                <textarea rows="6" className="modal-textarea" value={emailsMasivos} onChange={e => setEmailsMasivos(e.target.value)}
-                  placeholder={"alumno1@correo.com, alumno2@correo.com\nalumno3@correo.com; alumno4@correo.com"}
-                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
-                <p className="nota" style={{ marginTop: 6 }}>{parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)</p>
-
-                <label>Contraseña temporal (misma para todos)</label>
-                <input type="text" value={passMasivo} onChange={e => setPassMasivo(e.target.value)} placeholder="Ej. Curso2026!" />
-                <p className="nota" style={{ marginTop: 6 }}>⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.</p>
-
-                <label>Cursos a los que tendrán acceso</label>
                 <div className="cursos-checkboxes">
                   {cursosLista.map(c => (
                     <label key={c.id} className="curso-checkbox">
@@ -3201,11 +3127,141 @@ function Autoevaluacion({ url, recursoId, userId, onComplete }) {
   )
 }
 
-function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
+/* ============================================================
+   MODAL: EDITAR / CREAR RECURSO (solo admin)
+   ============================================================ */
+function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
+  const esNuevo = !recurso?.id
+  const [form, setForm] = useState({
+    tipo:        recurso?.tipo        || 'enlace',
+    titulo:      recurso?.titulo      || '',
+    descripcion: recurso?.descripcion || '',
+    url:         (recurso?.url && recurso.url !== 'PENDIENTE') ? recurso.url : '',
+    archivo:     recurso?.archivo     || '',
+    contenido:   recurso?.contenido   || '',
+    orden:       recurso?.orden       ?? 100,
+  })
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const guardar = async () => {
+    if (!form.titulo.trim()) { setMsg('El título es obligatorio'); return }
+    setGuardando(true); setMsg('')
+    try {
+      const payload = {
+        modulo_id:   moduloId,
+        tipo:        form.tipo,
+        titulo:      form.titulo.trim(),
+        descripcion: form.descripcion.trim() || null,
+        url:         form.url.trim() || null,
+        archivo:     form.archivo.trim() || null,
+        contenido:   form.contenido.trim() || null,
+        orden:       parseInt(form.orden, 10) || 100,
+      }
+      if (esNuevo) {
+        const { data, error } = await supabase.from('recursos').insert(payload).select().single()
+        if (error) throw error
+        onGuardado(data, 'creado')
+      } else {
+        const { data, error } = await supabase.from('recursos').update(payload).eq('id', recurso.id).select().single()
+        if (error) throw error
+        onGuardado(data, 'actualizado')
+      }
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const eliminar = async () => {
+    if (!window.confirm(`¿Eliminar "${recurso.titulo}"? Esta acción no se puede deshacer.`)) return
+    setGuardando(true)
+    try {
+      const { error } = await supabase.from('recursos').delete().eq('id', recurso.id)
+      if (error) throw error
+      onGuardado(recurso, 'eliminado')
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>{esNuevo ? '➕ Nuevo recurso' : '✏️ Editar recurso'}</h3>
+
+        <label>Tipo</label>
+        <select value={form.tipo} onChange={e => set('tipo', e.target.value)}>
+          <option value="pdf">📄 PDF</option>
+          <option value="video">🎬 Video</option>
+          <option value="word">📝 Word / Descargable</option>
+          <option value="enlace">🔗 Enlace</option>
+          <option value="autoevaluacion">✍️ Autoevaluación</option>
+        </select>
+
+        <label>Título</label>
+        <input type="text" value={form.titulo} onChange={e => set('titulo', e.target.value)}
+               placeholder="Ej. Lectura 1: Conceptos básicos" />
+
+        <label>Descripción</label>
+        <textarea rows="3" value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
+                  placeholder="Texto que aparece debajo del título" />
+
+        {['video', 'enlace', 'autoevaluacion'].includes(form.tipo) && (
+          <>
+            <label>
+              URL {form.tipo === 'video' ? '(embed)' : form.tipo === 'autoevaluacion' ? '(Google Forms)' : ''}
+            </label>
+            <input type="url" value={form.url} onChange={e => set('url', e.target.value)}
+                   placeholder="https://..." />
+            {form.tipo === 'video' && (
+              <p className="nota">Para YouTube usa: <code>https://www.youtube.com/embed/VIDEO_ID</code></p>
+            )}
+          </>
+        )}
+
+        {['pdf', 'word'].includes(form.tipo) && (
+          <>
+            <label>Archivo (ruta en Storage)</label>
+            <input type="text" value={form.archivo} onChange={e => set('archivo', e.target.value)}
+                   placeholder="Ej. PDF_M1_1.pdf o supervision/caso1.pdf" />
+            <p className="nota">Ruta relativa dentro del bucket del curso.</p>
+          </>
+        )}
+
+        <label>Orden</label>
+        <input type="number" value={form.orden} onChange={e => set('orden', e.target.value)} />
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          {!esNuevo && (
+            <button type="button" className="button texto" onClick={eliminar} disabled={guardando}
+                    style={{ color: '#9B2C20', marginRight: 'auto' }}>
+              🗑 Eliminar
+            </button>
+          )}
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : (esNuevo ? 'Crear' : 'Guardar')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdmin, onEditar }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo)
-  const videoSinUrl = recurso.tipo === 'video' && !recurso.url
+  const videoSinUrl = recurso.tipo === 'video' && (!recurso.url || recurso.url === 'PENDIENTE')
 
   const abrirNuevaPestana = async () => {
     setOcupado(true)
@@ -3244,7 +3300,17 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
             <span className="recurso-tipo">{NOMBRE_TIPO[recurso.tipo] || 'Recurso'}</span>
           </div>
         </div>
-        {visto && <span className="badge ok">✔ Visto</span>}
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+          {visto && <span className="badge ok">✔ Visto</span>}
+          {esAdmin && onEditar && (
+            <button type="button" className="recurso-edit-btn"
+                    onClick={() => onEditar(recurso)}
+                    title="Editar recurso">
+              ✏️ Editar
+            </button>
+          )}
+        </div>
       </div>
 
       {recurso.descripcion && <p className="recurso-desc">{recurso.descripcion}</p>}
@@ -4030,6 +4096,9 @@ function ModuloView({ user, esAdmin }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // ✨ NUEVO: modal de edición de recurso
+  const [editandoRecurso, setEditandoRecurso] = useState(null)
+
   useEffect(() => {
     async function load() {
       try {
@@ -4094,6 +4163,18 @@ function ModuloView({ user, esAdmin }) {
   const irA = (rid) => {
     const el = document.getElementById(`r-${rid}`)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  // ✨ NUEVO: handler de guardado/borrado del modal
+  const onGuardadoRecurso = (data, accion) => {
+    if (accion === 'creado') {
+      setRecursos(prev => [...prev, data].sort((a, b) => (a.orden || 0) - (b.orden || 0)))
+    } else if (accion === 'actualizado') {
+      setRecursos(prev => prev.map(r => r.id === data.id ? data : r)
+                            .sort((a, b) => (a.orden || 0) - (b.orden || 0)))
+    } else if (accion === 'eliminado') {
+      setRecursos(prev => prev.filter(r => r.id !== data.id))
+    }
   }
 
   if (loading) return <div className="loading">Cargando módulo...</div>
@@ -4198,10 +4279,28 @@ function ModuloView({ user, esAdmin }) {
           {mostrarDiapositivas && <DiapositivasPresentarCaso />}
           {mostrarEntregables && <Entregables />}
 
+          {/* ✨ NUEVO: botón de "Nuevo recurso" solo para admin */}
+          {esAdmin && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+              <button type="button" className="button primary"
+                      onClick={() => setEditandoRecurso({})}>
+                ➕ Nuevo recurso
+              </button>
+            </div>
+          )}
+
           <div className="recursos-list">
             {recursos.map((r) => (
-              <RecursoCard key={r.id} recurso={r} bucket={bucket} user={user}
-                           visto={!!progresoRecursos[r.id]} onMarcarVisto={marcarVisto} />
+              <RecursoCard
+                key={r.id}
+                recurso={r}
+                bucket={bucket}
+                user={user}
+                visto={!!progresoRecursos[r.id]}
+                onMarcarVisto={marcarVisto}
+                esAdmin={esAdmin}
+                onEditar={setEditandoRecurso}
+              />
             ))}
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
           </div>
@@ -4218,6 +4317,16 @@ function ModuloView({ user, esAdmin }) {
       </div>
 
       <NavegacionFlotante prev={prev} next={next} curso={curso} mostrarConstancia={mostrarConstancia} />
+
+      {/* ✨ NUEVO: modal de edición */}
+      {editandoRecurso !== null && (
+        <ModalEditarRecurso
+          recurso={editandoRecurso}
+          moduloId={parseInt(id, 10)}
+          onClose={() => setEditandoRecurso(null)}
+          onGuardado={onGuardadoRecurso}
+        />
+      )}
 
       <BandaRedes />
     </div>
