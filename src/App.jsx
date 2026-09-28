@@ -517,7 +517,7 @@ function Header({ user, esAdmin, onLogout, nombreUsuario }) {
         <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
              onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
           <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="logo-header" />
-          <span className="brand-name">Dr. Ernesto Cotonieto</span>
+          <span className="brand-name">Dr. Ernesto Cotonieto CANARIO-2026</span>
         </div>
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
         <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
