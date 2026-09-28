@@ -1406,6 +1406,153 @@ function Admin({ user, esAdmin }) {
       setGuardandoNota(false)
     }
   }
+  // ===== MÉTRICAS / ANALYTICS =====
+  const [metricasCargando, setMetricasCargando] = useState(false)
+
+  const calcularMetricas = () => {
+    if (!filas || filas.length === 0) {
+      return {
+        alumnosUnicos: 0,
+        totalInscripciones: 0,
+        tasaFinalizacion: 0,
+        activos30d: 0,
+        inscripcionesPorMes: [],
+        finalizacionPorCurso: [],
+        alumnosPorCurso: [],
+        alumnosEnRiesgo: [],
+      }
+    }
+
+    // 1. Alumnos únicos
+    const alumnosUnicos = new Set(filas.map(f => f.usuario_id)).size
+
+    // 2. Total inscripciones
+    const totalInscripciones = filas.length
+
+    // 3. Tasa de finalización global
+    let totalRecursos = 0
+    let totalCompletados = 0
+    filas.forEach(f => {
+      totalRecursos += (f.total_recursos || 0)
+      totalCompletados += (f.recursos_completados || 0)
+    })
+    const tasaFinalizacion = totalRecursos > 0
+      ? Math.round((totalCompletados / totalRecursos) * 100)
+      : 0
+
+    // 4. Alumnos activos últimos 30 días (únicos)
+    const hoy = Date.now()
+    const hace30d = 30 * 24 * 60 * 60 * 1000
+    const activosSet = new Set()
+    filas.forEach(f => {
+      if (f.ultimo_ingreso) {
+        const dias = hoy - new Date(f.ultimo_ingreso).getTime()
+        if (dias <= hace30d) activosSet.add(f.usuario_id)
+      }
+    })
+    const activos30d = activosSet.size
+
+    // 5. Inscripciones por mes (últimos 12 meses)
+    const meses = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date()
+      d.setMonth(d.getMonth() - i)
+      meses.push({
+        anio: d.getFullYear(),
+        mes: d.getMonth(),
+        label: d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' }),
+        count: 0,
+      })
+    }
+    filas.forEach(f => {
+      if (!f.inscrito_el) return
+      const d = new Date(f.inscrito_el)
+      const slot = meses.find(m => m.anio === d.getFullYear() && m.mes === d.getMonth())
+      if (slot) slot.count++
+    })
+    const inscripcionesPorMes = meses
+
+    // 6. Finalización por curso + alumnos por curso
+    const porCurso = {}
+    filas.forEach(f => {
+      const key = f.curso || 'Sin curso'
+      if (!porCurso[key]) {
+        porCurso[key] = {
+          curso: key,
+          inscritos: 0,
+          sumaRecursos: 0,
+          sumaCompletados: 0,
+          alumnosSet: new Set(),
+        }
+      }
+      porCurso[key].inscritos++
+      porCurso[key].sumaRecursos += (f.total_recursos || 0)
+      porCurso[key].sumaCompletados += (f.recursos_completados || 0)
+      porCurso[key].alumnosSet.add(f.usuario_id)
+    })
+
+    const finalizacionPorCurso = Object.values(porCurso)
+      .map(c => ({
+        curso: c.curso,
+        inscritos: c.inscritos,
+        tasa: c.sumaRecursos > 0
+          ? Math.round((c.sumaCompletados / c.sumaRecursos) * 100)
+          : 0,
+      }))
+      .sort((a, b) => b.tasa - a.tasa)
+
+    const alumnosPorCurso = Object.values(porCurso)
+      .map(c => ({
+        curso: c.curso,
+        alumnos: c.alumnosSet.size,
+      }))
+      .sort((a, b) => b.alumnos - a.alumnos)
+
+    // 7. Alumnos en riesgo (>15 días sin entrar)
+    const hace15d = 15 * 24 * 60 * 60 * 1000
+    const riesgosMap = {}
+    filas.forEach(f => {
+      if (!f.ultimo_ingreso) return
+      const dias = Math.floor((hoy - new Date(f.ultimo_ingreso).getTime()) / (1000 * 60 * 60 * 24))
+      if (dias > 15) {
+        if (!riesgosMap[f.usuario_id]) {
+          riesgosMap[f.usuario_id] = {
+            usuario_id: f.usuario_id,
+            email: f.email,
+            nombre_completo: f.nombre_completo,
+            dias,
+            cursos: [],
+            ultimo_ingreso: f.ultimo_ingreso,
+          }
+        }
+        riesgosMap[f.usuario_id].cursos.push(f.curso)
+        // si hay varias inscripciones, guardar el más reciente
+        if (new Date(f.ultimo_ingreso) > new Date(riesgosMap[f.usuario_id].ultimo_ingreso)) {
+          riesgosMap[f.usuario_id].ultimo_ingreso = f.ultimo_ingreso
+          riesgosMap[f.usuario_id].dias = dias
+        }
+      }
+    })
+    const alumnosEnRiesgo = Object.values(riesgosMap)
+      .sort((a, b) => b.dias - a.dias)
+
+    return {
+      alumnosUnicos,
+      totalInscripciones,
+      tasaFinalizacion,
+      activos30d,
+      inscripcionesPorMes,
+      finalizacionPorCurso,
+      alumnosPorCurso,
+      alumnosEnRiesgo,
+    }
+  }
+
+  const metricas = calcularMetricas()
+  const maxInscripcionesMes = Math.max(...metricas.inscripcionesPorMes.map(m => m.count), 1)
+  const maxAlumnosCurso = Math.max(...metricas.alumnosPorCurso.map(c => c.alumnos), 1)
+
+  // ===== FIN MÉTRICAS =====
 
   const usuariosFiltrados = usuarios.filter(u => {
     const t = busqueda.toLowerCase()
@@ -1453,6 +1600,13 @@ function Admin({ user, esAdmin }) {
           onClick={() => setVista('usuarios')}
         >
           👥 Gestión de usuarios
+        </button>
+                <button
+          type="button"
+          className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`}
+          onClick={() => setVista('metricas')}
+        >
+          📊 Métricas
         </button>
       </div>
 
@@ -1846,6 +2000,138 @@ function Admin({ user, esAdmin }) {
               </div>
             </>
           )}
+        </>
+      )}
+      {vista === 'metricas' && (
+        <>
+          <p className="seccion-intro">
+            Vista general del comportamiento de la plataforma. Los datos se calculan al vuelo desde las inscripciones actuales.
+          </p>
+
+          <div className="kpi-fila">
+            <div className="kpi">
+              <span className="kpi-num">{metricas.alumnosUnicos}</span>
+              <span className="kpi-lbl">Alumnos únicos</span>
+            </div>
+            <div className="kpi">
+              <span className="kpi-num">{metricas.totalInscripciones}</span>
+              <span className="kpi-lbl">Inscripciones</span>
+            </div>
+            <div className="kpi">
+              <span className="kpi-num">{metricas.tasaFinalizacion}%</span>
+              <span className="kpi-lbl">Finalización global</span>
+            </div>
+            <div className="kpi">
+              <span className="kpi-num">{metricas.activos30d}</span>
+              <span className="kpi-lbl">Activos últimos 30 días</span>
+            </div>
+          </div>
+
+          {/* ===== Inscripciones por mes ===== */}
+          <section className="metricas-bloque">
+            <h3 className="metricas-titulo">📅 Inscripciones por mes (últimos 12)</h3>
+            <div className="grafico-barras-vertical">
+              {metricas.inscripcionesPorMes.map((m, i) => (
+                <div key={i} className="barra-v-col">
+                  <div className="barra-v-valor">{m.count > 0 ? m.count : ''}</div>
+                  <div
+                    className="barra-v-relleno"
+                    style={{
+                      height: `${maxInscripcionesMes > 0 ? (m.count / maxInscripcionesMes) * 100 : 0}%`,
+                      minHeight: m.count > 0 ? '4px' : '0',
+                    }}
+                    title={`${m.count} inscripción(es)`}
+                  />
+                  <div className="barra-v-label">{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ===== Finalización por curso ===== */}
+          <section className="metricas-bloque">
+            <h3 className="metricas-titulo">🎯 Tasa de finalización por curso</h3>
+            {metricas.finalizacionPorCurso.length === 0
+              ? <p className="sutil">Sin datos todavía.</p>
+              : <div className="grafico-barras-horizontal">
+                  {metricas.finalizacionPorCurso.map((c, i) => (
+                    <div key={i} className="barra-h-fila">
+                      <div className="barra-h-label" title={c.curso}>{c.curso}</div>
+                      <div className="barra-h-track">
+                        <div
+                          className="barra-h-relleno"
+                          style={{ width: `${c.tasa}%` }}
+                        />
+                      </div>
+                      <div className="barra-h-valor">{c.tasa}%</div>
+                    </div>
+                  ))}
+                </div>}
+          </section>
+
+          {/* ===== Alumnos por curso ===== */}
+          <section className="metricas-bloque">
+            <h3 className="metricas-titulo">👥 Alumnos por curso</h3>
+            {metricas.alumnosPorCurso.length === 0
+              ? <p className="sutil">Sin datos todavía.</p>
+              : <div className="grafico-barras-horizontal">
+                  {metricas.alumnosPorCurso.map((c, i) => (
+                    <div key={i} className="barra-h-fila">
+                      <div className="barra-h-label" title={c.curso}>{c.curso}</div>
+                      <div className="barra-h-track">
+                        <div
+                          className="barra-h-relleno azul"
+                          style={{ width: `${(c.alumnos / maxAlumnosCurso) * 100}%` }}
+                        />
+                      </div>
+                      <div className="barra-h-valor">{c.alumnos}</div>
+                    </div>
+                  ))}
+                </div>}
+          </section>
+
+          {/* ===== Alumnos en riesgo ===== */}
+          <section className="metricas-bloque">
+            <h3 className="metricas-titulo">⚠️ Alumnos en riesgo ({metricas.alumnosEnRiesgo.length})</h3>
+            <p className="nota" style={{ marginTop: 0, marginBottom: 12 }}>
+              Inscritos que no ingresan desde hace más de 15 días. Buen momento para un correo de reactivación.
+            </p>
+            {metricas.alumnosEnRiesgo.length === 0
+              ? <p className="aviso-ok">🎉 Ningún alumno en riesgo. Todos activos.</p>
+              : <div className="tabla-scroll">
+                  <table className="tabla-admin">
+                    <thead>
+                      <tr>
+                        <th>Alumno</th>
+                        <th>Días sin entrar</th>
+                        <th>Cursos</th>
+                        <th>Último ingreso</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metricas.alumnosEnRiesgo.map((a, i) => (
+                        <tr key={i}>
+                          <td>
+                            <strong>{a.nombre_completo || '(sin nombre)'}</strong>
+                            <span className="celda-sub">{a.email}</span>
+                          </td>
+                          <td>
+                            <span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>
+                              {a.dias} días
+                            </span>
+                          </td>
+                          <td>
+                            <span className="celda-sub" style={{ fontSize: 12 }}>
+                              {a.cursos.join(' · ')}
+                            </span>
+                          </td>
+                          <td>{fecha(a.ultimo_ingreso)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>}
+          </section>
         </>
       )}
 
