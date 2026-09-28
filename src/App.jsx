@@ -1753,259 +1753,6 @@ function MensajesInbox({ user, esAdmin }) {
   )
 }
 
-  // ===== VISTA ALUMNO =====
-  if (!esAdmin) {
-    return (
-      <div className="inbox-simple">
-        <header className="inbox-simple-header">
-          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="inbox-avatar-img" />
-          <div>
-            <h2 style={{ margin: 0, fontSize: 17 }}>Dr. Ernesto Cotonieto</h2>
-            <p className="sutil" style={{ margin: 0, fontSize: 12.5 }}>Te responderé pronto</p>
-          </div>
-        </header>
-
-        <div className="chat-mensajes">
-          {mensajes.length === 0 ? (
-            <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
-              Escríbeme lo que necesites.<br />Te responderé pronto.
-            </p>
-          ) : (
-            mensajes.map(m => {
-              const esMio = m.de_id === user.id
-              return (
-                <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
-                  <div className="chat-burbuja">{m.contenido}</div>
-                  <div className="chat-hora">
-                    {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              )
-            })
-          )}
-          <div ref={mensajesEndRef} />
-        </div>
-
-        <div className="chat-input-area">
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            placeholder="Escribe un mensaje..."
-            value={nuevoMensaje}
-            onChange={e => setNuevoMensaje(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
-            }}
-            rows="1"
-          />
-          <button
-            type="button"
-            className="chat-enviar-btn"
-            onClick={enviar}
-            disabled={enviando || !nuevoMensaje.trim()}
-          >➤</button>
-        </div>
-      </div>
-    )
-  }
-
-  // ===== VISTA ADMIN =====
-  return (
-    <div className="inbox-admin">
-      <aside className="inbox-lista">
-
-        {/* Tabs internos */}
-        <div className="inbox-sidebar-tabs">
-          <button
-            type="button"
-            className={`inbox-sidebar-tab ${vistaSidebar === 'conversaciones' ? 'activa' : ''}`}
-            onClick={() => { setVistaSidebar('conversaciones'); setBusqueda('') }}
-          >
-            💬 Conversaciones
-          </button>
-          <button
-            type="button"
-            className={`inbox-sidebar-tab ${vistaSidebar === 'contactos' ? 'activa' : ''}`}
-            onClick={() => { setVistaSidebar('contactos'); setBusqueda('') }}
-          >
-            👥 Contactos
-          </button>
-        </div>
-
-        {vistaSidebar === 'conversaciones' ? (
-          <>
-            <div className="inbox-buscar">
-              <input
-                type="text"
-                placeholder="🔍 Buscar conversación..."
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                className="inbox-input-buscar"
-              />
-            </div>
-            <div className="inbox-conversaciones">
-              {cargando ? (
-                <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
-              ) : conversacionesFiltradas.length === 0 ? (
-                <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
-                  Aún no hay conversaciones.<br />
-                  Cuando un alumno te escriba aparecerá aquí.<br /><br />
-                  <em>Para iniciar una nueva, ve a la pestaña "Contactos".</em>
-                </p>
-              ) : (
-                conversacionesFiltradas.map(c => (
-                  <button
-                    key={c.usuario_id}
-                    type="button"
-                    className={`inbox-conv-item ${chatCon === c.usuario_id ? 'activo' : ''} ${c.noLeidos > 0 ? 'no-leido' : ''}`}
-                    onClick={() => setChatCon(c.usuario_id)}
-                  >
-                    <div className="chat-avatar">
-                      {(c.nombre || '?').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="inbox-conv-info">
-                      <div className="inbox-conv-nombre">{c.nombre || 'Alumno'}</div>
-                      <div className="inbox-conv-preview">
-                        {c.ultimo.contenido.substring(0, 45)}
-                        {c.ultimo.contenido.length > 45 ? '...' : ''}
-                      </div>
-                    </div>
-                    {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
-                  </button>
-                ))
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="inbox-buscar">
-              <select
-                value={cursoFiltro}
-                onChange={e => setCursoFiltro(e.target.value)}
-                className="inbox-select-curso"
-              >
-                <option value="todos">📚 Todos los cursos</option>
-                {cursosLista.map(c => (
-                  <option key={c.id} value={c.id}>{c.titulo}</option>
-                ))}
-              </select>
-              <input
-                type="text"
-                placeholder="🔍 Buscar alumno..."
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                className="inbox-input-buscar"
-              />
-            </div>
-            <div className="inbox-conversaciones">
-              {cargandoContactos ? (
-                <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
-              ) : contactosFiltrados.length === 0 ? (
-                <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
-                  No se encontraron alumnos<br />con ese criterio.
-                </p>
-              ) : (
-                contactosFiltrados.map(c => (
-                  <button
-                    key={c.usuario_id}
-                    type="button"
-                    className={`inbox-conv-item ${chatCon === c.usuario_id ? 'activo' : ''}`}
-                    onClick={() => setChatCon(c.usuario_id)}
-                  >
-                    <div className="chat-avatar">
-                      {(c.nombre || c.email || '?').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="inbox-conv-info">
-                      <div className="inbox-conv-nombre">{c.nombre || '(sin nombre)'}</div>
-                      <div className="inbox-conv-preview">{c.email}</div>
-                      {c.cursos.length > 0 && (
-                        <div className="inbox-conv-cursos">
-                          {c.cursos.slice(0, 2).map((cur, i) => (
-                            <span key={i} className="badge-curso" title={cur}>{cur}</span>
-                          ))}
-                          {c.cursos.length > 2 && (
-                            <span className="badge-curso">+{c.cursos.length - 2}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </>
-        )}
-      </aside>
-
-      <main className="inbox-chat">
-        {!chatCon ? (
-          <div className="inbox-vacio">
-            <div className="inbox-vacio-icono">💬</div>
-            <p className="sutil" style={{ textAlign: 'center', lineHeight: 1.7 }}>
-              Selecciona una conversación<br />o busca un alumno en "Contactos"<br />para iniciar un mensaje.
-            </p>
-          </div>
-        ) : (
-          <>
-            <header className="inbox-chat-header">
-              <div className="chat-avatar">
-                {nombreChatActivo().charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16 }}>{nombreChatActivo()}</h3>
-              </div>
-            </header>
-
-            <div className="chat-mensajes">
-              {error && (
-                <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
-              )}
-              {mensajes.length === 0 ? (
-                <p className="sutil" style={{ textAlign: 'center', marginTop: 40 }}>
-                  Inicia la conversación.
-                </p>
-              ) : (
-                mensajes.map(m => {
-                  const esMio = m.de_id === user.id
-                  return (
-                    <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
-                      <div className="chat-burbuja">{m.contenido}</div>
-                      <div className="chat-hora">
-                        {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-              <div ref={mensajesEndRef} />
-            </div>
-
-            <div className="chat-input-area">
-              <textarea
-                ref={inputRef}
-                className="chat-input"
-                placeholder="Escribe un mensaje..."
-                value={nuevoMensaje}
-                onChange={e => setNuevoMensaje(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
-                }}
-                rows="1"
-              />
-              <button
-                type="button"
-                className="chat-enviar-btn"
-                onClick={enviar}
-                disabled={enviando || !nuevoMensaje.trim()}
-              >➤</button>
-            </div>
-          </>
-        )}
-      </main>
-    </div>
-  )
-}
-
 /* ============================================================
    MENSAJES · PÁGINA COMPLETA (para alumnos)
    ============================================================ */
@@ -2776,6 +2523,47 @@ function Admin({ user, esAdmin }) {
                 <div className="cursos-checkboxes">
                   {cursosLista.map(c => (
                     <label key={c.id} className="curso-checkbox">
+                      <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
+                      <span>{c.titulo}</span>
+                    </label>
+                  ))}
+                </div>
+                <button type="button" className="button whatsapp" onClick={crearUsuario} disabled={creando}>
+                  {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
+                </button>
+                {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
+              </div>
+            )}
+          </div>
+
+          <div className="admin-bloque-nuevo">
+            <button type="button" className="button secondary" onClick={() => setMasivoAbierto(v => !v)}>
+              {masivoAbierto ? '✕ Cerrar inscripción masiva' : '📥 Inscripción masiva (hasta 200 correos)'}
+            </button>
+
+            {masivoAbierto && (
+              <div className="nuevo-usuario-form">
+                <h3>Inscripción masiva de usuarios</h3>
+                <p className="sutil" style={{ marginTop: 0, marginBottom: 14 }}>
+                  Pega los correos separados por coma, punto y coma o salto de línea.
+                  Se crearán todos con la misma contraseña temporal y se asignarán a los cursos que elijas.
+                </p>
+
+                <label>Correos electrónicos</label>
+                <textarea rows="6" className="modal-textarea" value={emailsMasivos} onChange={e => setEmailsMasivos(e.target.value)}
+                  placeholder={"alumno1@correo.com, alumno2@correo.com\nalumno3@correo.com; alumno4@correo.com"}
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
+                <p className="nota" style={{ marginTop: 6 }}>{parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)</p>
+
+                <label>Contraseña temporal (misma para todos)</label>
+                <input type="text" value={passMasivo} onChange={e => setPassMasivo(e.target.value)} placeholder="Ej. Curso2026!" />
+                <p className="nota" style={{ marginTop: 6 }}>⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.</p>
+
+                <label>Cursos a los que tendrán acceso</label>
+                <div className="cursos-checkboxes">
+                  {cursosLista.map(c => (
+                    <label key={c.id} className="curso-checkbox">
+                      <input type="checkbox"
                       <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
                       <span>{c.titulo}</span>
                     </label>
