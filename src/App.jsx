@@ -986,15 +986,13 @@ function Perfil({ user }) {
    PANEL ADMIN
    ============================================================ */
 function Admin({ user, esAdmin }) {
-  const [vista, setVista] = useState('inscripciones') // 'inscripciones' | 'usuarios'
+  const [vista, setVista] = useState('inscripciones')
 
-  // ── Estado: Inscripciones (tabla) ──
   const [filas, setFilas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [filtro, setFiltro] = useState('todos')
   const [error, setError] = useState(null)
 
-  // ── Estado: Formulario nuevo usuario ──
   const [formAbierto, setFormAbierto] = useState(false)
   const [nuevoEmail, setNuevoEmail] = useState('')
   const [nuevoPass, setNuevoPass] = useState('')
@@ -1003,17 +1001,27 @@ function Admin({ user, esAdmin }) {
   const [creando, setCreando] = useState(false)
   const [msg, setMsg] = useState('')
 
-  // ── Estado: Gestión de usuarios ──
   const [usuarios, setUsuarios] = useState([])
-  const [accesos, setAccesos] = useState({}) // { usuario_id: Set(curso_id) }
+  const [accesos, setAccesos] = useState({})
   const [busqueda, setBusqueda] = useState('')
-  const [toggling, setToggling] = useState({}) // { "uid-cid": true }
+  const [filtroEstado, setFiltroEstado] = useState('todos')
+  const [filtroCursoUsuario, setFiltroCursoUsuario] = useState('todos')
+  const [seleccionados, setSeleccionados] = useState(new Set())
+  const [expandidos, setExpandidos] = useState(new Set())
+  const [toggling, setToggling] = useState({})
   const [cargandoGestion, setCargandoGestion] = useState(false)
   const [msgGestion, setMsgGestion] = useState('')
+  const [bulkCursoId, setBulkCursoId] = useState('')
+  const [bulkAccion, setBulkAccion] = useState('dar')
+  const [bulkProcesando, setBulkProcesando] = useState(false)
+
+  const [modalNotas, setModalNotas] = useState(null)
+  const [guardandoNota, setGuardandoNota] = useState(false)
+
+  const [confirmacion, setConfirmacion] = useState(null)
 
   const navigate = useNavigate()
 
-  // Cargar inscripciones (tabla)
   useEffect(() => {
     if (!user) { navigate(rutaAcceso('/admin')); return }
     async function load() {
@@ -1025,53 +1033,58 @@ function Admin({ user, esAdmin }) {
     load()
   }, [user, navigate])
 
-  // Cargar lista de cursos activos
   useEffect(() => {
     if (!esAdmin) return
     supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin])
 
-  // Cargar usuarios + accesos (solo cuando se entra a la pestaña de usuarios)
-  useEffect(() => {
-    if (!esAdmin || vista !== 'usuarios' || usuarios.length > 0) return
-    async function loadGestion() {
-      setCargandoGestion(true)
-      try {
-        // Usuarios únicos que aparecen en inscripciones
-        const { data: inscripciones } = await supabase
-          .from('vista_admin_inscripciones')
-          .select('usuario_id, email, nombre_completo, profesion')
+  const cargarGestion = async () => {
+    setCargandoGestion(true)
+    try {
+      const { data: usrs, error: errU } = await supabase.rpc('listar_usuarios_con_accesos')
+      if (errU) throw errU
+      setUsuarios(usrs || [])
 
-        const usuariosMap = new Map()
-        ;(inscripciones || []).forEach(i => {
-          if (!usuariosMap.has(i.usuario_id)) {
-            usuariosMap.set(i.usuario_id, {
-              usuario_id: i.usuario_id,
-              email: i.email,
-              nombre_completo: i.nombre_completo,
-              profesion: i.profesion
-            })
-          }
-        })
-        setUsuarios([...usuariosMap.values()].sort((a, b) => a.email.localeCompare(b.email)))
-
-        // Todos los accesos
-        const { data: todosAccesos } = await supabase.from('acceso').select('usuario_id, curso_id')
-        const accMap = {}
-        ;(todosAccesos || []).forEach(a => {
-          if (!accMap[a.usuario_id]) accMap[a.usuario_id] = new Set()
-          accMap[a.usuario_id].add(a.curso_id)
-        })
-        setAccesos(accMap)
-      } catch (e) {
-        console.error('Error cargando gestión:', e)
-      } finally {
-        setCargandoGestion(false)
-      }
+      const { data: todosAccesos } = await supabase.from('acceso').select('usuario_id, curso_id')
+      const accMap = {}
+      ;(todosAccesos || []).forEach(a => {
+        if (!accMap[a.usuario_id]) accMap[a.usuario_id] = new Set()
+        accMap[a.usuario_id].add(a.curso_id)
+      })
+      setAccesos(accMap)
+    } catch (e) {
+      console.error('Error cargando gestión:', e)
+      setMsgGestion('Error cargando usuarios: ' + e.message)
+    } finally {
+      setCargandoGestion(false)
     }
-    loadGestion()
+  }
+
+  useEffect(() => {
+    if (!esAdmin || vista !== 'usuarios') return
+    if (usuarios.length === 0) cargarGestion()
   }, [esAdmin, vista, usuarios.length])
+
+  const fecha = (d) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+  const esActivo = (u) => {
+    if (!u.ultimo_ingreso) return false
+    const dias = (Date.now() - new Date(u.ultimo_ingreso).getTime()) / (1000 * 60 * 60 * 24)
+    return dias <= 14
+  }
+  const diasSinEntrar = (u) => {
+    if (!u.ultimo_ingreso) return null
+    return Math.floor((Date.now() - new Date(u.ultimo_ingreso).getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  const toggleExpandido = (usuario_id) => {
+    setExpandidos(prev => {
+      const nuevo = new Set(prev)
+      if (nuevo.has(usuario_id)) nuevo.delete(usuario_id)
+      else nuevo.add(usuario_id)
+      return nuevo
+    })
+  }
 
   const toggleCurso = (id) => {
     setCursosSeleccionados(prev =>
@@ -1121,7 +1134,6 @@ function Admin({ user, esAdmin }) {
         const { data } = await supabase.from('vista_admin_inscripciones')
           .select('*').order('inscrito_el', { ascending: false })
         setFilas(data || [])
-        // Resetear la pestaña de gestión para forzar recarga
         setUsuarios([])
       }
     } catch (e) {
@@ -1130,7 +1142,18 @@ function Admin({ user, esAdmin }) {
     setCreando(false)
   }
 
-  const toggleAcceso = async (usuario_id, curso_id, tiene) => {
+  const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
+    if (tiene) {
+      const ok = await new Promise(resolve => {
+        setConfirmacion({
+          mensaje: `¿Seguro que quieres quitar a ${email} del curso?`,
+          onConfirm: () => { setConfirmacion(null); resolve(true) },
+          onCancel: () => { setConfirmacion(null); resolve(false) }
+        })
+      })
+      if (!ok) return
+    }
+
     const key = `${usuario_id}-${curso_id}`
     setToggling(prev => ({ ...prev, [key]: true }))
     setMsgGestion('')
@@ -1162,10 +1185,14 @@ function Admin({ user, esAdmin }) {
         })
         setMsgGestion('✓ Acceso otorgado')
       }
-      // Refrescar tabla de inscripciones si aplica
       const { data } = await supabase.from('vista_admin_inscripciones')
         .select('*').order('inscrito_el', { ascending: false })
       setFilas(data || [])
+      setUsuarios(prev => prev.map(u => {
+        if (u.usuario_id !== usuario_id) return u
+        const count = (accesos[usuario_id]?.size || 0)
+        return { ...u, cursos_inscritos: tiene ? Math.max(0, count - 1) : count + 1 }
+      }))
     } catch (e) {
       setMsgGestion('Error: ' + e.message)
     } finally {
@@ -1177,27 +1204,140 @@ function Admin({ user, esAdmin }) {
     }
   }
 
+  const toggleSeleccion = (usuario_id) => {
+    setSeleccionados(prev => {
+      const nuevo = new Set(prev)
+      if (nuevo.has(usuario_id)) nuevo.delete(usuario_id)
+      else nuevo.add(usuario_id)
+      return nuevo
+    })
+  }
+
+  const toggleTodos = (lista) => {
+    const todosSeleccionados = lista.every(u => seleccionados.has(u.usuario_id))
+    if (todosSeleccionados) {
+      setSeleccionados(new Set())
+    } else {
+      setSeleccionados(new Set(lista.map(u => u.usuario_id)))
+    }
+  }
+
+  const ejecutarBulk = async () => {
+    if (!bulkCursoId) { setMsgGestion('Error: elige un curso'); return }
+    const usuariosArr = [...seleccionados]
+    if (usuariosArr.length === 0) { setMsgGestion('Error: no hay usuarios seleccionados'); return }
+
+    if (bulkAccion === 'quitar') {
+      const ok = await new Promise(resolve => {
+        setConfirmacion({
+          mensaje: `¿Quitar acceso al curso seleccionado a ${usuariosArr.length} usuario(s)?`,
+          onConfirm: () => { setConfirmacion(null); resolve(true) },
+          onCancel: () => { setConfirmacion(null); resolve(false) }
+        })
+      })
+      if (!ok) return
+    }
+
+    setBulkProcesando(true)
+    let okCount = 0
+    let errCount = 0
+
+    for (const uid of usuariosArr) {
+      try {
+        if (bulkAccion === 'dar') {
+          const { error } = await supabase
+            .from('acceso')
+            .insert({ usuario_id: uid, curso_id: parseInt(bulkCursoId), grupo: null })
+          if (error && !error.message.includes('duplicate')) throw error
+          setAccesos(prev => {
+            const nuevo = { ...prev }
+            nuevo[uid] = new Set(nuevo[uid] || [])
+            nuevo[uid].add(parseInt(bulkCursoId))
+            return nuevo
+          })
+        } else {
+          const { error } = await supabase
+            .from('acceso')
+            .delete()
+            .eq('usuario_id', uid)
+            .eq('curso_id', parseInt(bulkCursoId))
+          if (error) throw error
+          setAccesos(prev => {
+            const nuevo = { ...prev }
+            nuevo[uid] = new Set(nuevo[uid] || [])
+            nuevo[uid].delete(parseInt(bulkCursoId))
+            return nuevo
+          })
+        }
+        okCount++
+      } catch (e) {
+        console.error('Error bulk:', e)
+        errCount++
+      }
+    }
+
+    setMsgGestion(`✓ Bulk completado: ${okCount} OK${errCount > 0 ? `, ${errCount} con error` : ''}`)
+    setSeleccionados(new Set())
+    setBulkProcesando(false)
+
+    const { data } = await supabase.from('vista_admin_inscripciones')
+      .select('*').order('inscrito_el', { ascending: false })
+    setFilas(data || [])
+    setUsuarios([])
+  }
+
+  const guardarNotas = async () => {
+    if (!modalNotas) return
+    setGuardandoNota(true)
+    try {
+      const { error } = await supabase
+        .from('perfiles')
+        .upsert({ id: modalNotas.usuario_id, notas_admin: modalNotas.texto }, { onConflict: 'id' })
+      if (error) throw error
+      setUsuarios(prev => prev.map(u =>
+        u.usuario_id === modalNotas.usuario_id ? { ...u, notas_admin: modalNotas.texto } : u
+      ))
+      setModalNotas(null)
+      setMsgGestion('✓ Notas guardadas')
+    } catch (e) {
+      setMsgGestion('Error al guardar nota: ' + e.message)
+    } finally {
+      setGuardandoNota(false)
+    }
+  }
+
+  const usuariosFiltrados = usuarios.filter(u => {
+    const t = busqueda.toLowerCase()
+    const matchBusqueda = !t || u.email.toLowerCase().includes(t) || (u.nombre_completo || '').toLowerCase().includes(t)
+
+    let matchEstado = true
+    if (filtroEstado === 'con-acceso') matchEstado = (u.cursos_inscritos || 0) > 0
+    else if (filtroEstado === 'sin-acceso') matchEstado = (u.cursos_inscritos || 0) === 0
+    else if (filtroEstado === 'activos') matchEstado = esActivo(u)
+    else if (filtroEstado === 'inactivos') matchEstado = !esActivo(u) && u.ultimo_ingreso !== null
+
+    let matchCurso = true
+    if (filtroCursoUsuario !== 'todos') {
+      matchCurso = accesos[u.usuario_id]?.has(parseInt(filtroCursoUsuario)) || false
+    }
+
+    return matchBusqueda && matchEstado && matchCurso
+  })
+
   if (!user) return null
   if (!esAdmin) return <div className="contenedor"><p className="aviso-error">No tienes permisos para ver esta sección.</p></div>
   if (cargando) return <div className="loading">Cargando panel...</div>
   if (error) return <div className="contenedor"><p className="aviso-error">Error: {error}</p></div>
 
-  const cursos = [...new Set(filas.map(f => f.curso))]
+  const cursosInscripciones = [...new Set(filas.map(f => f.curso))]
   const visibles = filtro === 'todos' ? filas : filas.filter(f => f.curso === filtro)
   const alumnosUnicos = new Set(filas.map(f => f.usuario_id)).size
-  const fecha = (d) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-
-  const usuariosFiltrados = usuarios.filter(u => {
-    const t = busqueda.toLowerCase()
-    return u.email.toLowerCase().includes(t) || (u.nombre_completo || '').toLowerCase().includes(t)
-  })
 
   return (
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
       <h1>Panel de administración</h1>
 
-      {/* Pestañas */}
       <div className="admin-tabs">
         <button
           type="button"
@@ -1217,7 +1357,6 @@ function Admin({ user, esAdmin }) {
 
       {vista === 'inscripciones' && (
         <>
-          {/* Formulario nuevo usuario */}
           <div className="admin-bloque-nuevo">
             <button
               type="button"
@@ -1273,11 +1412,11 @@ function Admin({ user, esAdmin }) {
           <div className="kpi-fila">
             <div className="kpi"><span className="kpi-num">{alumnosUnicos}</span><span className="kpi-lbl">Alumnos</span></div>
             <div className="kpi"><span className="kpi-num">{filas.length}</span><span className="kpi-lbl">Inscripciones</span></div>
-            <div className="kpi"><span className="kpi-num">{cursos.length}</span><span className="kpi-lbl">Cursos con alumnos</span></div>
+            <div className="kpi"><span className="kpi-num">{cursosInscripciones.length}</span><span className="kpi-lbl">Cursos con alumnos</span></div>
           </div>
           <div className="filtros">
             <button className={`filtro ${filtro === 'todos' ? 'activo' : ''}`} onClick={() => setFiltro('todos')}>Todos</button>
-            {cursos.map(c => (
+            {cursosInscripciones.map(c => (
               <button key={c} className={`filtro ${filtro === c ? 'activo' : ''}`} onClick={() => setFiltro(c)}>{c}</button>
             ))}
           </div>
@@ -1314,17 +1453,40 @@ function Admin({ user, esAdmin }) {
       {vista === 'usuarios' && (
         <>
           <p className="seccion-intro">
-            Administra el acceso de cada usuario a los cursos. Puedes dar o quitar acceso con un clic.
-            La contraseña del usuario nunca se modifica.
+            Administra el acceso de cada usuario a los cursos. La contraseña del usuario nunca se modifica.
+            Haz clic en un usuario para ver y editar sus cursos.
           </p>
 
-          <input
-            type="text"
-            className="gestion-busqueda"
-            placeholder="🔍 Buscar por correo o nombre..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-          />
+          <div className="gestion-filtros">
+            <input
+              type="text"
+              className="gestion-busqueda"
+              placeholder="🔍 Buscar por correo o nombre..."
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+            />
+            <select
+              className="gestion-select"
+              value={filtroEstado}
+              onChange={e => setFiltroEstado(e.target.value)}
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="con-acceso">Con acceso a cursos</option>
+              <option value="sin-acceso">Sin acceso a cursos</option>
+              <option value="activos">Activos (últimos 14 días)</option>
+              <option value="inactivos">Inactivos</option>
+            </select>
+            <select
+              className="gestion-select"
+              value={filtroCursoUsuario}
+              onChange={e => setFiltroCursoUsuario(e.target.value)}
+            >
+              <option value="todos">Todos los cursos</option>
+              {cursosLista.map(c => (
+                <option key={c.id} value={c.id}>{c.titulo}</option>
+              ))}
+            </select>
+          </div>
 
           {msgGestion && (
             <p className={msgGestion.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>
@@ -1332,47 +1494,219 @@ function Admin({ user, esAdmin }) {
             </p>
           )}
 
+          {seleccionados.size > 0 && (
+            <div className="bulk-bar">
+              <span className="bulk-count">{seleccionados.size} seleccionado(s)</span>
+              <select
+                className="gestion-select"
+                value={bulkAccion}
+                onChange={e => setBulkAccion(e.target.value)}
+              >
+                <option value="dar">Dar acceso a</option>
+                <option value="quitar">Quitar acceso de</option>
+              </select>
+              <select
+                className="gestion-select"
+                value={bulkCursoId}
+                onChange={e => setBulkCursoId(e.target.value)}
+              >
+                <option value="">— Elige un curso —</option>
+                {cursosLista.map(c => (
+                  <option key={c.id} value={c.id}>{c.titulo}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="button primary"
+                onClick={ejecutarBulk}
+                disabled={bulkProcesando || !bulkCursoId}
+              >
+                {bulkProcesando ? 'Procesando...' : 'Aplicar a seleccionados'}
+              </button>
+              <button
+                type="button"
+                className="button texto"
+                onClick={() => setSeleccionados(new Set())}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+
           {cargandoGestion ? (
             <div className="loading">Cargando usuarios...</div>
           ) : usuarios.length === 0 ? (
             <p className="sutil">No hay usuarios registrados todavía.</p>
           ) : (
-            <div className="gestion-usuarios">
-              {usuariosFiltrados.length === 0 && (
-                <p className="sutil">No se encontraron usuarios con ese criterio.</p>
+            <>
+              {usuariosFiltrados.length > 0 && (
+                <div className="gestion-toolbar">
+                  <button
+                    type="button"
+                    className="button texto"
+                    onClick={() => toggleTodos(usuariosFiltrados)}
+                  >
+                    {usuariosFiltrados.every(u => seleccionados.has(u.usuario_id))
+                      ? '☐ Deseleccionar todos'
+                      : '☑ Seleccionar todos los visibles'}
+                  </button>
+                  <span className="sutil">{usuariosFiltrados.length} usuario(s) mostrado(s)</span>
+                </div>
               )}
-              {usuariosFiltrados.map(u => (
-                <div key={u.usuario_id} className="gestion-usuario-card">
-                  <div className="gestion-usuario-header">
-                    <strong>{u.nombre_completo || '(sin nombre)'}</strong>
-                    <span className="celda-sub">{u.email}</span>
-                    {u.profesion && <span className="celda-sub">{u.profesion}</span>}
-                  </div>
-                  <div className="gestion-cursos">
-                    {cursosLista.map(c => {
-                      const tiene = accesos[u.usuario_id]?.has(c.id) || false
-                      const key = `${u.usuario_id}-${c.id}`
-                      const ocupado = toggling[key]
-                      return (
-                        <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
-                          <span className="gestion-curso-titulo">{c.titulo}</span>
+
+              <div className="gestion-usuarios">
+                {usuariosFiltrados.length === 0 && (
+                  <p className="sutil">No se encontraron usuarios con ese criterio.</p>
+                )}
+                {usuariosFiltrados.map(u => {
+                  const cursosDelUsuario = u.cursos_inscritos || 0
+                  const seleccionado = seleccionados.has(u.usuario_id)
+                  const expandido = expandidos.has(u.usuario_id)
+                  const inactivo = u.ultimo_ingreso && !esActivo(u)
+                  const dias = diasSinEntrar(u)
+                  return (
+                    <div key={u.usuario_id} className={`gestion-usuario-card ${seleccionado ? 'seleccionado' : ''} ${expandido ? 'expandido' : ''}`}>
+                      <div className="gestion-usuario-header">
+                        <div className="gestion-usuario-check">
+                          <input
+                            type="checkbox"
+                            checked={seleccionado}
+                            onChange={() => toggleSeleccion(u.usuario_id)}
+                          />
+                        </div>
+                        <div className="gestion-usuario-info">
+                          <div className="gestion-usuario-nombre-linea">
+                            <strong>{u.nombre_completo || '(sin nombre)'}</strong>
+                            {cursosDelUsuario > 0
+                              ? <span className="badge ok">{cursosDelUsuario} curso(s)</span>
+                              : <span className="badge neutro">Sin acceso</span>}
+                            {inactivo && <span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>
+                              Inactivo {dias}d
+                            </span>}
+                          </div>
+                          <span className="celda-sub">{u.email}</span>
+                          {u.profesion && <span className="celda-sub">{u.profesion}</span>}
+                          {u.ultimo_ingreso && (
+                            <span className="celda-sub">Último ingreso: {fecha(u.ultimo_ingreso)}</span>
+                          )}
+                          {u.notas_admin && (
+                            <span className="gestion-nota-preview">📝 {u.notas_admin}</span>
+                          )}
+                        </div>
+                        <div className="gestion-usuario-acciones">
                           <button
                             type="button"
-                            className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
-                            onClick={() => toggleAcceso(u.usuario_id, c.id, tiene)}
-                            disabled={ocupado}
+                            className="button texto"
+                            onClick={() => setModalNotas({
+                              usuario_id: u.usuario_id,
+                              email: u.email,
+                              texto: u.notas_admin || ''
+                            })}
                           >
-                            {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
+                            {u.notas_admin ? '✏️ Editar nota' : '📝 Añadir nota'}
+                          </button>
+                          <button
+                            type="button"
+                            className="gestion-expandir-btn"
+                            onClick={() => toggleExpandido(u.usuario_id)}
+                          >
+                            {expandido ? '▲ Ocultar cursos' : '▼ Ver cursos'}
                           </button>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+                      </div>
+
+                      {expandido && (
+                        <div className="gestion-cursos">
+                          {cursosLista.map(c => {
+                            const tiene = accesos[u.usuario_id]?.has(c.id) || false
+                            const key = `${u.usuario_id}-${c.id}`
+                            const ocupado = toggling[key]
+                            return (
+                              <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
+                                <span className="gestion-curso-titulo">{c.titulo}</span>
+                                <button
+                                  type="button"
+                                  className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
+                                  onClick={() => toggleAcceso(u.usuario_id, c.id, tiene, u.email)}
+                                  disabled={ocupado}
+                                >
+                                  {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </>
+      )}
+
+      {modalNotas && (
+        <div className="modal-overlay" onClick={() => !guardandoNota && setModalNotas(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <h3>Notas privadas</h3>
+            <p className="sutil" style={{ marginBottom: 16 }}>
+              Solo tú puedes ver estas notas sobre <strong>{modalNotas.email}</strong>.
+            </p>
+            <textarea
+              rows="5"
+              className="modal-textarea"
+              value={modalNotas.texto}
+              onChange={e => setModalNotas({ ...modalNotas, texto: e.target.value })}
+              placeholder="Ej: pagó en efectivo, pidió factura, beca parcial..."
+              autoFocus
+            />
+            <div className="modal-botones">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setModalNotas(null)}
+                disabled={guardandoNota}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                onClick={guardarNotas}
+                disabled={guardandoNota}
+              >
+                {guardandoNota ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmacion && (
+        <div className="modal-overlay">
+          <div className="modal-box modal-confirm">
+            <h3>⚠️ Confirmar acción</h3>
+            <p>{confirmacion.mensaje}</p>
+            <div className="modal-botones">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={confirmacion.onCancel}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                onClick={confirmacion.onConfirm}
+                style={{ background: '#9B2C20', borderColor: '#9B2C20' }}
+              >
+                Sí, continuar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <BandaRedes />
