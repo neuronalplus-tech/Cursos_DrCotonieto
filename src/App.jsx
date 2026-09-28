@@ -523,6 +523,7 @@ function Header({ user, esAdmin, onLogout, nombreUsuario }) {
         <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
           {location.pathname !== '/' && <button className="nav-link" onClick={() => ir('/')}>Inicio</button>}
           {user && <button className="nav-link" onClick={() => ir('/perfil')}>Mi perfil</button>}
+          {user && !esAdmin && <button className="nav-link" onClick={() => ir('/mensajes')}>💬 Mensajes</button>}
           {esAdmin && <button className="nav-link destacado" onClick={() => ir('/admin')}>Panel</button>}
           {user ? (
             <>
@@ -992,6 +993,336 @@ function Perfil({ user }) {
 }
 
 /* ============================================================
+   MENSAJES · INBOX COMPLETO (Supabase Realtime)
+   ============================================================ */
+function MensajesInbox({ user, esAdmin }) {
+  const [adminId, setAdminId] = useState(null)
+  const [conversaciones, setConversaciones] = useState([])
+  const [chatCon, setChatCon] = useState(null)
+  const [mensajes, setMensajes] = useState([])
+  const [nuevoMensaje, setNuevoMensaje] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(null)
+  const mensajesEndRef = useRef(null)
+  const inputRef = useRef(null)
+
+  // 1. Cargar adminId (para alumnos)
+  useEffect(() => {
+    if (!user) return
+    supabase.rpc('get_admin_id').then(({ data, error }) => {
+      if (error) { console.error('adminId error:', error); return }
+      setAdminId(data)
+      if (!esAdmin && data) setChatCon(data)
+    })
+  }, [user, esAdmin])
+
+  // 2. Cargar lista de conversaciones (solo admin)
+  useEffect(() => {
+    if (!esAdmin || !user) return
+    async function load() {
+      const { data, error } = await supabase
+        .from('mensajes')
+        .select('de_id, para_id, created_at, contenido, leido')
+        .or(`de_id.eq.${user.id},para_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+      if (error) { setError(error.message); setCargando(false); return }
+
+      const mapa = {}
+      ;(data || []).forEach(m => {
+        const otro = m.de_id === user.id ? m.para_id : m.de_id
+        if (!mapa[otro]) mapa[otro] = { usuario_id: otro, ultimo: m, noLeidos: 0 }
+        if (m.para_id === user.id && !m.leido) mapa[otro].noLeidos++
+      })
+
+      const ids = Object.keys(mapa)
+      if (ids.length > 0) {
+        const { data: perfiles } = await supabase
+          .from('perfiles')
+          .select('id, nombre_completo')
+          .in('id', ids)
+        ;(perfiles || []).forEach(p => { if (mapa[p.id]) mapa[p.id].nombre = p.nombre_completo })
+      }
+
+      setConversaciones(Object.values(mapa))
+      setCargando(false)
+    }
+    load()
+  }, [esAdmin, user, mensajes.length])
+
+  // 3. Cargar mensajes de la conversación activa
+  useEffect(() => {
+    if (!user || !chatCon) return
+    async function load() {
+      const { data, error } = await supabase
+        .from('mensajes')
+        .select('*')
+        .or(`and(de_id.eq.${user.id},para_id.eq.${chatCon}),and(de_id.eq.${chatCon},para_id.eq.${user.id})`)
+        .order('created_at', { ascending: true })
+      if (error) { setError(error.message); return }
+      setMensajes(data || [])
+    }
+    load()
+  }, [user, chatCon])
+
+  // 4. Realtime
+  useEffect(() => {
+    if (!user) return
+    const canal = supabase
+      .channel('inbox-' + user.id)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes' },
+        (payload) => {
+          const m = payload.new
+          if (m.de_id !== user.id && m.para_id !== user.id) return
+          if (chatCon) {
+            const esDeEsta =
+              (m.de_id === user.id && m.para_id === chatCon) ||
+              (m.de_id === chatCon && m.para_id === user.id)
+            if (esDeEsta) {
+              setMensajes(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
+            }
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [user, chatCon])
+
+  // 5. Marcar como leídos
+  useEffect(() => {
+    if (!user || !chatCon) return
+    supabase.from('mensajes')
+      .update({ leido: true })
+      .eq('para_id', user.id)
+      .eq('de_id', chatCon)
+      .eq('leido', false)
+      .then(() => {
+        if (esAdmin) {
+          setConversaciones(prev => prev.map(c =>
+            c.usuario_id === chatCon ? { ...c, noLeidos: 0 } : c
+          ))
+        }
+      })
+  }, [user, chatCon, mensajes.length, esAdmin])
+
+  // 6. Scroll automático
+  useEffect(() => {
+    mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [mensajes])
+
+  const enviar = async () => {
+    if (!nuevoMensaje.trim() || !user || !chatCon || enviando) return
+    setEnviando(true)
+    const contenido = nuevoMensaje.trim()
+    setNuevoMensaje('')
+    const { error } = await supabase.from('mensajes').insert({
+      de_id: user.id, para_id: chatCon, contenido
+    })
+    if (error) { setError(error.message); setNuevoMensaje(contenido) }
+    setEnviando(false)
+    inputRef.current?.focus()
+  }
+
+  const conversacionesFiltradas = conversaciones.filter(c => {
+    if (!busqueda.trim()) return true
+    const t = busqueda.toLowerCase()
+    return (c.nombre || '').toLowerCase().includes(t)
+  })
+
+  if (!user) return null
+
+  // ===== VISTA ALUMNO =====
+  if (!esAdmin) {
+    return (
+      <div className="inbox-simple">
+        <header className="inbox-simple-header">
+          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="inbox-avatar-img" />
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17 }}>Dr. Ernesto Cotonieto</h2>
+            <p className="sutil" style={{ margin: 0, fontSize: 12.5 }}>Te responderé pronto</p>
+          </div>
+        </header>
+
+        <div className="chat-mensajes">
+          {mensajes.length === 0 ? (
+            <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
+              Escríbeme lo que necesites.<br />Te responderé pronto.
+            </p>
+          ) : (
+            mensajes.map(m => {
+              const esMio = m.de_id === user.id
+              return (
+                <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                  <div className="chat-burbuja">{m.contenido}</div>
+                  <div className="chat-hora">
+                    {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              )
+            })
+          )}
+          <div ref={mensajesEndRef} />
+        </div>
+
+        <div className="chat-input-area">
+          <textarea
+            ref={inputRef}
+            className="chat-input"
+            placeholder="Escribe un mensaje..."
+            value={nuevoMensaje}
+            onChange={e => setNuevoMensaje(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+            }}
+            rows="1"
+          />
+          <button
+            type="button"
+            className="chat-enviar-btn"
+            onClick={enviar}
+            disabled={enviando || !nuevoMensaje.trim()}
+          >➤</button>
+        </div>
+      </div>
+    )
+  }
+
+  // ===== VISTA ADMIN =====
+  return (
+    <div className="inbox-admin">
+      <aside className="inbox-lista">
+        <div className="inbox-buscar">
+          <input
+            type="text"
+            placeholder="🔍 Buscar alumno..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="inbox-input-buscar"
+          />
+        </div>
+        <div className="inbox-conversaciones">
+          {cargando ? (
+            <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
+          ) : conversacionesFiltradas.length === 0 ? (
+            <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+              Aún no hay conversaciones.<br />
+              Cuando un alumno te escriba, aparecerá aquí.
+            </p>
+          ) : (
+            conversacionesFiltradas.map(c => (
+              <button
+                key={c.usuario_id}
+                type="button"
+                className={`inbox-conv-item ${chatCon === c.usuario_id ? 'activo' : ''} ${c.noLeidos > 0 ? 'no-leido' : ''}`}
+                onClick={() => setChatCon(c.usuario_id)}
+              >
+                <div className="chat-avatar">
+                  {(c.nombre || '?').charAt(0).toUpperCase()}
+                </div>
+                <div className="inbox-conv-info">
+                  <div className="inbox-conv-nombre">{c.nombre || 'Alumno'}</div>
+                  <div className="inbox-conv-preview">
+                    {c.ultimo.contenido.substring(0, 45)}
+                    {c.ultimo.contenido.length > 45 ? '...' : ''}
+                  </div>
+                </div>
+                {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+
+      <main className="inbox-chat">
+        {!chatCon ? (
+          <div className="inbox-vacio">
+            <div className="inbox-vacio-icono">💬</div>
+            <p className="sutil" style={{ textAlign: 'center', lineHeight: 1.7 }}>
+              Selecciona una conversación<br />de la izquierda para ver los mensajes.
+            </p>
+          </div>
+        ) : (
+          <>
+            <header className="inbox-chat-header">
+              <div className="chat-avatar">
+                {(conversaciones.find(c => c.usuario_id === chatCon)?.nombre || '?').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>
+                  {conversaciones.find(c => c.usuario_id === chatCon)?.nombre || 'Alumno'}
+                </h3>
+              </div>
+            </header>
+
+            <div className="chat-mensajes">
+              {error && (
+                <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
+              )}
+              {mensajes.length === 0 ? (
+                <p className="sutil" style={{ textAlign: 'center', marginTop: 40 }}>
+                  Inicia la conversación.
+                </p>
+              ) : (
+                mensajes.map(m => {
+                  const esMio = m.de_id === user.id
+                  return (
+                    <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                      <div className="chat-burbuja">{m.contenido}</div>
+                      <div className="chat-hora">
+                        {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+              <div ref={mensajesEndRef} />
+            </div>
+
+            <div className="chat-input-area">
+              <textarea
+                ref={inputRef}
+                className="chat-input"
+                placeholder="Escribe un mensaje..."
+                value={nuevoMensaje}
+                onChange={e => setNuevoMensaje(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+                }}
+                rows="1"
+              />
+              <button
+                type="button"
+                className="chat-enviar-btn"
+                onClick={enviar}
+                disabled={enviando || !nuevoMensaje.trim()}
+              >➤</button>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
+
+/* ============================================================
+   MENSAJES · PÁGINA COMPLETA (para alumnos)
+   ============================================================ */
+function MensajesPage({ user, esAdmin }) {
+  const navigate = useNavigate()
+  useEffect(() => { if (!user) navigate(rutaAcceso('/mensajes')) }, [user, navigate])
+  if (!user) return null
+  return (
+    <section className="contenedor estrecho">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Mensajes' }]} />
+      <MensajesInbox user={user} esAdmin={esAdmin} />
+      <BandaRedes />
+    </section>
+  )
+}
+
+/* ============================================================
    PANEL ADMIN
    ============================================================ */
 function Admin({ user, esAdmin }) {
@@ -1347,6 +1678,7 @@ function Admin({ user, esAdmin }) {
       setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
     }
   }
+
   const abrirEditorHtml = () => {
     const htmlActual = comunicadoEditorRef.current?.innerHTML || comunicadoCuerpo || ''
     setEditorHtmlTexto(htmlActual)
@@ -1360,6 +1692,7 @@ function Admin({ user, esAdmin }) {
     setComunicadoCuerpo(editorHtmlTexto)
     setEditorHtmlAbierto(false)
   }
+
   const limpiarEditor = () => {
     setComunicadoAsunto('')
     setComunicadoCuerpo('')
@@ -1780,6 +2113,13 @@ function Admin({ user, esAdmin }) {
         >
           📧 Comunicados
         </button>
+        <button
+          type="button"
+          className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`}
+          onClick={() => setVista('mensajes')}
+        >
+          💬 Mensajes
+        </button>
       </div>
 
       {vista === 'inscripciones' && (
@@ -1836,7 +2176,6 @@ function Admin({ user, esAdmin }) {
             )}
           </div>
 
-          {/* ===== INSCRIPCIÓN MASIVA ===== */}
           <div className="admin-bloque-nuevo">
             <button
               type="button"
@@ -2444,12 +2783,12 @@ function Admin({ user, esAdmin }) {
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => ejecutarComando('justifyRight')}>
                   ➡
-                                <span className="editor-sep" />
+                </button>
+                <span className="editor-sep" />
                 <button type="button" className="editor-btn editor-btn-html" title="Editar HTML directamente"
                         onMouseDown={e => e.preventDefault()}
                         onClick={abrirEditorHtml}>
                   &lt;/&gt; HTML
-                </button>
                 </button>
                 <span className="editor-sep" />
                 <button type="button" className="editor-btn editor-btn-peligro" title="Quitar todo el formato"
@@ -2549,6 +2888,11 @@ function Admin({ user, esAdmin }) {
           </section>
         </>
       )}
+
+      {vista === 'mensajes' && (
+        <MensajesInbox user={user} esAdmin={esAdmin} />
+      )}
+
       {editorHtmlAbierto && (
         <div className="modal-overlay" onClick={() => setEditorHtmlAbierto(false)}>
           <div className="modal-box modal-html" onClick={e => e.stopPropagation()}>
@@ -2582,7 +2926,7 @@ function Admin({ user, esAdmin }) {
           </div>
         </div>
       )}
-      
+
       {modalNotas && (
         <div className="modal-overlay" onClick={() => !guardandoNota && setModalNotas(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
@@ -3978,299 +4322,6 @@ function Constancia({ user }) {
 }
 
 /* ============================================================
-   CHAT INTERNO (Supabase Realtime)
-   ============================================================ */
-function ChatFlotante({ user, esAdmin }) {
-  const [abierto, setAbierto] = useState(false)
-  const [chatCon, setChatCon] = useState(null)
-  const [conversaciones, setConversaciones] = useState([])
-  const [mensajes, setMensajes] = useState([])
-  const [nuevoMensaje, setNuevoMensaje] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const [noLeidos, setNoLeidos] = useState(0)
-  const [adminId, setAdminId] = useState(null)
-  const [cargandoConv, setCargandoConv] = useState(false)
-  const [error, setError] = useState(null)
-  const mensajesEndRef = useRef(null)
-  const inputRef = useRef(null)
-
-  // 1. Obtener el ID del admin
-  useEffect(() => {
-    if (!user) return
-    supabase.rpc('get_admin_id').then(({ data, error }) => {
-      if (error) { console.error('Error admin ID:', error); return }
-      setAdminId(data)
-    })
-  }, [user])
-
-  // 2. Para alumnos: siempre chatean con el admin
-  useEffect(() => {
-    if (!user || !adminId) return
-    if (!esAdmin) setChatCon(adminId)
-  }, [user, adminId, esAdmin])
-
-  // 3. Cargar mensajes de la conversación activa
-  useEffect(() => {
-    if (!user || !chatCon) return
-    async function load() {
-      const { data, error } = await supabase
-        .from('mensajes')
-        .select('*')
-        .or(`and(de_id.eq.${user.id},para_id.eq.${chatCon}),and(de_id.eq.${chatCon},para_id.eq.${user.id})`)
-        .order('created_at', { ascending: true })
-      if (error) { setError(error.message); return }
-      setMensajes(data || [])
-    }
-    load()
-  }, [user, chatCon])
-
-  // 4. Realtime: escuchar INSERTs
-  useEffect(() => {
-    if (!user) return
-    const canal = supabase
-      .channel('mensajes-chat-' + user.id)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'mensajes' },
-        (payload) => {
-          const m = payload.new
-          if (m.de_id !== user.id && m.para_id !== user.id) return
-
-          setMensajes(prev => {
-            if (!chatCon) return prev
-            const esDeEsta =
-              (m.de_id === user.id && m.para_id === chatCon) ||
-              (m.de_id === chatCon && m.para_id === user.id)
-            if (!esDeEsta) return prev
-            if (prev.some(x => x.id === m.id)) return prev
-            return [...prev, m]
-          })
-
-          if (m.para_id === user.id) {
-            if (m.de_id !== chatCon || !abierto) {
-              setNoLeidos(prev => prev + 1)
-            }
-          }
-        }
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(canal) }
-  }, [user, chatCon, abierto])
-
-  // 5. Contar no leídos al iniciar
-  useEffect(() => {
-    if (!user) return
-    async function loadNoLeidos() {
-      const { count } = await supabase
-        .from('mensajes')
-        .select('*', { count: 'exact', head: true })
-        .eq('para_id', user.id)
-        .eq('leido', false)
-      setNoLeidos(count || 0)
-    }
-    loadNoLeidos()
-  }, [user, abierto])
-
-  // 6. Marcar como leídos al abrir la conversación
-  useEffect(() => {
-    if (!abierto || !user || !chatCon) return
-    supabase.from('mensajes')
-      .update({ leido: true })
-      .eq('para_id', user.id)
-      .eq('de_id', chatCon)
-      .eq('leido', false)
-      .then(() => setNoLeidos(0))
-  }, [abierto, user, chatCon, mensajes.length])
-
-  // 7. Scroll automático al final
-  useEffect(() => {
-    mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [mensajes])
-
-  // 8. Enviar mensaje
-  const enviar = async () => {
-    if (!nuevoMensaje.trim() || !user || !chatCon || enviando) return
-    setEnviando(true)
-    const contenido = nuevoMensaje.trim()
-    setNuevoMensaje('')
-    const { error } = await supabase.from('mensajes').insert({
-      de_id: user.id,
-      para_id: chatCon,
-      contenido
-    })
-    if (error) { setError(error.message); setNuevoMensaje(contenido) }
-    setEnviando(false)
-    inputRef.current?.focus()
-  }
-
-  // 9. Cargar lista de conversaciones (solo admin)
-  useEffect(() => {
-    if (!esAdmin || !user || !abierto) return
-    async function loadConversaciones() {
-      setCargandoConv(true)
-      const { data } = await supabase
-        .from('mensajes')
-        .select('de_id, para_id, created_at, contenido, leido')
-        .or(`de_id.eq.${user.id},para_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-      const mapa = {}
-      ;(data || []).forEach(m => {
-        const otro = m.de_id === user.id ? m.para_id : m.de_id
-        if (!mapa[otro]) mapa[otro] = { usuario_id: otro, ultimo: m, noLeidos: 0 }
-        if (m.para_id === user.id && !m.leido) mapa[otro].noLeidos++
-      })
-      const ids = Object.keys(mapa)
-      if (ids.length > 0) {
-        const { data: perfiles } = await supabase
-          .from('perfiles')
-          .select('id, nombre_completo')
-          .in('id', ids)
-        ;(perfiles || []).forEach(p => { if (mapa[p.id]) mapa[p.id].nombre = p.nombre_completo })
-      }
-      setConversaciones(Object.values(mapa))
-      setCargandoConv(false)
-    }
-    loadConversaciones()
-  }, [esAdmin, user, abierto, mensajes.length])
-
-  if (!user) return null
-
-  return (
-    <>
-      <button
-        type="button"
-        className={`chat-flotante-btn ${abierto ? 'abierto' : ''}`}
-        onClick={() => { setAbierto(v => !v); setError(null) }}
-        aria-label="Chat"
-      >
-        {abierto ? '✕' : '💬'}
-        {!abierto && noLeidos > 0 && (
-          <span className="chat-badge">{noLeidos > 9 ? '9+' : noLeidos}</span>
-        )}
-      </button>
-
-      {abierto && (
-        <div className={`chat-panel ${esAdmin ? 'admin' : 'alumno'}`}>
-          <header className="chat-header">
-            <span className="chat-header-icono">💬</span>
-            <div className="chat-header-info">
-              <span className="chat-header-titulo">
-                {esAdmin
-                  ? (chatCon ? 'Conversación' : 'Mensajes')
-                  : 'Dr. Ernesto Cotonieto'}
-              </span>
-            </div>
-            {esAdmin && chatCon && (
-              <button
-                type="button"
-                className="chat-volver-btn"
-                onClick={() => setChatCon(null)}
-              >
-                ← Volver
-              </button>
-            )}
-          </header>
-
-          <div className="chat-body">
-            {error && (
-              <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
-            )}
-
-            {esAdmin && !chatCon ? (
-              <div className="chat-lista-conv">
-                {cargandoConv ? (
-                  <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
-                ) : conversaciones.length === 0 ? (
-                  <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
-                    Aún no hay conversaciones.<br />
-                    Cuando un alumno te escriba, aparecerá aquí.
-                  </p>
-                ) : (
-                  conversaciones.map(c => (
-                    <button
-                      key={c.usuario_id}
-                      type="button"
-                      className={`chat-conv-item ${c.noLeidos > 0 ? 'no-leido' : ''}`}
-                      onClick={() => setChatCon(c.usuario_id)}
-                    >
-                      <div className="chat-avatar">
-                        {(c.nombre || '?').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="chat-conv-info">
-                        <div className="chat-conv-nombre">{c.nombre || 'Alumno'}</div>
-                        <div className="chat-conv-preview">
-                          {c.ultimo.contenido.substring(0, 40)}
-                          {c.ultimo.contenido.length > 40 ? '...' : ''}
-                        </div>
-                      </div>
-                      {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
-                    </button>
-                  ))
-                )}
-              </div>
-            ) : chatCon ? (
-              <>
-                <div className="chat-mensajes">
-                  {mensajes.length === 0 ? (
-                    <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
-                      {esAdmin
-                        ? 'Inicia la conversación.'
-                        : 'Escríbeme lo que necesites.\nTe responderé pronto.'}
-                    </p>
-                  ) : (
-                    mensajes.map(m => {
-                      const esMio = m.de_id === user.id
-                      return (
-                        <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
-                          <div className="chat-burbuja">{m.contenido}</div>
-                          <div className="chat-hora">
-                            {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                  <div ref={mensajesEndRef} />
-                </div>
-                <div className="chat-input-area">
-                  <textarea
-                    ref={inputRef}
-                    className="chat-input"
-                    placeholder="Escribe un mensaje..."
-                    value={nuevoMensaje}
-                    onChange={e => setNuevoMensaje(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        enviar()
-                      }
-                    }}
-                    rows="1"
-                  />
-                  <button
-                    type="button"
-                    className="chat-enviar-btn"
-                    onClick={enviar}
-                    disabled={enviando || !nuevoMensaje.trim()}
-                    aria-label="Enviar"
-                  >
-                    ➤
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="chat-cargando">
-                <p className="sutil">Cargando conversación...</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
-/* ============================================================
    APP
    ============================================================ */
 function App() {
@@ -4337,6 +4388,7 @@ function App() {
           <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} esAdmin={esAdmin} />} />
           <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
           <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
+          <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
         </Routes>
       </main>
       <WhatsAppFlotante />
