@@ -3978,6 +3978,299 @@ function Constancia({ user }) {
 }
 
 /* ============================================================
+   CHAT INTERNO (Supabase Realtime)
+   ============================================================ */
+function ChatFlotante({ user, esAdmin }) {
+  const [abierto, setAbierto] = useState(false)
+  const [chatCon, setChatCon] = useState(null)
+  const [conversaciones, setConversaciones] = useState([])
+  const [mensajes, setMensajes] = useState([])
+  const [nuevoMensaje, setNuevoMensaje] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [noLeidos, setNoLeidos] = useState(0)
+  const [adminId, setAdminId] = useState(null)
+  const [cargandoConv, setCargandoConv] = useState(false)
+  const [error, setError] = useState(null)
+  const mensajesEndRef = useRef(null)
+  const inputRef = useRef(null)
+
+  // 1. Obtener el ID del admin
+  useEffect(() => {
+    if (!user) return
+    supabase.rpc('get_admin_id').then(({ data, error }) => {
+      if (error) { console.error('Error admin ID:', error); return }
+      setAdminId(data)
+    })
+  }, [user])
+
+  // 2. Para alumnos: siempre chatean con el admin
+  useEffect(() => {
+    if (!user || !adminId) return
+    if (!esAdmin) setChatCon(adminId)
+  }, [user, adminId, esAdmin])
+
+  // 3. Cargar mensajes de la conversación activa
+  useEffect(() => {
+    if (!user || !chatCon) return
+    async function load() {
+      const { data, error } = await supabase
+        .from('mensajes')
+        .select('*')
+        .or(`and(de_id.eq.${user.id},para_id.eq.${chatCon}),and(de_id.eq.${chatCon},para_id.eq.${user.id})`)
+        .order('created_at', { ascending: true })
+      if (error) { setError(error.message); return }
+      setMensajes(data || [])
+    }
+    load()
+  }, [user, chatCon])
+
+  // 4. Realtime: escuchar INSERTs
+  useEffect(() => {
+    if (!user) return
+    const canal = supabase
+      .channel('mensajes-chat-' + user.id)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mensajes' },
+        (payload) => {
+          const m = payload.new
+          if (m.de_id !== user.id && m.para_id !== user.id) return
+
+          setMensajes(prev => {
+            if (!chatCon) return prev
+            const esDeEsta =
+              (m.de_id === user.id && m.para_id === chatCon) ||
+              (m.de_id === chatCon && m.para_id === user.id)
+            if (!esDeEsta) return prev
+            if (prev.some(x => x.id === m.id)) return prev
+            return [...prev, m]
+          })
+
+          if (m.para_id === user.id) {
+            if (m.de_id !== chatCon || !abierto) {
+              setNoLeidos(prev => prev + 1)
+            }
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [user, chatCon, abierto])
+
+  // 5. Contar no leídos al iniciar
+  useEffect(() => {
+    if (!user) return
+    async function loadNoLeidos() {
+      const { count } = await supabase
+        .from('mensajes')
+        .select('*', { count: 'exact', head: true })
+        .eq('para_id', user.id)
+        .eq('leido', false)
+      setNoLeidos(count || 0)
+    }
+    loadNoLeidos()
+  }, [user, abierto])
+
+  // 6. Marcar como leídos al abrir la conversación
+  useEffect(() => {
+    if (!abierto || !user || !chatCon) return
+    supabase.from('mensajes')
+      .update({ leido: true })
+      .eq('para_id', user.id)
+      .eq('de_id', chatCon)
+      .eq('leido', false)
+      .then(() => setNoLeidos(0))
+  }, [abierto, user, chatCon, mensajes.length])
+
+  // 7. Scroll automático al final
+  useEffect(() => {
+    mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [mensajes])
+
+  // 8. Enviar mensaje
+  const enviar = async () => {
+    if (!nuevoMensaje.trim() || !user || !chatCon || enviando) return
+    setEnviando(true)
+    const contenido = nuevoMensaje.trim()
+    setNuevoMensaje('')
+    const { error } = await supabase.from('mensajes').insert({
+      de_id: user.id,
+      para_id: chatCon,
+      contenido
+    })
+    if (error) { setError(error.message); setNuevoMensaje(contenido) }
+    setEnviando(false)
+    inputRef.current?.focus()
+  }
+
+  // 9. Cargar lista de conversaciones (solo admin)
+  useEffect(() => {
+    if (!esAdmin || !user || !abierto) return
+    async function loadConversaciones() {
+      setCargandoConv(true)
+      const { data } = await supabase
+        .from('mensajes')
+        .select('de_id, para_id, created_at, contenido, leido')
+        .or(`de_id.eq.${user.id},para_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+      const mapa = {}
+      ;(data || []).forEach(m => {
+        const otro = m.de_id === user.id ? m.para_id : m.de_id
+        if (!mapa[otro]) mapa[otro] = { usuario_id: otro, ultimo: m, noLeidos: 0 }
+        if (m.para_id === user.id && !m.leido) mapa[otro].noLeidos++
+      })
+      const ids = Object.keys(mapa)
+      if (ids.length > 0) {
+        const { data: perfiles } = await supabase
+          .from('perfiles')
+          .select('id, nombre_completo')
+          .in('id', ids)
+        ;(perfiles || []).forEach(p => { if (mapa[p.id]) mapa[p.id].nombre = p.nombre_completo })
+      }
+      setConversaciones(Object.values(mapa))
+      setCargandoConv(false)
+    }
+    loadConversaciones()
+  }, [esAdmin, user, abierto, mensajes.length])
+
+  if (!user) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`chat-flotante-btn ${abierto ? 'abierto' : ''}`}
+        onClick={() => { setAbierto(v => !v); setError(null) }}
+        aria-label="Chat"
+      >
+        {abierto ? '✕' : '💬'}
+        {!abierto && noLeidos > 0 && (
+          <span className="chat-badge">{noLeidos > 9 ? '9+' : noLeidos}</span>
+        )}
+      </button>
+
+      {abierto && (
+        <div className={`chat-panel ${esAdmin ? 'admin' : 'alumno'}`}>
+          <header className="chat-header">
+            <span className="chat-header-icono">💬</span>
+            <div className="chat-header-info">
+              <span className="chat-header-titulo">
+                {esAdmin
+                  ? (chatCon ? 'Conversación' : 'Mensajes')
+                  : 'Dr. Ernesto Cotonieto'}
+              </span>
+            </div>
+            {esAdmin && chatCon && (
+              <button
+                type="button"
+                className="chat-volver-btn"
+                onClick={() => setChatCon(null)}
+              >
+                ← Volver
+              </button>
+            )}
+          </header>
+
+          <div className="chat-body">
+            {error && (
+              <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
+            )}
+
+            {esAdmin && !chatCon ? (
+              <div className="chat-lista-conv">
+                {cargandoConv ? (
+                  <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
+                ) : conversaciones.length === 0 ? (
+                  <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+                    Aún no hay conversaciones.<br />
+                    Cuando un alumno te escriba, aparecerá aquí.
+                  </p>
+                ) : (
+                  conversaciones.map(c => (
+                    <button
+                      key={c.usuario_id}
+                      type="button"
+                      className={`chat-conv-item ${c.noLeidos > 0 ? 'no-leido' : ''}`}
+                      onClick={() => setChatCon(c.usuario_id)}
+                    >
+                      <div className="chat-avatar">
+                        {(c.nombre || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="chat-conv-info">
+                        <div className="chat-conv-nombre">{c.nombre || 'Alumno'}</div>
+                        <div className="chat-conv-preview">
+                          {c.ultimo.contenido.substring(0, 40)}
+                          {c.ultimo.contenido.length > 40 ? '...' : ''}
+                        </div>
+                      </div>
+                      {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : chatCon ? (
+              <>
+                <div className="chat-mensajes">
+                  {mensajes.length === 0 ? (
+                    <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
+                      {esAdmin
+                        ? 'Inicia la conversación.'
+                        : 'Escríbeme lo que necesites.\nTe responderé pronto.'}
+                    </p>
+                  ) : (
+                    mensajes.map(m => {
+                      const esMio = m.de_id === user.id
+                      return (
+                        <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                          <div className="chat-burbuja">{m.contenido}</div>
+                          <div className="chat-hora">
+                            {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                  <div ref={mensajesEndRef} />
+                </div>
+                <div className="chat-input-area">
+                  <textarea
+                    ref={inputRef}
+                    className="chat-input"
+                    placeholder="Escribe un mensaje..."
+                    value={nuevoMensaje}
+                    onChange={e => setNuevoMensaje(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        enviar()
+                      }
+                    }}
+                    rows="1"
+                  />
+                  <button
+                    type="button"
+                    className="chat-enviar-btn"
+                    onClick={enviar}
+                    disabled={enviando || !nuevoMensaje.trim()}
+                    aria-label="Enviar"
+                  >
+                    ➤
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="chat-cargando">
+                <p className="sutil">Cargando conversación...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+/* ============================================================
    APP
    ============================================================ */
 function App() {
