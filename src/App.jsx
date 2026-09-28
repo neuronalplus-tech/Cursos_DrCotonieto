@@ -1049,6 +1049,8 @@ function Admin({ user, esAdmin }) {
   const [comunicadoMsg, setComunicadoMsg] = useState('')
   const [comunicadoResultado, setComunicadoResultado] = useState(null)
   const [comunicadoPreview, setComunicadoPreview] = useState(false)
+  const [comunicadoEditorKey, setComunicadoEditorKey] = useState(0)
+  const comunicadoEditorRef = useRef(null)
 
   const navigate = useNavigate()
 
@@ -1315,6 +1317,47 @@ function Admin({ user, esAdmin }) {
     return Array.from(dedup.values())
   }
 
+  const ejecutarComando = (cmd, valor = null) => {
+    document.execCommand(cmd, false, valor)
+    comunicadoEditorRef.current?.focus()
+    if (comunicadoEditorRef.current) {
+      setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
+    }
+  }
+
+  const crearEnlace = () => {
+    const url = prompt('URL del enlace (ej. https://...):')
+    if (url) ejecutarComando('createLink', url)
+  }
+
+  const insertarTitulo = (tag) => {
+    document.execCommand('formatBlock', false, tag)
+    comunicadoEditorRef.current?.focus()
+    if (comunicadoEditorRef.current) {
+      setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
+    }
+  }
+
+  const limpiarFormato = () => {
+    document.execCommand('removeFormat')
+    document.execCommand('formatBlock', false, '<p>')
+    comunicadoEditorRef.current?.focus()
+    if (comunicadoEditorRef.current) {
+      setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
+    }
+  }
+
+  const limpiarEditor = () => {
+    setComunicadoAsunto('')
+    setComunicadoCuerpo('')
+    setComunicadoDestino('todos')
+    setComunicadoCursoId('')
+    setComunicadoManual('')
+    setComunicadoMsg('')
+    setComunicadoResultado(null)
+    setComunicadoEditorKey(k => k + 1)
+  }
+
   const enviarComunicado = async () => {
     setComunicadoMsg('')
     setComunicadoResultado(null)
@@ -1322,7 +1365,9 @@ function Admin({ user, esAdmin }) {
     const destinatarios = calcularDestinatarios()
 
     if (!comunicadoAsunto.trim()) { setComunicadoMsg('Error: escribe un asunto'); return }
-    if (!comunicadoCuerpo.trim()) { setComunicadoMsg('Error: escribe el cuerpo del mensaje'); return }
+
+    const cuerpoLimpio = comunicadoCuerpo.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+    if (!cuerpoLimpio) { setComunicadoMsg('Error: escribe el cuerpo del mensaje'); return }
     if (destinatarios.length === 0) { setComunicadoMsg('Error: no hay destinatarios con ese criterio'); return }
     if (destinatarios.length > 500) { setComunicadoMsg(`Error: ${destinatarios.length} destinatarios excede el límite de 500 por envío. Divide en tandas.`); return }
 
@@ -1338,10 +1383,21 @@ function Admin({ user, esAdmin }) {
     setComunicadoEnviando(true)
 
     try {
+      const textoPlano = comunicadoCuerpo
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .trim()
+
       const payload = {
         tipo: 'comunicado-masivo',
         asunto: comunicadoAsunto.trim(),
-        cuerpo: comunicadoCuerpo.trim(),
+        cuerpoTexto: textoPlano,
+        cuerpoHtml: comunicadoCuerpo.trim(),
         alumnos: destinatarios,
       }
 
@@ -1359,6 +1415,7 @@ function Admin({ user, esAdmin }) {
       setComunicadoMsg(`✓ Comunicado enviado a ${destinatarios.length} alumno(s). Revisa "Enviados" en Gmail.`)
       setComunicadoAsunto('')
       setComunicadoCuerpo('')
+      setComunicadoEditorKey(k => k + 1)
     } catch (e) {
       setComunicadoMsg('Error: ' + e.message)
     } finally {
@@ -2309,14 +2366,95 @@ function Admin({ user, esAdmin }) {
               />
 
               <label>Cuerpo del mensaje</label>
-              <textarea
-                rows="8"
-                className="modal-textarea"
-                value={comunicadoCuerpo}
-                onChange={e => setComunicadoCuerpo(e.target.value)}
-                placeholder={"Hola,\n\nTe escribo para contarte que...\n\nSaludos."}
-                style={{ fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6 }}
+
+              <div className="editor-toolbar">
+                <button type="button" className="editor-btn" title="Negrita (Ctrl+B)"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('bold')}>
+                  <strong>B</strong>
+                </button>
+                <button type="button" className="editor-btn" title="Cursiva (Ctrl+I)"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('italic')}>
+                  <em>I</em>
+                </button>
+                <button type="button" className="editor-btn" title="Subrayado (Ctrl+U)"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('underline')}>
+                  <u>U</u>
+                </button>
+                <span className="editor-sep" />
+                <button type="button" className="editor-btn" title="Título grande"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => insertarTitulo('<h2>')}>
+                  H1
+                </button>
+                <button type="button" className="editor-btn" title="Subtítulo"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => insertarTitulo('<h3>')}>
+                  H2
+                </button>
+                <button type="button" className="editor-btn" title="Párrafo normal"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => insertarTitulo('<p>')}>
+                  ¶
+                </button>
+                <span className="editor-sep" />
+                <button type="button" className="editor-btn" title="Lista con viñetas"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('insertUnorderedList')}>
+                  • Lista
+                </button>
+                <button type="button" className="editor-btn" title="Lista numerada"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('insertOrderedList')}>
+                  1. Lista
+                </button>
+                <span className="editor-sep" />
+                <button type="button" className="editor-btn" title="Insertar enlace"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={crearEnlace}>
+                  🔗 Enlace
+                </button>
+                <span className="editor-sep" />
+                <button type="button" className="editor-btn" title="Alinear izquierda"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('justifyLeft')}>
+                  ⬅
+                </button>
+                <button type="button" className="editor-btn" title="Centrar"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('justifyCenter')}>
+                  ↔
+                </button>
+                <button type="button" className="editor-btn" title="Alinear derecha"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => ejecutarComando('justifyRight')}>
+                  ➡
+                </button>
+                <span className="editor-sep" />
+                <button type="button" className="editor-btn editor-btn-peligro" title="Quitar todo el formato"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={limpiarFormato}>
+                  ✕ Formato
+                </button>
+              </div>
+
+              <div
+                key={comunicadoEditorKey}
+                ref={comunicadoEditorRef}
+                className="comunicado-editor"
+                contentEditable
+                suppressContentEditableWarning
+                onInput={e => setComunicadoCuerpo(e.currentTarget.innerHTML)}
+                onBlur={e => setComunicadoCuerpo(e.currentTarget.innerHTML)}
+                dangerouslySetInnerHTML={{
+                  __html: comunicadoEditorKey === 0
+                    ? '<p>Hola,</p><p>Te escribo para contarte que...</p><p>Saludos.</p>'
+                    : '<p><br></p>'
+                }}
               />
+
               <p className="nota" style={{ marginTop: 6 }}>
                 Se agregará automáticamente tu firma con logo, credencial y enlaces al final del correo.
               </p>
@@ -2337,11 +2475,10 @@ function Admin({ user, esAdmin }) {
                     <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Para: neuronal.plus@gmail.com</p>
                     <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Asunto: <strong style={{ color: '#1B3A4B' }}>{comunicadoAsunto || '(sin asunto)'}</strong></p>
                   </div>
-                  <div className="comunicado-preview-body">
-                    {comunicadoCuerpo
-                      ? comunicadoCuerpo.split('\n').map((linea, i) => <p key={i} style={{ margin: '0 0 10px' }}>{linea || '\u00A0'}</p>)
-                      : <p style={{ color: '#7A8891', fontStyle: 'italic' }}>(El cuerpo del mensaje aparecerá aquí)</p>}
-                  </div>
+                  <div className="comunicado-preview-body"
+                       dangerouslySetInnerHTML={{
+                         __html: comunicadoCuerpo || '<p style="color:#7A8891;font-style:italic;">(El cuerpo del mensaje aparecerá aquí)</p>'
+                       }} />
                 </div>
               )}
 
@@ -2350,7 +2487,7 @@ function Admin({ user, esAdmin }) {
                   type="button"
                   className="button whatsapp"
                   onClick={enviarComunicado}
-                  disabled={comunicadoEnviando || calcularDestinatarios().length === 0 || !comunicadoAsunto.trim() || !comunicadoCuerpo.trim()}
+                  disabled={comunicadoEnviando || calcularDestinatarios().length === 0 || !comunicadoAsunto.trim()}
                 >
                   {comunicadoEnviando
                     ? 'Enviando...'
@@ -2359,15 +2496,7 @@ function Admin({ user, esAdmin }) {
                 <button
                   type="button"
                   className="button texto"
-                  onClick={() => {
-                    setComunicadoAsunto('')
-                    setComunicadoCuerpo('')
-                    setComunicadoDestino('todos')
-                    setComunicadoCursoId('')
-                    setComunicadoManual('')
-                    setComunicadoMsg('')
-                    setComunicadoResultado(null)
-                  }}
+                  onClick={limpiarEditor}
                 >
                   Limpiar
                 </button>
