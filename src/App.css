@@ -1472,3 +1472,74 @@ a { color: var(--primary); }
   align-items: center;
   justify-content: center;
 }
+/* Tabs dentro de la sidebar del inbox */
+.inbox-sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--borde);
+  background: #fff;
+  flex-shrink: 0;
+}
+.inbox-sidebar-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 13px 10px;
+  font-family: var(--texto);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gris);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.inbox-sidebar-tab:hover { color: var(--primary); }
+.inbox-sidebar-tab.activa {
+  color: var(--primary);
+  border-bottom-color: var(--accent);
+}
+
+/* Select de curso dentro del buscador */
+.inbox-select-curso {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  font-family: var(--texto);
+  font-size: 13px;
+  margin-bottom: 8px;
+  background: #fff;
+  color: var(--body);
+  cursor: pointer;
+}
+.inbox-select-curso:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193,122,94,.12);
+}
+
+/* Badges de curso en las tarjetas de contacto */
+.inbox-conv-cursos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.badge-curso {
+  background: var(--bg-card);
+  color: var(--gris);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* Ajuste: el .inbox-buscar ahora puede contener select + input */
+.inbox-buscar {
+  padding: 10px 12px;
+}
