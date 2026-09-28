@@ -33,9 +33,6 @@ const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/
 const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
 const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
 
-// ID del curso de "Problemas contemporáneos" (ajústalo al ID real de tu tabla `cursos`)
-const CURSO_PROBLEMAS_CONTEMPORANEOS_ID = null // Ej: 4
-
 const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',
   credencial: 'Cédula profesional 10521804 · Doctorado en Ciencias del Comportamiento Saludable',
@@ -1041,6 +1038,9 @@ function Admin({ user, esAdmin }) {
       if (!token) { setMsg('Error: no hay sesión activa'); setCreando(false); return }
 
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuario`
+      console.log('URL Edge Function:', url)
+      console.log('Token (primeros 30):', token.substring(0, 30))
+
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -1053,9 +1053,17 @@ function Admin({ user, esAdmin }) {
           curso_ids: cursosSeleccionados
         })
       })
-      const json = await res.json()
+
+      const texto = await res.text()
+      console.log('Status:', res.status)
+      console.log('Respuesta cruda:', texto)
+
+      let json = {}
+      try { json = JSON.parse(texto) } catch {}
+      const errorReal = json.error || json.message || json.code || texto || 'sin detalles'
+
       if (!res.ok || json.error) {
-        setMsg('Error: ' + (json.error || 'desconocido'))
+        setMsg(`Error (HTTP ${res.status}): ${errorReal}`)
       } else {
         setMsg(`✅ Usuario ${json.email} creado y asignado a ${cursosSeleccionados.length} curso(s)`)
         setNuevoEmail('')
@@ -1067,7 +1075,8 @@ function Admin({ user, esAdmin }) {
         setFilas(data || [])
       }
     } catch (e) {
-      setMsg('Error inesperado: ' + e.message)
+      setMsg('Error inesperado: ' + (e.message || e.toString()))
+      console.error('Excepción completa:', e)
     }
     setCreando(false)
   }
@@ -1728,6 +1737,14 @@ function CursoView({ user, esAdmin }) {
     return false
   }
 
+  const toggleDisponible = async (m) => {
+    if (!esAdmin) return
+    const nuevo = !m.disponible
+    const { error } = await supabase.from('modulos').update({ disponible: nuevo }).eq('id', m.id)
+    if (error) { alert('Error al cambiar disponibilidad: ' + error.message); return }
+    setModulos(prev => prev.map(x => x.id === m.id ? { ...x, disponible: nuevo } : x))
+  }
+
   const renderModulo = (m, i) => {
     const bloqueado = esModuloBloqueado(m)
     const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !esAdmin
@@ -1752,9 +1769,27 @@ function CursoView({ user, esAdmin }) {
       </>
     )
 
-    return bloqueado
-      ? <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
-      : <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+    if (bloqueado) {
+      return <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
+    }
+
+    if (!esAdmin) {
+      return <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+    }
+
+    return (
+      <div key={m.id} className="modulo-row">
+        <Link to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+        <button
+          type="button"
+          className={`modulo-toggle ${m.disponible ? 'abierto' : 'cerrado'}`}
+          onClick={() => toggleDisponible(m)}
+          title={m.disponible ? 'Cerrar módulo (ocultar a alumnos)' : 'Abrir módulo (visible para alumnos)'}
+        >
+          {m.disponible ? '🔓' : '🔒'}
+        </button>
+      </div>
+    )
   }
 
   return (
