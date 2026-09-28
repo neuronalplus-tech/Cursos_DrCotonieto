@@ -993,10 +993,9 @@ function Perfil({ user }) {
 }
 
 /* ============================================================
-   MENSAJES · INBOX COMPLETO (Supabase Realtime)
+   MENSAJES · INBOX (Supabase Realtime)
    ============================================================ */
 function MensajesInbox({ user, esAdmin }) {
-  const [adminId, setAdminId] = useState(null)
   const [conversaciones, setConversaciones] = useState([])
   const [chatCon, setChatCon] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -1008,31 +1007,30 @@ function MensajesInbox({ user, esAdmin }) {
   const mensajesEndRef = useRef(null)
   const inputRef = useRef(null)
 
-  // NUEVOS estados para el tab "Contactos"
+  // Tabs sidebar (solo admin)
   const [vistaSidebar, setVistaSidebar] = useState('conversaciones')
   const [contactos, setContactos] = useState([])
   const [cargandoContactos, setCargandoContactos] = useState(false)
   const [cursosLista, setCursosLista] = useState([])
   const [cursoFiltro, setCursoFiltro] = useState('todos')
 
-  // 1. Cargar adminId (para alumnos)
+  // 1. Admin ID para alumnos
   useEffect(() => {
-    if (!user) return
+    if (!user || esAdmin) return
     supabase.rpc('get_admin_id').then(({ data, error }) => {
       if (error) { console.error('adminId error:', error); return }
-      setAdminId(data)
-      if (!esAdmin && data) setChatCon(data)
+      if (data) setChatCon(data)
     })
   }, [user, esAdmin])
 
-  // 2. Cargar cursos (para dropdown de filtro)
+  // 2. Cursos (para dropdown de filtro)
   useEffect(() => {
     if (!esAdmin || !user) return
     supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin, user])
 
-  // 3. Cargar lista de conversaciones (solo admin)
+  // 3. Conversaciones (admin)
   useEffect(() => {
     if (!esAdmin || !user) return
     async function load() {
@@ -1065,7 +1063,7 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [esAdmin, user, mensajes.length])
 
-  // 4. NUEVO: Cargar contactos (todos los alumnos) cuando se abre el tab
+  // 4. Contactos (admin, solo cuando abre el tab)
   useEffect(() => {
     if (!esAdmin || !user || vistaSidebar !== 'contactos') return
     async function load() {
@@ -1098,7 +1096,7 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [esAdmin, user, vistaSidebar])
 
-  // 5. Cargar mensajes de la conversación activa
+  // 5. Mensajes de la conversación activa
   useEffect(() => {
     if (!user || !chatCon) return
     async function load() {
@@ -1154,7 +1152,7 @@ function MensajesInbox({ user, esAdmin }) {
       })
   }, [user, chatCon, mensajes.length, esAdmin])
 
-  // 8. Scroll automático
+  // 8. Scroll al final
   useEffect(() => {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes])
@@ -1172,7 +1170,6 @@ function MensajesInbox({ user, esAdmin }) {
     inputRef.current?.focus()
   }
 
-  // Filtros
   const conversacionesFiltradas = conversaciones.filter(c => {
     if (!busqueda.trim()) return true
     const t = busqueda.toLowerCase()
@@ -1189,7 +1186,6 @@ function MensajesInbox({ user, esAdmin }) {
         || (c.email || '').toLowerCase().includes(t)
   })
 
-  // Nombre del contacto activo (busca en conversaciones o contactos)
   const nombreChatActivo = () => {
     const c = conversaciones.find(c => c.usuario_id === chatCon)
     if (c) return c.nombre || 'Alumno'
@@ -1261,7 +1257,7 @@ function MensajesInbox({ user, esAdmin }) {
     <div className="inbox-admin">
       <aside className="inbox-lista">
 
-        {/* Tabs de la sidebar */}
+        {/* Tabs internos */}
         <div className="inbox-sidebar-tabs">
           <button
             type="button"
@@ -1400,179 +1396,6 @@ function MensajesInbox({ user, esAdmin }) {
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16 }}>{nombreChatActivo()}</h3>
-              </div>
-            </header>
-
-            <div className="chat-mensajes">
-              {error && (
-                <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
-              )}
-              {mensajes.length === 0 ? (
-                <p className="sutil" style={{ textAlign: 'center', marginTop: 40 }}>
-                  Inicia la conversación.
-                </p>
-              ) : (
-                mensajes.map(m => {
-                  const esMio = m.de_id === user.id
-                  return (
-                    <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
-                      <div className="chat-burbuja">{m.contenido}</div>
-                      <div className="chat-hora">
-                        {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-              <div ref={mensajesEndRef} />
-            </div>
-
-            <div className="chat-input-area">
-              <textarea
-                ref={inputRef}
-                className="chat-input"
-                placeholder="Escribe un mensaje..."
-                value={nuevoMensaje}
-                onChange={e => setNuevoMensaje(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
-                }}
-                rows="1"
-              />
-              <button
-                type="button"
-                className="chat-enviar-btn"
-                onClick={enviar}
-                disabled={enviando || !nuevoMensaje.trim()}
-              >➤</button>
-            </div>
-          </>
-        )}
-      </main>
-    </div>
-  )
-}
-
-  // ===== VISTA ALUMNO =====
-  if (!esAdmin) {
-    return (
-      <div className="inbox-simple">
-        <header className="inbox-simple-header">
-          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="inbox-avatar-img" />
-          <div>
-            <h2 style={{ margin: 0, fontSize: 17 }}>Dr. Ernesto Cotonieto</h2>
-            <p className="sutil" style={{ margin: 0, fontSize: 12.5 }}>Te responderé pronto</p>
-          </div>
-        </header>
-
-        <div className="chat-mensajes">
-          {mensajes.length === 0 ? (
-            <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
-              Escríbeme lo que necesites.<br />Te responderé pronto.
-            </p>
-          ) : (
-            mensajes.map(m => {
-              const esMio = m.de_id === user.id
-              return (
-                <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
-                  <div className="chat-burbuja">{m.contenido}</div>
-                  <div className="chat-hora">
-                    {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              )
-            })
-          )}
-          <div ref={mensajesEndRef} />
-        </div>
-
-        <div className="chat-input-area">
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            placeholder="Escribe un mensaje..."
-            value={nuevoMensaje}
-            onChange={e => setNuevoMensaje(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
-            }}
-            rows="1"
-          />
-          <button
-            type="button"
-            className="chat-enviar-btn"
-            onClick={enviar}
-            disabled={enviando || !nuevoMensaje.trim()}
-          >➤</button>
-        </div>
-      </div>
-    )
-  }
-
-  // ===== VISTA ADMIN =====
-  return (
-    <div className="inbox-admin">
-      <aside className="inbox-lista">
-        <div className="inbox-buscar">
-          <input
-            type="text"
-            placeholder="🔍 Buscar alumno..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="inbox-input-buscar"
-          />
-        </div>
-        <div className="inbox-conversaciones">
-          {cargando ? (
-            <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
-          ) : conversacionesFiltradas.length === 0 ? (
-            <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
-              Aún no hay conversaciones.<br />
-              Cuando un alumno te escriba, aparecerá aquí.
-            </p>
-          ) : (
-            conversacionesFiltradas.map(c => (
-              <button
-                key={c.usuario_id}
-                type="button"
-                className={`inbox-conv-item ${chatCon === c.usuario_id ? 'activo' : ''} ${c.noLeidos > 0 ? 'no-leido' : ''}`}
-                onClick={() => setChatCon(c.usuario_id)}
-              >
-                <div className="chat-avatar">
-                  {(c.nombre || '?').charAt(0).toUpperCase()}
-                </div>
-                <div className="inbox-conv-info">
-                  <div className="inbox-conv-nombre">{c.nombre || 'Alumno'}</div>
-                  <div className="inbox-conv-preview">
-                    {c.ultimo.contenido.substring(0, 45)}
-                    {c.ultimo.contenido.length > 45 ? '...' : ''}
-                  </div>
-                </div>
-                {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
-              </button>
-            ))
-          )}
-        </div>
-      </aside>
-
-      <main className="inbox-chat">
-        {!chatCon ? (
-          <div className="inbox-vacio">
-            <div className="inbox-vacio-icono">💬</div>
-            <p className="sutil" style={{ textAlign: 'center', lineHeight: 1.7 }}>
-              Selecciona una conversación<br />de la izquierda para ver los mensajes.
-            </p>
-          </div>
-        ) : (
-          <>
-            <header className="inbox-chat-header">
-              <div className="chat-avatar">
-                {(conversaciones.find(c => c.usuario_id === chatCon)?.nombre || '?').charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16 }}>
-                  {conversaciones.find(c => c.usuario_id === chatCon)?.nombre || 'Alumno'}
-                </h3>
               </div>
             </header>
 
@@ -2236,33 +2059,24 @@ function Admin({ user, esAdmin }) {
     }
   }
 
-  // ===== MÉTRICAS / ANALYTICS =====
+  // ===== MÉTRICAS =====
   const calcularMetricas = () => {
     if (!filas || filas.length === 0) {
       return {
-        alumnosUnicos: 0,
-        totalInscripciones: 0,
-        tasaFinalizacion: 0,
-        activos30d: 0,
-        inscripcionesPorMes: [],
-        finalizacionPorCurso: [],
-        alumnosPorCurso: [],
-        alumnosEnRiesgo: [],
+        alumnosUnicos: 0, totalInscripciones: 0, tasaFinalizacion: 0, activos30d: 0,
+        inscripcionesPorMes: [], finalizacionPorCurso: [], alumnosPorCurso: [], alumnosEnRiesgo: [],
       }
     }
 
     const alumnosUnicos = new Set(filas.map(f => f.usuario_id)).size
     const totalInscripciones = filas.length
 
-    let totalRecursos = 0
-    let totalCompletados = 0
+    let totalRecursos = 0, totalCompletados = 0
     filas.forEach(f => {
       totalRecursos += (f.total_recursos || 0)
       totalCompletados += (f.recursos_completados || 0)
     })
-    const tasaFinalizacion = totalRecursos > 0
-      ? Math.round((totalCompletados / totalRecursos) * 100)
-      : 0
+    const tasaFinalizacion = totalRecursos > 0 ? Math.round((totalCompletados / totalRecursos) * 100) : 0
 
     const hoy = Date.now()
     const hace30d = 30 * 24 * 60 * 60 * 1000
@@ -2280,8 +2094,7 @@ function Admin({ user, esAdmin }) {
       const d = new Date()
       d.setMonth(d.getMonth() - i)
       meses.push({
-        anio: d.getFullYear(),
-        mes: d.getMonth(),
+        anio: d.getFullYear(), mes: d.getMonth(),
         label: d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' }),
         count: 0,
       })
@@ -2292,19 +2105,12 @@ function Admin({ user, esAdmin }) {
       const slot = meses.find(m => m.anio === d.getFullYear() && m.mes === d.getMonth())
       if (slot) slot.count++
     })
-    const inscripcionesPorMes = meses
 
     const porCurso = {}
     filas.forEach(f => {
       const key = f.curso || 'Sin curso'
       if (!porCurso[key]) {
-        porCurso[key] = {
-          curso: key,
-          inscritos: 0,
-          sumaRecursos: 0,
-          sumaCompletados: 0,
-          alumnosSet: new Set(),
-        }
+        porCurso[key] = { curso: key, inscritos: 0, sumaRecursos: 0, sumaCompletados: 0, alumnosSet: new Set() }
       }
       porCurso[key].inscritos++
       porCurso[key].sumaRecursos += (f.total_recursos || 0)
@@ -2314,19 +2120,13 @@ function Admin({ user, esAdmin }) {
 
     const finalizacionPorCurso = Object.values(porCurso)
       .map(c => ({
-        curso: c.curso,
-        inscritos: c.inscritos,
-        tasa: c.sumaRecursos > 0
-          ? Math.round((c.sumaCompletados / c.sumaRecursos) * 100)
-          : 0,
+        curso: c.curso, inscritos: c.inscritos,
+        tasa: c.sumaRecursos > 0 ? Math.round((c.sumaCompletados / c.sumaRecursos) * 100) : 0,
       }))
       .sort((a, b) => b.tasa - a.tasa)
 
     const alumnosPorCurso = Object.values(porCurso)
-      .map(c => ({
-        curso: c.curso,
-        alumnos: c.alumnosSet.size,
-      }))
+      .map(c => ({ curso: c.curso, alumnos: c.alumnosSet.size }))
       .sort((a, b) => b.alumnos - a.alumnos)
 
     const hace15d = 15 * 24 * 60 * 60 * 1000
@@ -2337,12 +2137,8 @@ function Admin({ user, esAdmin }) {
       if (dias > 15) {
         if (!riesgosMap[f.usuario_id]) {
           riesgosMap[f.usuario_id] = {
-            usuario_id: f.usuario_id,
-            email: f.email,
-            nombre_completo: f.nombre_completo,
-            dias,
-            cursos: [],
-            ultimo_ingreso: f.ultimo_ingreso,
+            usuario_id: f.usuario_id, email: f.email, nombre_completo: f.nombre_completo,
+            dias, cursos: [], ultimo_ingreso: f.ultimo_ingreso,
           }
         }
         riesgosMap[f.usuario_id].cursos.push(f.curso)
@@ -2352,18 +2148,11 @@ function Admin({ user, esAdmin }) {
         }
       }
     })
-    const alumnosEnRiesgo = Object.values(riesgosMap)
-      .sort((a, b) => b.dias - a.dias)
+    const alumnosEnRiesgo = Object.values(riesgosMap).sort((a, b) => b.dias - a.dias)
 
     return {
-      alumnosUnicos,
-      totalInscripciones,
-      tasaFinalizacion,
-      activos30d,
-      inscripcionesPorMes,
-      finalizacionPorCurso,
-      alumnosPorCurso,
-      alumnosEnRiesgo,
+      alumnosUnicos, totalInscripciones, tasaFinalizacion, activos30d,
+      inscripcionesPorMes: meses, finalizacionPorCurso, alumnosPorCurso, alumnosEnRiesgo,
     }
   }
 
@@ -2405,51 +2194,17 @@ function Admin({ user, esAdmin }) {
       <h1>Panel de administración</h1>
 
       <div className="admin-tabs">
-        <button
-          type="button"
-          className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`}
-          onClick={() => setVista('inscripciones')}
-        >
-          📋 Inscripciones
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`}
-          onClick={() => setVista('usuarios')}
-        >
-          👥 Gestión de usuarios
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`}
-          onClick={() => setVista('metricas')}
-        >
-          📊 Métricas
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`}
-          onClick={() => setVista('comunicados')}
-        >
-          📧 Comunicados
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`}
-          onClick={() => setVista('mensajes')}
-        >
-          💬 Mensajes
-        </button>
+        <button type="button" className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`} onClick={() => setVista('inscripciones')}>📋 Inscripciones</button>
+        <button type="button" className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`} onClick={() => setVista('usuarios')}>👥 Gestión de usuarios</button>
+        <button type="button" className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`} onClick={() => setVista('metricas')}>📊 Métricas</button>
+        <button type="button" className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`} onClick={() => setVista('comunicados')}>📧 Comunicados</button>
+        <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
       </div>
 
       {vista === 'inscripciones' && (
         <>
           <div className="admin-bloque-nuevo">
-            <button
-              type="button"
-              className="button primary"
-              onClick={() => setFormAbierto(v => !v)}
-            >
+            <button type="button" className="button primary" onClick={() => setFormAbierto(v => !v)}>
               {formAbierto ? '✕ Cerrar' : '➕ Crear nuevo usuario'}
             </button>
 
@@ -2457,38 +2212,19 @@ function Admin({ user, esAdmin }) {
               <div className="nuevo-usuario-form">
                 <h3>Nuevo usuario</h3>
                 <label>Correo electrónico</label>
-                <input
-                  type="email"
-                  value={nuevoEmail}
-                  onChange={e => setNuevoEmail(e.target.value)}
-                  placeholder="alumno@ejemplo.com"
-                />
+                <input type="email" value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)} placeholder="alumno@ejemplo.com" />
                 <label>Contraseña temporal</label>
-                <input
-                  type="text"
-                  value={nuevoPass}
-                  onChange={e => setNuevoPass(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                />
+                <input type="text" value={nuevoPass} onChange={e => setNuevoPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
                 <label>Cursos a los que tendrá acceso</label>
                 <div className="cursos-checkboxes">
                   {cursosLista.map(c => (
                     <label key={c.id} className="curso-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={cursosSeleccionados.includes(c.id)}
-                        onChange={() => toggleCurso(c.id)}
-                      />
+                      <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
                       <span>{c.titulo}</span>
                     </label>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  className="button whatsapp"
-                  onClick={crearUsuario}
-                  disabled={creando}
-                >
+                <button type="button" className="button whatsapp" onClick={crearUsuario} disabled={creando}>
                   {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
                 </button>
                 {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
@@ -2497,11 +2233,7 @@ function Admin({ user, esAdmin }) {
           </div>
 
           <div className="admin-bloque-nuevo">
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => setMasivoAbierto(v => !v)}
-            >
+            <button type="button" className="button secondary" onClick={() => setMasivoAbierto(v => !v)}>
               {masivoAbierto ? '✕ Cerrar inscripción masiva' : '📥 Inscripción masiva (hasta 200 correos)'}
             </button>
 
@@ -2514,59 +2246,30 @@ function Admin({ user, esAdmin }) {
                 </p>
 
                 <label>Correos electrónicos</label>
-                <textarea
-                  rows="6"
-                  className="modal-textarea"
-                  value={emailsMasivos}
-                  onChange={e => setEmailsMasivos(e.target.value)}
+                <textarea rows="6" className="modal-textarea" value={emailsMasivos} onChange={e => setEmailsMasivos(e.target.value)}
                   placeholder={"alumno1@correo.com, alumno2@correo.com\nalumno3@correo.com; alumno4@correo.com"}
-                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }}
-                />
-                <p className="nota" style={{ marginTop: 6 }}>
-                  {parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)
-                </p>
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
+                <p className="nota" style={{ marginTop: 6 }}>{parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)</p>
 
                 <label>Contraseña temporal (misma para todos)</label>
-                <input
-                  type="text"
-                  value={passMasivo}
-                  onChange={e => setPassMasivo(e.target.value)}
-                  placeholder="Ej. Curso2026!"
-                />
-                <p className="nota" style={{ marginTop: 6 }}>
-                  ⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.
-                </p>
+                <input type="text" value={passMasivo} onChange={e => setPassMasivo(e.target.value)} placeholder="Ej. Curso2026!" />
+                <p className="nota" style={{ marginTop: 6 }}>⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.</p>
 
                 <label>Cursos a los que tendrán acceso</label>
                 <div className="cursos-checkboxes">
                   {cursosLista.map(c => (
                     <label key={c.id} className="curso-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={cursosMasivos.includes(c.id)}
-                        onChange={() => toggleCursoMasivo(c.id)}
-                      />
+                      <input type="checkbox" checked={cursosMasivos.includes(c.id)} onChange={() => toggleCursoMasivo(c.id)} />
                       <span>{c.titulo}</span>
                     </label>
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  className="button whatsapp"
-                  onClick={crearUsuariosMasivos}
-                  disabled={creandoMasivo}
-                >
-                  {creandoMasivo
-                    ? `Procesando... ${progresoMasivo.actual} / ${progresoMasivo.total}`
-                    : `Crear ${parsearEmails(emailsMasivos).length} usuario(s)`}
+                <button type="button" className="button whatsapp" onClick={crearUsuariosMasivos} disabled={creandoMasivo}>
+                  {creandoMasivo ? `Procesando... ${progresoMasivo.actual} / ${progresoMasivo.total}` : `Crear ${parsearEmails(emailsMasivos).length} usuario(s)`}
                 </button>
 
-                {msgMasivo && (
-                  <p className={msgMasivo.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>
-                    {msgMasivo}
-                  </p>
-                )}
+                {msgMasivo && <p className={msgMasivo.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{msgMasivo}</p>}
 
                 {resultadoMasivo && (
                   <div style={{ marginTop: 18 }}>
@@ -2575,20 +2278,13 @@ function Admin({ user, esAdmin }) {
                       <div className="kpi"><span className="kpi-num">{resultadoMasivo.existentes}</span><span className="kpi-lbl">Ya existían</span></div>
                       <div className="kpi"><span className="kpi-num">{resultadoMasivo.errores}</span><span className="kpi-lbl">Con error</span></div>
                     </div>
-
                     {resultadoMasivo.errores > 0 && (
                       <details style={{ marginTop: 12 }}>
-                        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-                          Ver detalle de errores ({resultadoMasivo.errores})
-                        </summary>
+                        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Ver detalle de errores ({resultadoMasivo.errores})</summary>
                         <ul style={{ fontSize: 13, marginTop: 8 }}>
-                          {resultadoMasivo.detalles
-                            .filter(r => r.status !== 'creado')
-                            .map((r, i) => (
-                              <li key={i}>
-                                <strong>{r.email}</strong> — {r.status}: {r.mensaje}
-                              </li>
-                            ))}
+                          {resultadoMasivo.detalles.filter(r => r.status !== 'creado').map((r, i) => (
+                            <li key={i}><strong>{r.email}</strong> — {r.status}: {r.mensaje}</li>
+                          ))}
                         </ul>
                       </details>
                     )}
@@ -2647,78 +2343,37 @@ function Admin({ user, esAdmin }) {
           </p>
 
           <div className="gestion-filtros">
-            <input
-              type="text"
-              className="gestion-busqueda"
-              placeholder="🔍 Buscar por correo o nombre..."
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-            />
-            <select
-              className="gestion-select"
-              value={filtroEstado}
-              onChange={e => setFiltroEstado(e.target.value)}
-            >
+            <input type="text" className="gestion-busqueda" placeholder="🔍 Buscar por correo o nombre..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+            <select className="gestion-select" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
               <option value="todos">Todos los estados</option>
               <option value="con-acceso">Con acceso a cursos</option>
               <option value="sin-acceso">Sin acceso a cursos</option>
               <option value="activos">Activos (últimos 14 días)</option>
               <option value="inactivos">Inactivos</option>
             </select>
-            <select
-              className="gestion-select"
-              value={filtroCursoUsuario}
-              onChange={e => setFiltroCursoUsuario(e.target.value)}
-            >
+            <select className="gestion-select" value={filtroCursoUsuario} onChange={e => setFiltroCursoUsuario(e.target.value)}>
               <option value="todos">Todos los cursos</option>
-              {cursosLista.map(c => (
-                <option key={c.id} value={c.id}>{c.titulo}</option>
-              ))}
+              {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
             </select>
           </div>
 
-          {msgGestion && (
-            <p className={msgGestion.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>
-              {msgGestion}
-            </p>
-          )}
+          {msgGestion && <p className={msgGestion.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>{msgGestion}</p>}
 
           {seleccionados.size > 0 && (
             <div className="bulk-bar">
               <span className="bulk-count">{seleccionados.size} seleccionado(s)</span>
-              <select
-                className="gestion-select"
-                value={bulkAccion}
-                onChange={e => setBulkAccion(e.target.value)}
-              >
+              <select className="gestion-select" value={bulkAccion} onChange={e => setBulkAccion(e.target.value)}>
                 <option value="dar">Dar acceso a</option>
                 <option value="quitar">Quitar acceso de</option>
               </select>
-              <select
-                className="gestion-select"
-                value={bulkCursoId}
-                onChange={e => setBulkCursoId(e.target.value)}
-              >
+              <select className="gestion-select" value={bulkCursoId} onChange={e => setBulkCursoId(e.target.value)}>
                 <option value="">— Elige un curso —</option>
-                {cursosLista.map(c => (
-                  <option key={c.id} value={c.id}>{c.titulo}</option>
-                ))}
+                {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
               </select>
-              <button
-                type="button"
-                className="button primary"
-                onClick={ejecutarBulk}
-                disabled={bulkProcesando || !bulkCursoId}
-              >
+              <button type="button" className="button primary" onClick={ejecutarBulk} disabled={bulkProcesando || !bulkCursoId}>
                 {bulkProcesando ? 'Procesando...' : 'Aplicar a seleccionados'}
               </button>
-              <button
-                type="button"
-                className="button texto"
-                onClick={() => setSeleccionados(new Set())}
-              >
-                Cancelar
-              </button>
+              <button type="button" className="button texto" onClick={() => setSeleccionados(new Set())}>Cancelar</button>
             </div>
           )}
 
@@ -2730,23 +2385,15 @@ function Admin({ user, esAdmin }) {
             <>
               {usuariosFiltrados.length > 0 && (
                 <div className="gestion-toolbar">
-                  <button
-                    type="button"
-                    className="button texto"
-                    onClick={() => toggleTodos(usuariosFiltrados)}
-                  >
-                    {usuariosFiltrados.every(u => seleccionados.has(u.usuario_id))
-                      ? '☐ Deseleccionar todos'
-                      : '☑ Seleccionar todos los visibles'}
+                  <button type="button" className="button texto" onClick={() => toggleTodos(usuariosFiltrados)}>
+                    {usuariosFiltrados.every(u => seleccionados.has(u.usuario_id)) ? '☐ Deseleccionar todos' : '☑ Seleccionar todos los visibles'}
                   </button>
                   <span className="sutil">{usuariosFiltrados.length} usuario(s) mostrado(s)</span>
                 </div>
               )}
 
               <div className="gestion-usuarios">
-                {usuariosFiltrados.length === 0 && (
-                  <p className="sutil">No se encontraron usuarios con ese criterio.</p>
-                )}
+                {usuariosFiltrados.length === 0 && <p className="sutil">No se encontraron usuarios con ese criterio.</p>}
                 {usuariosFiltrados.map(u => {
                   const cursosDelUsuario = u.cursos_inscritos || 0
                   const seleccionado = seleccionados.has(u.usuario_id)
@@ -2757,11 +2404,7 @@ function Admin({ user, esAdmin }) {
                     <div key={u.usuario_id} className={`gestion-usuario-card ${seleccionado ? 'seleccionado' : ''} ${expandido ? 'expandido' : ''}`}>
                       <div className="gestion-usuario-header">
                         <div className="gestion-usuario-check">
-                          <input
-                            type="checkbox"
-                            checked={seleccionado}
-                            onChange={() => toggleSeleccion(u.usuario_id)}
-                          />
+                          <input type="checkbox" checked={seleccionado} onChange={() => toggleSeleccion(u.usuario_id)} />
                         </div>
                         <div className="gestion-usuario-info">
                           <div className="gestion-usuario-nombre-linea">
@@ -2769,36 +2412,19 @@ function Admin({ user, esAdmin }) {
                             {cursosDelUsuario > 0
                               ? <span className="badge ok">{cursosDelUsuario} curso(s)</span>
                               : <span className="badge neutro">Sin acceso</span>}
-                            {inactivo && <span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>
-                              Inactivo {dias}d
-                            </span>}
+                            {inactivo && <span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>Inactivo {dias}d</span>}
                           </div>
                           <span className="celda-sub">{u.email}</span>
                           {u.profesion && <span className="celda-sub">{u.profesion}</span>}
-                          {u.ultimo_ingreso && (
-                            <span className="celda-sub">Último ingreso: {fecha(u.ultimo_ingreso)}</span>
-                          )}
-                          {u.notas_admin && (
-                            <span className="gestion-nota-preview">📝 {u.notas_admin}</span>
-                          )}
+                          {u.ultimo_ingreso && <span className="celda-sub">Último ingreso: {fecha(u.ultimo_ingreso)}</span>}
+                          {u.notas_admin && <span className="gestion-nota-preview">📝 {u.notas_admin}</span>}
                         </div>
                         <div className="gestion-usuario-acciones">
-                          <button
-                            type="button"
-                            className="button texto"
-                            onClick={() => setModalNotas({
-                              usuario_id: u.usuario_id,
-                              email: u.email,
-                              texto: u.notas_admin || ''
-                            })}
-                          >
+                          <button type="button" className="button texto"
+                            onClick={() => setModalNotas({ usuario_id: u.usuario_id, email: u.email, texto: u.notas_admin || '' })}>
                             {u.notas_admin ? '✏️ Editar nota' : '📝 Añadir nota'}
                           </button>
-                          <button
-                            type="button"
-                            className="gestion-expandir-btn"
-                            onClick={() => toggleExpandido(u.usuario_id)}
-                          >
+                          <button type="button" className="gestion-expandir-btn" onClick={() => toggleExpandido(u.usuario_id)}>
                             {expandido ? '▲ Ocultar cursos' : '▼ Ver cursos'}
                           </button>
                         </div>
@@ -2813,12 +2439,8 @@ function Admin({ user, esAdmin }) {
                             return (
                               <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
                                 <span className="gestion-curso-titulo">{c.titulo}</span>
-                                <button
-                                  type="button"
-                                  className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
-                                  onClick={() => toggleAcceso(u.usuario_id, c.id, tiene, u.email)}
-                                  disabled={ocupado}
-                                >
+                                <button type="button" className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
+                                  onClick={() => toggleAcceso(u.usuario_id, c.id, tiene, u.email)} disabled={ocupado}>
                                   {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
                                 </button>
                               </div>
@@ -2842,22 +2464,10 @@ function Admin({ user, esAdmin }) {
           </p>
 
           <div className="kpi-fila">
-            <div className="kpi">
-              <span className="kpi-num">{metricas.alumnosUnicos}</span>
-              <span className="kpi-lbl">Alumnos únicos</span>
-            </div>
-            <div className="kpi">
-              <span className="kpi-num">{metricas.totalInscripciones}</span>
-              <span className="kpi-lbl">Inscripciones</span>
-            </div>
-            <div className="kpi">
-              <span className="kpi-num">{metricas.tasaFinalizacion}%</span>
-              <span className="kpi-lbl">Finalización global</span>
-            </div>
-            <div className="kpi">
-              <span className="kpi-num">{metricas.activos30d}</span>
-              <span className="kpi-lbl">Activos últimos 30 días</span>
-            </div>
+            <div className="kpi"><span className="kpi-num">{metricas.alumnosUnicos}</span><span className="kpi-lbl">Alumnos únicos</span></div>
+            <div className="kpi"><span className="kpi-num">{metricas.totalInscripciones}</span><span className="kpi-lbl">Inscripciones</span></div>
+            <div className="kpi"><span className="kpi-num">{metricas.tasaFinalizacion}%</span><span className="kpi-lbl">Finalización global</span></div>
+            <div className="kpi"><span className="kpi-num">{metricas.activos30d}</span><span className="kpi-lbl">Activos últimos 30 días</span></div>
           </div>
 
           <section className="metricas-bloque">
@@ -2866,14 +2476,10 @@ function Admin({ user, esAdmin }) {
               {metricas.inscripcionesPorMes.map((m, i) => (
                 <div key={i} className="barra-v-col">
                   <div className="barra-v-valor">{m.count > 0 ? m.count : ''}</div>
-                  <div
-                    className="barra-v-relleno"
-                    style={{
-                      height: `${maxInscripcionesMes > 0 ? (m.count / maxInscripcionesMes) * 100 : 0}%`,
-                      minHeight: m.count > 0 ? '4px' : '0',
-                    }}
-                    title={`${m.count} inscripción(es)`}
-                  />
+                  <div className="barra-v-relleno" style={{
+                    height: `${maxInscripcionesMes > 0 ? (m.count / maxInscripcionesMes) * 100 : 0}%`,
+                    minHeight: m.count > 0 ? '4px' : '0',
+                  }} title={`${m.count} inscripción(es)`} />
                   <div className="barra-v-label">{m.label}</div>
                 </div>
               ))}
@@ -2888,12 +2494,7 @@ function Admin({ user, esAdmin }) {
                   {metricas.finalizacionPorCurso.map((c, i) => (
                     <div key={i} className="barra-h-fila">
                       <div className="barra-h-label" title={c.curso}>{c.curso}</div>
-                      <div className="barra-h-track">
-                        <div
-                          className="barra-h-relleno"
-                          style={{ width: `${c.tasa}%` }}
-                        />
-                      </div>
+                      <div className="barra-h-track"><div className="barra-h-relleno" style={{ width: `${c.tasa}%` }} /></div>
                       <div className="barra-h-valor">{c.tasa}%</div>
                     </div>
                   ))}
@@ -2908,12 +2509,7 @@ function Admin({ user, esAdmin }) {
                   {metricas.alumnosPorCurso.map((c, i) => (
                     <div key={i} className="barra-h-fila">
                       <div className="barra-h-label" title={c.curso}>{c.curso}</div>
-                      <div className="barra-h-track">
-                        <div
-                          className="barra-h-relleno azul"
-                          style={{ width: `${(c.alumnos / maxAlumnosCurso) * 100}%` }}
-                        />
-                      </div>
+                      <div className="barra-h-track"><div className="barra-h-relleno azul" style={{ width: `${(c.alumnos / maxAlumnosCurso) * 100}%` }} /></div>
                       <div className="barra-h-valor">{c.alumnos}</div>
                     </div>
                   ))}
@@ -2930,30 +2526,14 @@ function Admin({ user, esAdmin }) {
               : <div className="tabla-scroll">
                   <table className="tabla-admin">
                     <thead>
-                      <tr>
-                        <th>Alumno</th>
-                        <th>Días sin entrar</th>
-                        <th>Cursos</th>
-                        <th>Último ingreso</th>
-                      </tr>
+                      <tr><th>Alumno</th><th>Días sin entrar</th><th>Cursos</th><th>Último ingreso</th></tr>
                     </thead>
                     <tbody>
                       {metricas.alumnosEnRiesgo.map((a, i) => (
                         <tr key={i}>
-                          <td>
-                            <strong>{a.nombre_completo || '(sin nombre)'}</strong>
-                            <span className="celda-sub">{a.email}</span>
-                          </td>
-                          <td>
-                            <span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>
-                              {a.dias} días
-                            </span>
-                          </td>
-                          <td>
-                            <span className="celda-sub" style={{ fontSize: 12 }}>
-                              {a.cursos.join(' · ')}
-                            </span>
-                          </td>
+                          <td><strong>{a.nombre_completo || '(sin nombre)'}</strong><span className="celda-sub">{a.email}</span></td>
+                          <td><span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>{a.dias} días</span></td>
+                          <td><span className="celda-sub" style={{ fontSize: 12 }}>{a.cursos.join(' · ')}</span></td>
                           <td>{fecha(a.ultimo_ingreso)}</td>
                         </tr>
                       ))}
@@ -2976,16 +2556,9 @@ function Admin({ user, esAdmin }) {
               <h3>📧 Nuevo comunicado</h3>
 
               <label>¿A quién le va a llegar?</label>
-              <select
-                className="gestion-select"
-                value={comunicadoDestino}
-                onChange={e => {
-                  setComunicadoDestino(e.target.value)
-                  setComunicadoMsg('')
-                  setComunicadoResultado(null)
-                }}
-                style={{ width: '100%', marginBottom: 12 }}
-              >
+              <select className="gestion-select" value={comunicadoDestino}
+                onChange={e => { setComunicadoDestino(e.target.value); setComunicadoMsg(''); setComunicadoResultado(null) }}
+                style={{ width: '100%', marginBottom: 12 }}>
                 <option value="todos">Todos los alumnos con acceso</option>
                 <option value="curso">Solo los alumnos de un curso específico</option>
                 <option value="riesgo">Alumnos en riesgo (sin entrar hace +15 días)</option>
@@ -2997,16 +2570,9 @@ function Admin({ user, esAdmin }) {
               {comunicadoDestino === 'curso' && (
                 <>
                   <label>Curso</label>
-                  <select
-                    className="gestion-select"
-                    value={comunicadoCursoId}
-                    onChange={e => setComunicadoCursoId(e.target.value)}
-                    style={{ width: '100%' }}
-                  >
+                  <select className="gestion-select" value={comunicadoCursoId} onChange={e => setComunicadoCursoId(e.target.value)} style={{ width: '100%' }}>
                     <option value="">— Elige un curso —</option>
-                    {cursosLista.map(c => (
-                      <option key={c.id} value={c.id}>{c.titulo}</option>
-                    ))}
+                    {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
                   </select>
                 </>
               )}
@@ -3014,14 +2580,8 @@ function Admin({ user, esAdmin }) {
               {comunicadoDestino === 'manual' && (
                 <>
                   <label>Correos (separados por coma, punto y coma o salto de línea)</label>
-                  <textarea
-                    rows="4"
-                    className="modal-textarea"
-                    value={comunicadoManual}
-                    onChange={e => setComunicadoManual(e.target.value)}
-                    placeholder="alumno1@correo.com, alumno2@correo.com..."
-                    style={{ fontFamily: 'monospace', fontSize: 13 }}
-                  />
+                  <textarea rows="4" className="modal-textarea" value={comunicadoManual} onChange={e => setComunicadoManual(e.target.value)}
+                    placeholder="alumno1@correo.com, alumno2@correo.com..." style={{ fontFamily: 'monospace', fontSize: 13 }} />
                 </>
               )}
 
@@ -3030,99 +2590,35 @@ function Admin({ user, esAdmin }) {
               </p>
 
               <label>Asunto</label>
-              <input
-                type="text"
-                value={comunicadoAsunto}
-                onChange={e => setComunicadoAsunto(e.target.value)}
-                placeholder="Ej. Nuevo taller en vivo el 15 de octubre"
-              />
+              <input type="text" value={comunicadoAsunto} onChange={e => setComunicadoAsunto(e.target.value)}
+                placeholder="Ej. Nuevo taller en vivo el 15 de octubre" />
 
               <label>Cuerpo del mensaje</label>
 
               <div className="editor-toolbar">
-                <button type="button" className="editor-btn" title="Negrita (Ctrl+B)"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('bold')}>
-                  <strong>B</strong>
-                </button>
-                <button type="button" className="editor-btn" title="Cursiva (Ctrl+I)"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('italic')}>
-                  <em>I</em>
-                </button>
-                <button type="button" className="editor-btn" title="Subrayado (Ctrl+U)"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('underline')}>
-                  <u>U</u>
-                </button>
+                <button type="button" className="editor-btn" title="Negrita" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('bold')}><strong>B</strong></button>
+                <button type="button" className="editor-btn" title="Cursiva" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('italic')}><em>I</em></button>
+                <button type="button" className="editor-btn" title="Subrayado" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('underline')}><u>U</u></button>
                 <span className="editor-sep" />
-                <button type="button" className="editor-btn" title="Título grande"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => insertarTitulo('<h2>')}>
-                  H1
-                </button>
-                <button type="button" className="editor-btn" title="Subtítulo"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => insertarTitulo('<h3>')}>
-                  H2
-                </button>
-                <button type="button" className="editor-btn" title="Párrafo normal"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => insertarTitulo('<p>')}>
-                  ¶
-                </button>
+                <button type="button" className="editor-btn" title="Título" onMouseDown={e => e.preventDefault()} onClick={() => insertarTitulo('<h2>')}>H1</button>
+                <button type="button" className="editor-btn" title="Subtítulo" onMouseDown={e => e.preventDefault()} onClick={() => insertarTitulo('<h3>')}>H2</button>
+                <button type="button" className="editor-btn" title="Párrafo" onMouseDown={e => e.preventDefault()} onClick={() => insertarTitulo('<p>')}>¶</button>
                 <span className="editor-sep" />
-                <button type="button" className="editor-btn" title="Lista con viñetas"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('insertUnorderedList')}>
-                  • Lista
-                </button>
-                <button type="button" className="editor-btn" title="Lista numerada"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('insertOrderedList')}>
-                  1. Lista
-                </button>
+                <button type="button" className="editor-btn" title="Lista" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('insertUnorderedList')}>• Lista</button>
+                <button type="button" className="editor-btn" title="Lista numerada" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('insertOrderedList')}>1. Lista</button>
                 <span className="editor-sep" />
-                <button type="button" className="editor-btn" title="Insertar enlace"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={crearEnlace}>
-                  🔗 Enlace
-                </button>
+                <button type="button" className="editor-btn" title="Enlace" onMouseDown={e => e.preventDefault()} onClick={crearEnlace}>🔗 Enlace</button>
                 <span className="editor-sep" />
-                <button type="button" className="editor-btn" title="Alinear izquierda"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('justifyLeft')}>
-                  ⬅
-                </button>
-                <button type="button" className="editor-btn" title="Centrar"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('justifyCenter')}>
-                  ↔
-                </button>
-                <button type="button" className="editor-btn" title="Alinear derecha"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => ejecutarComando('justifyRight')}>
-                  ➡
-                </button>
+                <button type="button" className="editor-btn" title="Izquierda" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('justifyLeft')}>⬅</button>
+                <button type="button" className="editor-btn" title="Centrar" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('justifyCenter')}>↔</button>
+                <button type="button" className="editor-btn" title="Derecha" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('justifyRight')}>➡</button>
                 <span className="editor-sep" />
-                <button type="button" className="editor-btn editor-btn-html" title="Editar HTML directamente"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={abrirEditorHtml}>
-                  &lt;/&gt; HTML
-                </button>
+                <button type="button" className="editor-btn editor-btn-html" title="Editar HTML" onMouseDown={e => e.preventDefault()} onClick={abrirEditorHtml}>&lt;/&gt; HTML</button>
                 <span className="editor-sep" />
-                <button type="button" className="editor-btn editor-btn-peligro" title="Quitar todo el formato"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={limpiarFormato}>
-                  ✕ Formato
-                </button>
+                <button type="button" className="editor-btn editor-btn-peligro" title="Quitar formato" onMouseDown={e => e.preventDefault()} onClick={limpiarFormato}>✕ Formato</button>
               </div>
 
-              <div
-                key={comunicadoEditorKey}
-                ref={comunicadoEditorRef}
-                className="comunicado-editor"
-                contentEditable
+              <div key={comunicadoEditorKey} ref={comunicadoEditorRef} className="comunicado-editor" contentEditable
                 suppressContentEditableWarning
                 onInput={e => setComunicadoCuerpo(e.currentTarget.innerHTML)}
                 onBlur={e => setComunicadoCuerpo(e.currentTarget.innerHTML)}
@@ -3130,19 +2626,14 @@ function Admin({ user, esAdmin }) {
                   __html: comunicadoEditorKey === 0
                     ? '<p>Hola,</p><p>Te escribo para contarte que...</p><p>Saludos.</p>'
                     : '<p><br></p>'
-                }}
-              />
+                }} />
 
               <p className="nota" style={{ marginTop: 6 }}>
                 Se agregará automáticamente tu firma con logo, credencial y enlaces al final del correo.
               </p>
 
               <div style={{ marginTop: 14 }}>
-                <button
-                  type="button"
-                  className="button texto"
-                  onClick={() => setComunicadoPreview(v => !v)}
-                >
+                <button type="button" className="button texto" onClick={() => setComunicadoPreview(v => !v)}>
                   {comunicadoPreview ? '▲ Ocultar vista previa' : '▼ Ver vista previa'}
                 </button>
               </div>
@@ -3154,44 +2645,25 @@ function Admin({ user, esAdmin }) {
                     <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Asunto: <strong style={{ color: '#1B3A4B' }}>{comunicadoAsunto || '(sin asunto)'}</strong></p>
                   </div>
                   <div className="comunicado-preview-body"
-                       dangerouslySetInnerHTML={{
-                         __html: comunicadoCuerpo || '<p style="color:#7A8891;font-style:italic;">(El cuerpo del mensaje aparecerá aquí)</p>'
-                       }} />
+                    dangerouslySetInnerHTML={{
+                      __html: comunicadoCuerpo || '<p style="color:#7A8891;font-style:italic;">(El cuerpo del mensaje aparecerá aquí)</p>'
+                    }} />
                 </div>
               )}
 
               <div style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="button whatsapp"
-                  onClick={enviarComunicado}
-                  disabled={comunicadoEnviando || calcularDestinatarios().length === 0 || !comunicadoAsunto.trim()}
-                >
-                  {comunicadoEnviando
-                    ? 'Enviando...'
-                    : `Enviar a ${calcularDestinatarios().length} alumno(s)`}
+                <button type="button" className="button whatsapp" onClick={enviarComunicado}
+                  disabled={comunicadoEnviando || calcularDestinatarios().length === 0 || !comunicadoAsunto.trim()}>
+                  {comunicadoEnviando ? 'Enviando...' : `Enviar a ${calcularDestinatarios().length} alumno(s)`}
                 </button>
-                <button
-                  type="button"
-                  className="button texto"
-                  onClick={limpiarEditor}
-                >
-                  Limpiar
-                </button>
+                <button type="button" className="button texto" onClick={limpiarEditor}>Limpiar</button>
               </div>
 
-              {comunicadoMsg && (
-                <p className={comunicadoMsg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>
-                  {comunicadoMsg}
-                </p>
-              )}
+              {comunicadoMsg && <p className={comunicadoMsg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{comunicadoMsg}</p>}
 
               {comunicadoResultado && (
                 <div className="kpi-fila" style={{ marginTop: 18 }}>
-                  <div className="kpi">
-                    <span className="kpi-num">{comunicadoResultado.enviados}</span>
-                    <span className="kpi-lbl">Enviados</span>
-                  </div>
+                  <div className="kpi"><span className="kpi-num">{comunicadoResultado.enviados}</span><span className="kpi-lbl">Enviados</span></div>
                 </div>
               )}
             </div>
@@ -3217,31 +2689,12 @@ function Admin({ user, esAdmin }) {
         <div className="modal-overlay" onClick={() => setEditorHtmlAbierto(false)}>
           <div className="modal-box modal-html" onClick={e => e.stopPropagation()}>
             <h3>Código HTML del mensaje</h3>
-            <p className="sutil" style={{ marginBottom: 14 }}>
-              Pega o edita el HTML directamente. Al aplicar, se actualizará el editor.
-            </p>
-            <textarea
-              className="modal-textarea modal-textarea-html"
-              value={editorHtmlTexto}
-              onChange={e => setEditorHtmlTexto(e.target.value)}
-              spellCheck={false}
-              autoFocus
-            />
+            <p className="sutil" style={{ marginBottom: 14 }}>Pega o edita el HTML directamente. Al aplicar, se actualizará el editor.</p>
+            <textarea className="modal-textarea modal-textarea-html" value={editorHtmlTexto}
+              onChange={e => setEditorHtmlTexto(e.target.value)} spellCheck={false} autoFocus />
             <div className="modal-botones">
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() => setEditorHtmlAbierto(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="button primary"
-                onClick={aplicarEditorHtml}
-              >
-                Aplicar HTML
-              </button>
+              <button type="button" className="button secondary" onClick={() => setEditorHtmlAbierto(false)}>Cancelar</button>
+              <button type="button" className="button primary" onClick={aplicarEditorHtml}>Aplicar HTML</button>
             </div>
           </div>
         </div>
@@ -3254,29 +2707,12 @@ function Admin({ user, esAdmin }) {
             <p className="sutil" style={{ marginBottom: 16 }}>
               Solo tú puedes ver estas notas sobre <strong>{modalNotas.email}</strong>.
             </p>
-            <textarea
-              rows="5"
-              className="modal-textarea"
-              value={modalNotas.texto}
+            <textarea rows="5" className="modal-textarea" value={modalNotas.texto}
               onChange={e => setModalNotas({ ...modalNotas, texto: e.target.value })}
-              placeholder="Ej: pagó en efectivo, pidió factura, beca parcial..."
-              autoFocus
-            />
+              placeholder="Ej: pagó en efectivo, pidió factura, beca parcial..." autoFocus />
             <div className="modal-botones">
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() => setModalNotas(null)}
-                disabled={guardandoNota}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="button primary"
-                onClick={guardarNotas}
-                disabled={guardandoNota}
-              >
+              <button type="button" className="button secondary" onClick={() => setModalNotas(null)} disabled={guardandoNota}>Cancelar</button>
+              <button type="button" className="button primary" onClick={guardarNotas} disabled={guardandoNota}>
                 {guardandoNota ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
@@ -3290,21 +2726,9 @@ function Admin({ user, esAdmin }) {
             <h3>⚠️ Confirmar acción</h3>
             <p>{confirmacion.mensaje}</p>
             <div className="modal-botones">
-              <button
-                type="button"
-                className="button secondary"
-                onClick={confirmacion.onCancel}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="button primary"
-                onClick={confirmacion.onConfirm}
-                style={{ background: '#9B2C20', borderColor: '#9B2C20' }}
-              >
-                Sí, continuar
-              </button>
+              <button type="button" className="button secondary" onClick={confirmacion.onCancel}>Cancelar</button>
+              <button type="button" className="button primary" onClick={confirmacion.onConfirm}
+                style={{ background: '#9B2C20', borderColor: '#9B2C20' }}>Sí, continuar</button>
             </div>
           </div>
         </div>
@@ -3519,7 +2943,7 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto }) {
 }
 
 /* ============================================================
-   DIAPOSITIVAS PARA PRESENTAR CASO
+   DIAPOSITIVAS / ENTREGABLES
    ============================================================ */
 function DiapositivasPresentarCaso() {
   return (
@@ -3535,21 +2959,15 @@ function DiapositivasPresentarCaso() {
         </div>
       </header>
       <div className="diapositivas-acciones">
-        <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
-           href={ENLACE_DIAPOSITIVAS_PRESENTAR_CASO}>
+        <a className="button primary ancho" target="_blank" rel="noopener noreferrer" href={ENLACE_DIAPOSITIVAS_PRESENTAR_CASO}>
           📽️ Abrir diapositivas en OneDrive
         </a>
-        <p className="nota" style={{ marginTop: 8 }}>
-          Se abre en una pestaña nueva. Puedes descargarla y editarla con tu propio caso.
-        </p>
+        <p className="nota" style={{ marginTop: 8 }}>Se abre en una pestaña nueva. Puedes descargarla y editarla con tu propio caso.</p>
       </div>
     </section>
   )
 }
 
-/* ============================================================
-   ENTREGABLES / PRODUCTOS
-   ============================================================ */
 function Entregables() {
   return (
     <section className="entregables-bloque">
@@ -3565,20 +2983,17 @@ function Entregables() {
         </div>
       </header>
       <div className="entregables-acciones">
-        <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
-           href={ENLACE_ENTREGABLES}>
+        <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer" href={ENLACE_ENTREGABLES}>
           📤 Subir mi entregable a OneDrive
         </a>
-        <p className="nota" style={{ marginTop: 8 }}>
-          Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.
-        </p>
+        <p className="nota" style={{ marginTop: 8 }}>Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.</p>
       </div>
     </section>
   )
 }
 
 /* ============================================================
-   EXAMEN POR MÓDULO
+   EXAMEN
    ============================================================ */
 function ExamenModulo({ moduloId, user }) {
   const [examen, setExamen] = useState(null)
@@ -3627,11 +3042,7 @@ function ExamenModulo({ moduloId, user }) {
     setEnviando(true)
     const { calificacion, aprobado } = calificar()
     const { error } = await supabase.from('intentos_examen').insert({
-      usuario_id: user.id,
-      examen_id: examen.id,
-      respuestas,
-      calificacion,
-      aprobado
+      usuario_id: user.id, examen_id: examen.id, respuestas, calificacion, aprobado
     })
     if (error) { alert('Error al guardar: ' + error.message); setEnviando(false); return }
     setResultado({ calificacion, aprobado })
@@ -3669,8 +3080,7 @@ function ExamenModulo({ moduloId, user }) {
                 <div className="examen-opciones">
                   {p.opciones.map((o, j) => (
                     <label key={j} className={`examen-opcion ${respuestas[p.id] === j ? 'sel' : ''}`}>
-                      <input type="radio" name={p.id}
-                             checked={respuestas[p.id] === j}
+                      <input type="radio" name={p.id} checked={respuestas[p.id] === j}
                              onChange={() => setRespuestas(r => ({ ...r, [p.id]: j }))} />
                       <span>{o.texto}</span>
                     </label>
@@ -3690,10 +3100,7 @@ function ExamenModulo({ moduloId, user }) {
           <summary>Historial de intentos ({intentos.length})</summary>
           <ul>
             {intentos.map((it, i) => (
-              <li key={i}>
-                {new Date(it.fecha).toLocaleDateString('es-MX')} — {it.calificacion}%{' '}
-                {it.aprobado ? '✅' : '❌'}
-              </li>
+              <li key={i}>{new Date(it.fecha).toLocaleDateString('es-MX')} — {it.calificacion}% {it.aprobado ? '✅' : '❌'}</li>
             ))}
           </ul>
         </details>
@@ -3818,9 +3225,7 @@ function CursoView({ user, esAdmin }) {
           <p>Este curso está en preparación. Déjame tu interés por WhatsApp y te aviso en cuanto abra su inscripción.</p>
           <div className="bloque-botones">
             <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
-               href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>
-              Me interesa · avísame
-            </a>
+               href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>Me interesa · avísame</a>
             <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
           </div>
         </div>
@@ -3885,15 +3290,12 @@ function CursoView({ user, esAdmin }) {
     if (error) { alert('Error al cambiar disponibilidad: ' + error.message); return }
     setModulos(prev => prev.map(x => x.id === m.id ? { ...x, disponible: nuevo } : x))
 
-    if (notificar) {
-      notificarModuloAbierto(m)
-    }
+    if (notificar) notificarModuloAbierto(m)
   }
 
   const notificarModuloAbierto = async (m) => {
     try {
       setNotificando(m.id)
-
       const { data: todas, error: errA } = await supabase
         .from('vista_admin_inscripciones')
         .select('email, nombre_completo, curso, usuario_id')
@@ -3923,9 +3325,8 @@ function CursoView({ user, esAdmin }) {
         alumnos
       }
 
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       })
@@ -3963,24 +3364,17 @@ function CursoView({ user, esAdmin }) {
       </>
     )
 
-    if (bloqueado) {
-      return <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
-    }
-
-    if (!esAdmin) {
-      return <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
-    }
+    if (bloqueado) return <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
+    if (!esAdmin) return <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
 
     return (
       <div key={m.id} className="modulo-row">
         <Link to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
-        <button
-          type="button"
+        <button type="button"
           className={`modulo-toggle ${m.disponible ? 'abierto' : 'cerrado'}`}
           onClick={() => toggleDisponible(m)}
           disabled={notificando === m.id}
-          title={m.disponible ? 'Cerrar módulo (ocultar a alumnos)' : 'Abrir módulo (visible para alumnos)'}
-        >
+          title={m.disponible ? 'Cerrar módulo' : 'Abrir módulo'}>
           {notificando === m.id ? '⏳' : (m.disponible ? '🔓' : '🔒')}
         </button>
       </div>
@@ -4029,9 +3423,7 @@ function CursoView({ user, esAdmin }) {
 
       {grupos.length > 0 ? (
         grupos.map(g => {
-          const modsRuta = modulos
-            .filter(m => m.grupo === g)
-            .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+          const modsRuta = modulos.filter(m => m.grupo === g).sort((a, b) => (a.orden || 0) - (b.orden || 0))
           const tieneAcceso = tieneAccesoAlGrupo(g)
           const primerModulo = modsRuta.find(m => !esModuloBloqueado(m))
 
@@ -4085,9 +3477,7 @@ function CursoView({ user, esAdmin }) {
       {modsSinGrupo.length > 0 && grupos.length > 0 && (
         <section className="ruta-section">
           <h2 className="titulo-seccion">Otros módulos</h2>
-          <div className="modulo-grid">
-            {modsSinGrupo.map((m, i) => renderModulo(m, i))}
-          </div>
+          <div className="modulo-grid">{modsSinGrupo.map((m, i) => renderModulo(m, i))}</div>
         </section>
       )}
 
@@ -4097,18 +3487,10 @@ function CursoView({ user, esAdmin }) {
             <h3>Confirmar</h3>
             <p>{confirmacion.mensaje}</p>
             <div className="modal-botones">
-              <button
-                type="button"
-                className="button secondary"
-                onClick={confirmacion.onCancel}
-              >
+              <button type="button" className="button secondary" onClick={confirmacion.onCancel}>
                 {confirmacion.botonCancelar || 'Cancelar'}
               </button>
-              <button
-                type="button"
-                className="button primary"
-                onClick={confirmacion.onConfirm}
-              >
+              <button type="button" className="button primary" onClick={confirmacion.onConfirm}>
                 {confirmacion.botonConfirmar || 'Sí, continuar'}
               </button>
             </div>
@@ -4188,9 +3570,7 @@ function CursoDetalle({ user, esAdmin }) {
 
   const RutaCol = ({ ruta }) => {
     const tieneAcceso = tieneAccesoAlGrupo(ruta.grupo)
-    const modsRuta = modulos
-      .filter(m => m.grupo === ruta.grupo)
-      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+    const modsRuta = modulos.filter(m => m.grupo === ruta.grupo).sort((a, b) => (a.orden || 0) - (b.orden || 0))
     const primerModulo = modsRuta.find(m => esAdmin || (m.disponible !== false && tieneAcceso))
 
     return (
@@ -4493,12 +3873,7 @@ function ModuloView({ user, esAdmin }) {
         </main>
       </div>
 
-      <NavegacionFlotante
-        prev={prev}
-        next={next}
-        curso={curso}
-        mostrarConstancia={mostrarConstancia}
-      />
+      <NavegacionFlotante prev={prev} next={next} curso={curso} mostrarConstancia={mostrarConstancia} />
 
       <BandaRedes />
     </div>
@@ -4602,9 +3977,7 @@ function Constancia({ user }) {
           <p>Si necesitas un comprobante de tu participación, escríbeme por WhatsApp y lo vemos.</p>
           <div className="bloque-botones">
             <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
-               href={wa(`Hola, quiero un comprobante del curso "${curso?.titulo || ''}".`)}>
-              Escríbeme por WhatsApp
-            </a>
+               href={wa(`Hola, quiero un comprobante del curso "${curso?.titulo || ''}".`)}>Escríbeme por WhatsApp</a>
             <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
           </div>
         </div>
