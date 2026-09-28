@@ -697,3 +697,59 @@ a { color: var(--primary); }
 .entregables-header { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
 .entregables-header h3 { margin: 0 0 4px; font-size: 18px; color: var(--primary); }
 .entregables-acciones { display: flex; flex-direction: column; }
+/* ============================================================
+   FORMULARIO DE NUEVO USUARIO (panel admin)
+   ============================================================ */
+.admin-bloque-nuevo {
+  margin: 20px 0 30px;
+}
+.nuevo-usuario-form {
+  margin-top: 16px;
+  padding: 24px 26px;
+  background: var(--bg-card);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radio);
+}
+.nuevo-usuario-form h3 {
+  margin: 0 0 18px;
+  font-size: 18px;
+}
+.nuevo-usuario-form label {
+  display: block;
+  font-weight: 600;
+  font-size: 13.5px;
+  margin: 14px 0 6px;
+}
+.nuevo-usuario-form input[type="email"],
+.nuevo-usuario-form input[type="text"] {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-family: var(--texto);
+  font-size: 15px;
+}
+.cursos-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 18px;
+}
+.curso-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+}
+.curso-checkbox:hover {
+  border-color: var(--accent);
+}
+.curso-checkbox input {
+  accent-color: var(--accent);
+}
