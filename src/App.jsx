@@ -453,7 +453,7 @@ function BandaRedes() {
             El contenido de este sitio es informativo y formativo, y no sustituye la atención clínica individual.
             Si estás en una situación de urgencia, comunícate al <strong>911</strong> o a la Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
           </p>
-          <p className="banda-redes-copy">© {new Date().getFullYear()} Dr. Ernesto Cotonieto. Todos los derechos reservados.</p>
+          <p className="banda-redes-copy">© {new Date().getFullYear()} Dr. Ernesto Cotonieto. Todos los derechos reservados. (v2)</p>
         </div>
       </div>
     </section>
