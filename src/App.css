@@ -887,3 +887,36 @@ a { color: var(--primary); }
   .gestion-curso-fila { flex-direction: column; align-items: stretch; }
   .gestion-toggle { width: 100%; }
 }
+/* Cabecera de card colapsable */
+.gestion-usuario-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.gestion-expandir-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-family: var(--texto);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.gestion-expandir-btn:hover { background: var(--primary-claro); }
+
+.gestion-usuario-card.expandido {
+  border-color: var(--primary);
+}
+
+@media (max-width: 700px) {
+  .gestion-usuario-acciones {
+    align-items: stretch;
+    width: 100%;
+  }
+}
