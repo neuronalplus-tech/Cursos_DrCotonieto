@@ -29,7 +29,6 @@ const LOGO_BLANCO = '/logo_blanco_1024.png'
 const LOGO_CLARO = '/logo_claro_1024.png'
 const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/public/avatares/foto_perfil_instagram_facebook.png'
 
-// Enlaces externos (diapositivas y entregables)
 const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
 const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwf9LxqG42UK8ryhgJF6wnP7r_GbZHQcNt3Q19M5jmYVlpCgxhSubjz6_0aT-ddKI-75g/exec'
@@ -2116,6 +2115,11 @@ function CursoView({ user, esAdmin }) {
   const [estado, setEstado] = useState('cargando')
   const [error, setError] = useState(null)
 
+  // Estados para notificaciones y confirmación
+  const [notificando, setNotificando] = useState(null)
+  const [msgNotificacion, setMsgNotificacion] = useState('')
+  const [confirmacion, setConfirmacion] = useState(null)
+
   useEffect(() => {
     async function load() {
       try {
@@ -2263,8 +2267,7 @@ function CursoView({ user, esAdmin }) {
   const toggleDisponible = async (m) => {
     if (!esAdmin) return
     const nuevo = !m.disponible
-    
-    // Si va a abrir, preguntar si quiere notificar
+
     let notificar = false
     if (nuevo === true) {
       notificar = await new Promise(resolve => {
@@ -2283,7 +2286,6 @@ function CursoView({ user, esAdmin }) {
     setModulos(prev => prev.map(x => x.id === m.id ? { ...x, disponible: nuevo } : x))
 
     if (notificar) {
-      // Notificar en background (no bloquea la UI)
       notificarModuloAbierto(m)
     }
   }
@@ -2291,7 +2293,6 @@ function CursoView({ user, esAdmin }) {
   const notificarModuloAbierto = async (m) => {
     try {
       setNotificando(m.id)
-      // 1. Obtener alumnos del curso
       const { data: alumnos, error: errA } = await supabase.rpc('alumnos_de_curso', { p_curso_id: curso.id })
       if (errA) throw errA
       if (!alumnos || alumnos.length === 0) {
@@ -2300,11 +2301,10 @@ function CursoView({ user, esAdmin }) {
         return
       }
 
-      // 2. Llamar al Apps Script
       const urlModulo = `${window.location.origin}/modulo/${m.id}`
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-1' }, // Apps Script requiere text/plain para evitar preflight CORS
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           tipo: 'modulo-abierto',
           curso: { titulo: curso.titulo, url: urlModulo },
@@ -2365,9 +2365,10 @@ function CursoView({ user, esAdmin }) {
           type="button"
           className={`modulo-toggle ${m.disponible ? 'abierto' : 'cerrado'}`}
           onClick={() => toggleDisponible(m)}
+          disabled={notificando === m.id}
           title={m.disponible ? 'Cerrar módulo (ocultar a alumnos)' : 'Abrir módulo (visible para alumnos)'}
         >
-          {m.disponible ? '🔓' : '🔒'}
+          {notificando === m.id ? '⏳' : (m.disponible ? '🔓' : '🔒')}
         </button>
       </div>
     )
@@ -2475,6 +2476,38 @@ function CursoView({ user, esAdmin }) {
             {modsSinGrupo.map((m, i) => renderModulo(m, i))}
           </div>
         </section>
+      )}
+
+      {confirmacion && (
+        <div className="modal-overlay">
+          <div className="modal-box modal-confirm">
+            <h3>Confirmar</h3>
+            <p>{confirmacion.mensaje}</p>
+            <div className="modal-botones">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={confirmacion.onCancel}
+              >
+                {confirmacion.botonCancelar || 'Cancelar'}
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                onClick={confirmacion.onConfirm}
+              >
+                {confirmacion.botonConfirmar || 'Sí, continuar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {msgNotificacion && (
+        <div className="notificacion-toast">
+          {msgNotificacion}
+          <button type="button" onClick={() => setMsgNotificacion('')}>×</button>
+        </div>
       )}
 
       <BandaRedes />
@@ -3036,7 +3069,6 @@ function App() {
     supabase.from('admins').select('email').eq('email', user.email).maybeSingle()
       .then(({ data }) => setEsAdmin(!!data))
 
-    // Cargar nombre del usuario desde la tabla `perfiles`
     supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data?.nombre_completo) setNombreUsuario(data.nombre_completo)
