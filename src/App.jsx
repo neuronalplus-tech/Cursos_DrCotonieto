@@ -2263,9 +2263,67 @@ function CursoView({ user, esAdmin }) {
   const toggleDisponible = async (m) => {
     if (!esAdmin) return
     const nuevo = !m.disponible
+    
+    // Si va a abrir, preguntar si quiere notificar
+    let notificar = false
+    if (nuevo === true) {
+      notificar = await new Promise(resolve => {
+        setConfirmacion({
+          mensaje: '¿Quieres enviar un correo a los alumnos del curso avisando que este módulo está disponible?',
+          botonConfirmar: 'Sí, abrir y notificar',
+          botonCancelar: 'Solo abrir',
+          onConfirm: () => { setConfirmacion(null); resolve(true) },
+          onCancel: () => { setConfirmacion(null); resolve(false) }
+        })
+      })
+    }
+
     const { error } = await supabase.from('modulos').update({ disponible: nuevo }).eq('id', m.id)
     if (error) { alert('Error al cambiar disponibilidad: ' + error.message); return }
     setModulos(prev => prev.map(x => x.id === m.id ? { ...x, disponible: nuevo } : x))
+
+    if (notificar) {
+      // Notificar en background (no bloquea la UI)
+      notificarModuloAbierto(m)
+    }
+  }
+
+  const notificarModuloAbierto = async (m) => {
+    try {
+      setNotificando(m.id)
+      // 1. Obtener alumnos del curso
+      const { data: alumnos, error: errA } = await supabase.rpc('alumnos_de_curso', { p_curso_id: curso.id })
+      if (errA) throw errA
+      if (!alumnos || alumnos.length === 0) {
+        setMsgNotificacion('No hay alumnos inscritos todavía')
+        setNotificando(null)
+        return
+      }
+
+      // 2. Llamar al Apps Script
+      const urlModulo = `${window.location.origin}/modulo/${m.id}`
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-1' }, // Apps Script requiere text/plain para evitar preflight CORS
+        body: JSON.stringify({
+          tipo: 'modulo-abierto',
+          curso: { titulo: curso.titulo, url: urlModulo },
+          modulo: { titulo: m.titulo, descripcion: m.descripcion },
+          alumnos
+        })
+      })
+      const json = await res.json()
+      if (json.ok) {
+        setMsgNotificacion(`✓ Notificados ${json.enviados} alumno(s)`)
+      } else {
+        setMsgNotificacion('Error: ' + (json.error || 'desconocido'))
+      }
+    } catch (e) {
+      console.error('Error notificando:', e)
+      setMsgNotificacion('Error: ' + e.message)
+    } finally {
+      setNotificando(null)
+    }
   }
 
   const renderModulo = (m, i) => {
