@@ -2293,7 +2293,10 @@ function CursoView({ user, esAdmin }) {
   const notificarModuloAbierto = async (m) => {
     try {
       setNotificando(m.id)
-      const { data: alumnos, error: errA } = await supabase.rpc('alumnos_de_curso', { p_curso_id: curso.id })
+      const { data: alumnos, error: errA } = await supabase
+        .from('vista_admin_inscripciones')
+        .select('email, nombre_completo')
+        .eq('curso', curso.titulo)
       if (errA) throw errA
       if (!alumnos || alumnos.length === 0) {
         setMsgNotificacion('No hay alumnos inscritos todavía')
