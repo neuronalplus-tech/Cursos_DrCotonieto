@@ -1008,6 +1008,13 @@ function MensajesInbox({ user, esAdmin }) {
   const mensajesEndRef = useRef(null)
   const inputRef = useRef(null)
 
+  // NUEVOS estados para el tab "Contactos"
+  const [vistaSidebar, setVistaSidebar] = useState('conversaciones')
+  const [contactos, setContactos] = useState([])
+  const [cargandoContactos, setCargandoContactos] = useState(false)
+  const [cursosLista, setCursosLista] = useState([])
+  const [cursoFiltro, setCursoFiltro] = useState('todos')
+
   // 1. Cargar adminId (para alumnos)
   useEffect(() => {
     if (!user) return
@@ -1018,7 +1025,14 @@ function MensajesInbox({ user, esAdmin }) {
     })
   }, [user, esAdmin])
 
-  // 2. Cargar lista de conversaciones (solo admin)
+  // 2. Cargar cursos (para dropdown de filtro)
+  useEffect(() => {
+    if (!esAdmin || !user) return
+    supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
+      .then(({ data }) => setCursosLista(data || []))
+  }, [esAdmin, user])
+
+  // 3. Cargar lista de conversaciones (solo admin)
   useEffect(() => {
     if (!esAdmin || !user) return
     async function load() {
@@ -1051,7 +1065,40 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [esAdmin, user, mensajes.length])
 
-  // 3. Cargar mensajes de la conversación activa
+  // 4. NUEVO: Cargar contactos (todos los alumnos) cuando se abre el tab
+  useEffect(() => {
+    if (!esAdmin || !user || vistaSidebar !== 'contactos') return
+    async function load() {
+      setCargandoContactos(true)
+      const { data, error } = await supabase
+        .from('vista_admin_inscripciones')
+        .select('usuario_id, email, nombre_completo, curso, curso_id')
+      if (error) { setError(error.message); setCargandoContactos(false); return }
+
+      const mapa = {}
+      ;(data || []).forEach(f => {
+        if (!f.usuario_id) return
+        if (!mapa[f.usuario_id]) {
+          mapa[f.usuario_id] = {
+            usuario_id: f.usuario_id,
+            email: f.email,
+            nombre: f.nombre_completo,
+            cursos: [],
+            curso_ids: [],
+          }
+        }
+        if (f.curso && !mapa[f.usuario_id].cursos.includes(f.curso)) {
+          mapa[f.usuario_id].cursos.push(f.curso)
+          mapa[f.usuario_id].curso_ids.push(f.curso_id)
+        }
+      })
+      setContactos(Object.values(mapa))
+      setCargandoContactos(false)
+    }
+    load()
+  }, [esAdmin, user, vistaSidebar])
+
+  // 5. Cargar mensajes de la conversación activa
   useEffect(() => {
     if (!user || !chatCon) return
     async function load() {
@@ -1066,7 +1113,7 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [user, chatCon])
 
-  // 4. Realtime
+  // 6. Realtime
   useEffect(() => {
     if (!user) return
     const canal = supabase
@@ -1090,7 +1137,7 @@ function MensajesInbox({ user, esAdmin }) {
     return () => { supabase.removeChannel(canal) }
   }, [user, chatCon])
 
-  // 5. Marcar como leídos
+  // 7. Marcar como leídos
   useEffect(() => {
     if (!user || !chatCon) return
     supabase.from('mensajes')
@@ -1107,7 +1154,7 @@ function MensajesInbox({ user, esAdmin }) {
       })
   }, [user, chatCon, mensajes.length, esAdmin])
 
-  // 6. Scroll automático
+  // 8. Scroll automático
   useEffect(() => {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes])
@@ -1125,13 +1172,286 @@ function MensajesInbox({ user, esAdmin }) {
     inputRef.current?.focus()
   }
 
+  // Filtros
   const conversacionesFiltradas = conversaciones.filter(c => {
     if (!busqueda.trim()) return true
     const t = busqueda.toLowerCase()
     return (c.nombre || '').toLowerCase().includes(t)
   })
 
+  const contactosFiltrados = contactos.filter(c => {
+    if (cursoFiltro !== 'todos') {
+      if (!c.curso_ids?.includes(parseInt(cursoFiltro))) return false
+    }
+    if (!busqueda.trim()) return true
+    const t = busqueda.toLowerCase()
+    return (c.nombre || '').toLowerCase().includes(t)
+        || (c.email || '').toLowerCase().includes(t)
+  })
+
+  // Nombre del contacto activo (busca en conversaciones o contactos)
+  const nombreChatActivo = () => {
+    const c = conversaciones.find(c => c.usuario_id === chatCon)
+    if (c) return c.nombre || 'Alumno'
+    const ct = contactos.find(c => c.usuario_id === chatCon)
+    if (ct) return ct.nombre || ct.email || 'Alumno'
+    return 'Alumno'
+  }
+
   if (!user) return null
+
+  // ===== VISTA ALUMNO =====
+  if (!esAdmin) {
+    return (
+      <div className="inbox-simple">
+        <header className="inbox-simple-header">
+          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="inbox-avatar-img" />
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17 }}>Dr. Ernesto Cotonieto</h2>
+            <p className="sutil" style={{ margin: 0, fontSize: 12.5 }}>Te responderé pronto</p>
+          </div>
+        </header>
+
+        <div className="chat-mensajes">
+          {mensajes.length === 0 ? (
+            <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
+              Escríbeme lo que necesites.<br />Te responderé pronto.
+            </p>
+          ) : (
+            mensajes.map(m => {
+              const esMio = m.de_id === user.id
+              return (
+                <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                  <div className="chat-burbuja">{m.contenido}</div>
+                  <div className="chat-hora">
+                    {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              )
+            })
+          )}
+          <div ref={mensajesEndRef} />
+        </div>
+
+        <div className="chat-input-area">
+          <textarea
+            ref={inputRef}
+            className="chat-input"
+            placeholder="Escribe un mensaje..."
+            value={nuevoMensaje}
+            onChange={e => setNuevoMensaje(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+            }}
+            rows="1"
+          />
+          <button
+            type="button"
+            className="chat-enviar-btn"
+            onClick={enviar}
+            disabled={enviando || !nuevoMensaje.trim()}
+          >➤</button>
+        </div>
+      </div>
+    )
+  }
+
+  // ===== VISTA ADMIN =====
+  return (
+    <div className="inbox-admin">
+      <aside className="inbox-lista">
+
+        {/* Tabs de la sidebar */}
+        <div className="inbox-sidebar-tabs">
+          <button
+            type="button"
+            className={`inbox-sidebar-tab ${vistaSidebar === 'conversaciones' ? 'activa' : ''}`}
+            onClick={() => { setVistaSidebar('conversaciones'); setBusqueda('') }}
+          >
+            💬 Conversaciones
+          </button>
+          <button
+            type="button"
+            className={`inbox-sidebar-tab ${vistaSidebar === 'contactos' ? 'activa' : ''}`}
+            onClick={() => { setVistaSidebar('contactos'); setBusqueda('') }}
+          >
+            👥 Contactos
+          </button>
+        </div>
+
+        {vistaSidebar === 'conversaciones' ? (
+          <>
+            <div className="inbox-buscar">
+              <input
+                type="text"
+                placeholder="🔍 Buscar conversación..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="inbox-input-buscar"
+              />
+            </div>
+            <div className="inbox-conversaciones">
+              {cargando ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
+              ) : conversacionesFiltradas.length === 0 ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+                  Aún no hay conversaciones.<br />
+                  Cuando un alumno te escriba aparecerá aquí.<br /><br />
+                  <em>Para iniciar una nueva, ve a la pestaña "Contactos".</em>
+                </p>
+              ) : (
+                conversacionesFiltradas.map(c => (
+                  <button
+                    key={c.usuario_id}
+                    type="button"
+                    className={`inbox-conv-item ${chatCon === c.usuario_id ? 'activo' : ''} ${c.noLeidos > 0 ? 'no-leido' : ''}`}
+                    onClick={() => setChatCon(c.usuario_id)}
+                  >
+                    <div className="chat-avatar">
+                      {(c.nombre || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="inbox-conv-info">
+                      <div className="inbox-conv-nombre">{c.nombre || 'Alumno'}</div>
+                      <div className="inbox-conv-preview">
+                        {c.ultimo.contenido.substring(0, 45)}
+                        {c.ultimo.contenido.length > 45 ? '...' : ''}
+                      </div>
+                    </div>
+                    {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="inbox-buscar">
+              <select
+                value={cursoFiltro}
+                onChange={e => setCursoFiltro(e.target.value)}
+                className="inbox-select-curso"
+              >
+                <option value="todos">📚 Todos los cursos</option>
+                {cursosLista.map(c => (
+                  <option key={c.id} value={c.id}>{c.titulo}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="🔍 Buscar alumno..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="inbox-input-buscar"
+              />
+            </div>
+            <div className="inbox-conversaciones">
+              {cargandoContactos ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
+              ) : contactosFiltrados.length === 0 ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+                  No se encontraron alumnos<br />con ese criterio.
+                </p>
+              ) : (
+                contactosFiltrados.map(c => (
+                  <button
+                    key={c.usuario_id}
+                    type="button"
+                    className={`inbox-conv-item ${chatCon === c.usuario_id ? 'activo' : ''}`}
+                    onClick={() => setChatCon(c.usuario_id)}
+                  >
+                    <div className="chat-avatar">
+                      {(c.nombre || c.email || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="inbox-conv-info">
+                      <div className="inbox-conv-nombre">{c.nombre || '(sin nombre)'}</div>
+                      <div className="inbox-conv-preview">{c.email}</div>
+                      {c.cursos.length > 0 && (
+                        <div className="inbox-conv-cursos">
+                          {c.cursos.slice(0, 2).map((cur, i) => (
+                            <span key={i} className="badge-curso" title={cur}>{cur}</span>
+                          ))}
+                          {c.cursos.length > 2 && (
+                            <span className="badge-curso">+{c.cursos.length - 2}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </aside>
+
+      <main className="inbox-chat">
+        {!chatCon ? (
+          <div className="inbox-vacio">
+            <div className="inbox-vacio-icono">💬</div>
+            <p className="sutil" style={{ textAlign: 'center', lineHeight: 1.7 }}>
+              Selecciona una conversación<br />o busca un alumno en "Contactos"<br />para iniciar un mensaje.
+            </p>
+          </div>
+        ) : (
+          <>
+            <header className="inbox-chat-header">
+              <div className="chat-avatar">
+                {nombreChatActivo().charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>{nombreChatActivo()}</h3>
+              </div>
+            </header>
+
+            <div className="chat-mensajes">
+              {error && (
+                <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
+              )}
+              {mensajes.length === 0 ? (
+                <p className="sutil" style={{ textAlign: 'center', marginTop: 40 }}>
+                  Inicia la conversación.
+                </p>
+              ) : (
+                mensajes.map(m => {
+                  const esMio = m.de_id === user.id
+                  return (
+                    <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                      <div className="chat-burbuja">{m.contenido}</div>
+                      <div className="chat-hora">
+                        {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+              <div ref={mensajesEndRef} />
+            </div>
+
+            <div className="chat-input-area">
+              <textarea
+                ref={inputRef}
+                className="chat-input"
+                placeholder="Escribe un mensaje..."
+                value={nuevoMensaje}
+                onChange={e => setNuevoMensaje(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+                }}
+                rows="1"
+              />
+              <button
+                type="button"
+                className="chat-enviar-btn"
+                onClick={enviar}
+                disabled={enviando || !nuevoMensaje.trim()}
+              >➤</button>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
 
   // ===== VISTA ALUMNO =====
   if (!esAdmin) {
