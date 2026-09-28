@@ -2563,7 +2563,6 @@ function Admin({ user, esAdmin }) {
                 <div className="cursos-checkboxes">
                   {cursosLista.map(c => (
                     <label key={c.id} className="curso-checkbox">
-                      <input type="checkbox"
                       <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
                       <span>{c.titulo}</span>
                     </label>
