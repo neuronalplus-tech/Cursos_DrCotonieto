@@ -1029,7 +1029,7 @@ function Admin({ user, esAdmin }) {
 
   const [confirmacion, setConfirmacion] = useState(null)
 
-    // Inscripción masiva
+  // Inscripción masiva
   const [masivoAbierto, setMasivoAbierto] = useState(false)
   const [emailsMasivos, setEmailsMasivos] = useState('')
   const [passMasivo, setPassMasivo] = useState('')
@@ -1038,7 +1038,18 @@ function Admin({ user, esAdmin }) {
   const [progresoMasivo, setProgresoMasivo] = useState({ actual: 0, total: 0 })
   const [resultadoMasivo, setResultadoMasivo] = useState(null)
   const [msgMasivo, setMsgMasivo] = useState('')
-  
+
+  // Comunicados masivos
+  const [comunicadoDestino, setComunicadoDestino] = useState('todos')
+  const [comunicadoCursoId, setComunicadoCursoId] = useState('')
+  const [comunicadoManual, setComunicadoManual] = useState('')
+  const [comunicadoAsunto, setComunicadoAsunto] = useState('')
+  const [comunicadoCuerpo, setComunicadoCuerpo] = useState('')
+  const [comunicadoEnviando, setComunicadoEnviando] = useState(false)
+  const [comunicadoMsg, setComunicadoMsg] = useState('')
+  const [comunicadoResultado, setComunicadoResultado] = useState(null)
+  const [comunicadoPreview, setComunicadoPreview] = useState(false)
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1160,6 +1171,7 @@ function Admin({ user, esAdmin }) {
     }
     setCreando(false)
   }
+
   const toggleCursoMasivo = (id) => {
     setCursosMasivos(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -1258,6 +1270,102 @@ function Admin({ user, esAdmin }) {
       setProgresoMasivo({ actual: 0, total: 0 })
     }
   }
+
+  // ===== COMUNICADOS =====
+  const calcularDestinatarios = () => {
+    const hoy = Date.now()
+    const dedup = new Map()
+
+    const agregar = (f) => {
+      const key = (f.email || '').trim().toLowerCase()
+      if (!key || !key.includes('@')) return
+      if (!dedup.has(key)) {
+        dedup.set(key, { email: key, nombre_completo: f.nombre_completo || '' })
+      }
+    }
+
+    if (comunicadoDestino === 'manual') {
+      return parsearEmails(comunicadoManual).map(e => ({ email: e, nombre_completo: '' }))
+    }
+
+    if (comunicadoDestino === 'todos') {
+      filas.forEach(agregar)
+    } else if (comunicadoDestino === 'curso') {
+      if (!comunicadoCursoId) return []
+      const cursoNombre = cursosLista.find(c => c.id === parseInt(comunicadoCursoId))?.titulo
+      filas.filter(f => f.curso === cursoNombre).forEach(agregar)
+    } else if (comunicadoDestino === 'riesgo') {
+      const hace15d = 15 * 24 * 60 * 60 * 1000
+      filas.forEach(f => {
+        if (!f.ultimo_ingreso) return
+        if (hoy - new Date(f.ultimo_ingreso).getTime() > hace15d) agregar(f)
+      })
+    } else if (comunicadoDestino === 'activos') {
+      const hace14d = 14 * 24 * 60 * 60 * 1000
+      filas.forEach(f => {
+        if (!f.ultimo_ingreso) return
+        if (hoy - new Date(f.ultimo_ingreso).getTime() <= hace14d) agregar(f)
+      })
+    } else if (comunicadoDestino === 'completaron') {
+      filas.forEach(f => {
+        if (f.total_recursos > 0 && f.recursos_completados === f.total_recursos) agregar(f)
+      })
+    }
+
+    return Array.from(dedup.values())
+  }
+
+  const enviarComunicado = async () => {
+    setComunicadoMsg('')
+    setComunicadoResultado(null)
+
+    const destinatarios = calcularDestinatarios()
+
+    if (!comunicadoAsunto.trim()) { setComunicadoMsg('Error: escribe un asunto'); return }
+    if (!comunicadoCuerpo.trim()) { setComunicadoMsg('Error: escribe el cuerpo del mensaje'); return }
+    if (destinatarios.length === 0) { setComunicadoMsg('Error: no hay destinatarios con ese criterio'); return }
+    if (destinatarios.length > 500) { setComunicadoMsg(`Error: ${destinatarios.length} destinatarios excede el límite de 500 por envío. Divide en tandas.`); return }
+
+    const confirmado = await new Promise(resolve => {
+      setConfirmacion({
+        mensaje: `¿Enviar este comunicado a ${destinatarios.length} alumno(s)? Se enviará un solo correo con todos en CCO.`,
+        onConfirm: () => { setConfirmacion(null); resolve(true) },
+        onCancel: () => { setConfirmacion(null); resolve(false) }
+      })
+    })
+    if (!confirmado) return
+
+    setComunicadoEnviando(true)
+
+    try {
+      const payload = {
+        tipo: 'comunicado-masivo',
+        asunto: comunicadoAsunto.trim(),
+        cuerpo: comunicadoCuerpo.trim(),
+        alumnos: destinatarios,
+      }
+
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      })
+
+      setComunicadoResultado({
+        enviados: destinatarios.length,
+        asunto: comunicadoAsunto.trim(),
+      })
+      setComunicadoMsg(`✓ Comunicado enviado a ${destinatarios.length} alumno(s). Revisa "Enviados" en Gmail.`)
+      setComunicadoAsunto('')
+      setComunicadoCuerpo('')
+    } catch (e) {
+      setComunicadoMsg('Error: ' + e.message)
+    } finally {
+      setComunicadoEnviando(false)
+    }
+  }
+  // ===== FIN COMUNICADOS =====
 
   const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
     if (tiene) {
@@ -1360,7 +1468,7 @@ function Admin({ user, esAdmin }) {
 
     try {
       const rpcName = bulkAccion === 'dar' ? 'bulk_grant_course_access' : 'bulk_remove_course_access'
-      
+
       const { error } = await supabase.rpc(rpcName, {
         user_ids: usuariosArr,
         target_course_id: parseInt(bulkCursoId)
@@ -1370,15 +1478,13 @@ function Admin({ user, esAdmin }) {
 
       setMsgGestion(`✓ Acción completada para ${usuariosArr.length} usuario(s)`)
       setSeleccionados(new Set())
-      
-      // Recargar la vista de inscripciones
+
       const { data } = await supabase.from('vista_admin_inscripciones')
         .select('*').order('inscrito_el', { ascending: false })
       setFilas(data || [])
-      
-      // Recargar la gestión de usuarios para actualizar los contadores
+
       await cargarGestion()
-      
+
     } catch (e) {
       console.error('Error bulk:', e)
       setMsgGestion('Error en la acción masiva: ' + e.message)
@@ -1406,9 +1512,8 @@ function Admin({ user, esAdmin }) {
       setGuardandoNota(false)
     }
   }
-  // ===== MÉTRICAS / ANALYTICS =====
-  const [metricasCargando, setMetricasCargando] = useState(false)
 
+  // ===== MÉTRICAS / ANALYTICS =====
   const calcularMetricas = () => {
     if (!filas || filas.length === 0) {
       return {
@@ -1423,13 +1528,9 @@ function Admin({ user, esAdmin }) {
       }
     }
 
-    // 1. Alumnos únicos
     const alumnosUnicos = new Set(filas.map(f => f.usuario_id)).size
-
-    // 2. Total inscripciones
     const totalInscripciones = filas.length
 
-    // 3. Tasa de finalización global
     let totalRecursos = 0
     let totalCompletados = 0
     filas.forEach(f => {
@@ -1440,7 +1541,6 @@ function Admin({ user, esAdmin }) {
       ? Math.round((totalCompletados / totalRecursos) * 100)
       : 0
 
-    // 4. Alumnos activos últimos 30 días (únicos)
     const hoy = Date.now()
     const hace30d = 30 * 24 * 60 * 60 * 1000
     const activosSet = new Set()
@@ -1452,7 +1552,6 @@ function Admin({ user, esAdmin }) {
     })
     const activos30d = activosSet.size
 
-    // 5. Inscripciones por mes (últimos 12 meses)
     const meses = []
     for (let i = 11; i >= 0; i--) {
       const d = new Date()
@@ -1472,7 +1571,6 @@ function Admin({ user, esAdmin }) {
     })
     const inscripcionesPorMes = meses
 
-    // 6. Finalización por curso + alumnos por curso
     const porCurso = {}
     filas.forEach(f => {
       const key = f.curso || 'Sin curso'
@@ -1508,7 +1606,6 @@ function Admin({ user, esAdmin }) {
       }))
       .sort((a, b) => b.alumnos - a.alumnos)
 
-    // 7. Alumnos en riesgo (>15 días sin entrar)
     const hace15d = 15 * 24 * 60 * 60 * 1000
     const riesgosMap = {}
     filas.forEach(f => {
@@ -1526,7 +1623,6 @@ function Admin({ user, esAdmin }) {
           }
         }
         riesgosMap[f.usuario_id].cursos.push(f.curso)
-        // si hay varias inscripciones, guardar el más reciente
         if (new Date(f.ultimo_ingreso) > new Date(riesgosMap[f.usuario_id].ultimo_ingreso)) {
           riesgosMap[f.usuario_id].ultimo_ingreso = f.ultimo_ingreso
           riesgosMap[f.usuario_id].dias = dias
@@ -1551,7 +1647,6 @@ function Admin({ user, esAdmin }) {
   const metricas = calcularMetricas()
   const maxInscripcionesMes = Math.max(...metricas.inscripcionesPorMes.map(m => m.count), 1)
   const maxAlumnosCurso = Math.max(...metricas.alumnosPorCurso.map(c => c.alumnos), 1)
-
   // ===== FIN MÉTRICAS =====
 
   const usuariosFiltrados = usuarios.filter(u => {
@@ -1601,12 +1696,19 @@ function Admin({ user, esAdmin }) {
         >
           👥 Gestión de usuarios
         </button>
-                <button
+        <button
           type="button"
           className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`}
           onClick={() => setVista('metricas')}
         >
           📊 Métricas
+        </button>
+        <button
+          type="button"
+          className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`}
+          onClick={() => setVista('comunicados')}
+        >
+          📧 Comunicados
         </button>
       </div>
 
@@ -1663,6 +1765,7 @@ function Admin({ user, esAdmin }) {
               </div>
             )}
           </div>
+
           {/* ===== INSCRIPCIÓN MASIVA ===== */}
           <div className="admin-bloque-nuevo">
             <button
@@ -2002,6 +2105,7 @@ function Admin({ user, esAdmin }) {
           )}
         </>
       )}
+
       {vista === 'metricas' && (
         <>
           <p className="seccion-intro">
@@ -2027,7 +2131,6 @@ function Admin({ user, esAdmin }) {
             </div>
           </div>
 
-          {/* ===== Inscripciones por mes ===== */}
           <section className="metricas-bloque">
             <h3 className="metricas-titulo">📅 Inscripciones por mes (últimos 12)</h3>
             <div className="grafico-barras-vertical">
@@ -2048,7 +2151,6 @@ function Admin({ user, esAdmin }) {
             </div>
           </section>
 
-          {/* ===== Finalización por curso ===== */}
           <section className="metricas-bloque">
             <h3 className="metricas-titulo">🎯 Tasa de finalización por curso</h3>
             {metricas.finalizacionPorCurso.length === 0
@@ -2069,7 +2171,6 @@ function Admin({ user, esAdmin }) {
                 </div>}
           </section>
 
-          {/* ===== Alumnos por curso ===== */}
           <section className="metricas-bloque">
             <h3 className="metricas-titulo">👥 Alumnos por curso</h3>
             {metricas.alumnosPorCurso.length === 0
@@ -2090,7 +2191,6 @@ function Admin({ user, esAdmin }) {
                 </div>}
           </section>
 
-          {/* ===== Alumnos en riesgo ===== */}
           <section className="metricas-bloque">
             <h3 className="metricas-titulo">⚠️ Alumnos en riesgo ({metricas.alumnosEnRiesgo.length})</h3>
             <p className="nota" style={{ marginTop: 0, marginBottom: 12 }}>
@@ -2131,6 +2231,173 @@ function Admin({ user, esAdmin }) {
                     </tbody>
                   </table>
                 </div>}
+          </section>
+        </>
+      )}
+
+      {vista === 'comunicados' && (
+        <>
+          <p className="seccion-intro">
+            Envía un correo personalizado a un grupo de alumnos. Se manda un solo correo con todos
+            los destinatarios en CCO — nadie ve los correos de los demás.
+          </p>
+
+          <div className="admin-bloque-nuevo">
+            <div className="nuevo-usuario-form">
+              <h3>📧 Nuevo comunicado</h3>
+
+              <label>¿A quién le va a llegar?</label>
+              <select
+                className="gestion-select"
+                value={comunicadoDestino}
+                onChange={e => {
+                  setComunicadoDestino(e.target.value)
+                  setComunicadoMsg('')
+                  setComunicadoResultado(null)
+                }}
+                style={{ width: '100%', marginBottom: 12 }}
+              >
+                <option value="todos">Todos los alumnos con acceso</option>
+                <option value="curso">Solo los alumnos de un curso específico</option>
+                <option value="riesgo">Alumnos en riesgo (sin entrar hace +15 días)</option>
+                <option value="activos">Alumnos activos (últimos 14 días)</option>
+                <option value="completaron">Alumnos que completaron un curso</option>
+                <option value="manual">Correos manuales (pegar lista)</option>
+              </select>
+
+              {comunicadoDestino === 'curso' && (
+                <>
+                  <label>Curso</label>
+                  <select
+                    className="gestion-select"
+                    value={comunicadoCursoId}
+                    onChange={e => setComunicadoCursoId(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">— Elige un curso —</option>
+                    {cursosLista.map(c => (
+                      <option key={c.id} value={c.id}>{c.titulo}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {comunicadoDestino === 'manual' && (
+                <>
+                  <label>Correos (separados por coma, punto y coma o salto de línea)</label>
+                  <textarea
+                    rows="4"
+                    className="modal-textarea"
+                    value={comunicadoManual}
+                    onChange={e => setComunicadoManual(e.target.value)}
+                    placeholder="alumno1@correo.com, alumno2@correo.com..."
+                    style={{ fontFamily: 'monospace', fontSize: 13 }}
+                  />
+                </>
+              )}
+
+              <p className="nota" style={{ marginTop: 10, marginBottom: 16 }}>
+                📬 <strong>{calcularDestinatarios().length}</strong> destinatario(s) único(s) recibirán este correo.
+              </p>
+
+              <label>Asunto</label>
+              <input
+                type="text"
+                value={comunicadoAsunto}
+                onChange={e => setComunicadoAsunto(e.target.value)}
+                placeholder="Ej. Nuevo taller en vivo el 15 de octubre"
+              />
+
+              <label>Cuerpo del mensaje</label>
+              <textarea
+                rows="8"
+                className="modal-textarea"
+                value={comunicadoCuerpo}
+                onChange={e => setComunicadoCuerpo(e.target.value)}
+                placeholder={"Hola,\n\nTe escribo para contarte que...\n\nSaludos."}
+                style={{ fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6 }}
+              />
+              <p className="nota" style={{ marginTop: 6 }}>
+                Se agregará automáticamente tu firma con logo, credencial y enlaces al final del correo.
+              </p>
+
+              <div style={{ marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="button texto"
+                  onClick={() => setComunicadoPreview(v => !v)}
+                >
+                  {comunicadoPreview ? '▲ Ocultar vista previa' : '▼ Ver vista previa'}
+                </button>
+              </div>
+
+              {comunicadoPreview && (
+                <div className="comunicado-preview">
+                  <div className="comunicado-preview-header">
+                    <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Para: neuronal.plus@gmail.com</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Asunto: <strong style={{ color: '#1B3A4B' }}>{comunicadoAsunto || '(sin asunto)'}</strong></p>
+                  </div>
+                  <div className="comunicado-preview-body">
+                    {comunicadoCuerpo
+                      ? comunicadoCuerpo.split('\n').map((linea, i) => <p key={i} style={{ margin: '0 0 10px' }}>{linea || '\u00A0'}</p>)
+                      : <p style={{ color: '#7A8891', fontStyle: 'italic' }}>(El cuerpo del mensaje aparecerá aquí)</p>}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="button whatsapp"
+                  onClick={enviarComunicado}
+                  disabled={comunicadoEnviando || calcularDestinatarios().length === 0 || !comunicadoAsunto.trim() || !comunicadoCuerpo.trim()}
+                >
+                  {comunicadoEnviando
+                    ? 'Enviando...'
+                    : `Enviar a ${calcularDestinatarios().length} alumno(s)`}
+                </button>
+                <button
+                  type="button"
+                  className="button texto"
+                  onClick={() => {
+                    setComunicadoAsunto('')
+                    setComunicadoCuerpo('')
+                    setComunicadoDestino('todos')
+                    setComunicadoCursoId('')
+                    setComunicadoManual('')
+                    setComunicadoMsg('')
+                    setComunicadoResultado(null)
+                  }}
+                >
+                  Limpiar
+                </button>
+              </div>
+
+              {comunicadoMsg && (
+                <p className={comunicadoMsg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>
+                  {comunicadoMsg}
+                </p>
+              )}
+
+              {comunicadoResultado && (
+                <div className="kpi-fila" style={{ marginTop: 18 }}>
+                  <div className="kpi">
+                    <span className="kpi-num">{comunicadoResultado.enviados}</span>
+                    <span className="kpi-lbl">Enviados</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <section className="metricas-bloque">
+            <h3 className="metricas-titulo">💡 Sugerencias de uso</h3>
+            <ul style={{ fontSize: 14, lineHeight: 1.8, paddingLeft: 20, margin: 0, color: '#33414A' }}>
+              <li><strong>Reactivar:</strong> "Alumnos en riesgo" → asunto "Te extrañamos, ¿todo bien?" → invítalos a retomar donde se quedaron.</li>
+              <li><strong>Anunciar nuevo curso:</strong> "Alumnos que completaron un curso" → son tus mejores candidatos al siguiente.</li>
+              <li><strong>Avisar de sesión en vivo:</strong> "Solo los alumnos de un curso específico" → para avisos puntuales del taller.</li>
+              <li><strong>Agradecer:</strong> "Alumnos que completaron un curso" → correo breve de cierre con tu firma.</li>
+            </ul>
           </section>
         </>
       )}
@@ -2782,7 +3049,6 @@ function CursoView({ user, esAdmin }) {
     try {
       setNotificando(m.id)
 
-      // 1. Cargar TODAS las inscripciones y filtrar por título normalizado
       const { data: todas, error: errA } = await supabase
         .from('vista_admin_inscripciones')
         .select('email, nombre_completo, curso, usuario_id')
@@ -2798,20 +3064,12 @@ function CursoView({ user, esAdmin }) {
         alumnos.push({ email: a.email, nombre_completo: a.nombre_completo })
       }
 
-      console.log('=== NOTIFICACIÓN MÓDULO ===')
-      console.log('Curso:', curso.titulo)
-      console.log('Título normalizado:', tituloNorm)
-      console.log('Total filas en vista:', todas?.length)
-      console.log('Cursos en vista:', [...new Set((todas || []).map(a => a.curso))])
-      console.log('Alumnos filtrados:', alumnos.length)
-
       if (alumnos.length === 0) {
         setMsgNotificacion('No hay alumnos inscritos todavía')
         setNotificando(null)
         return
       }
 
-      // 2. Llamar al Apps Script con no-cors (evita el bloqueo CORS de Google)
       const urlModulo = `${window.location.origin}/modulo/${m.id}`
       const payload = {
         tipo: 'modulo-abierto',
@@ -2820,9 +3078,6 @@ function CursoView({ user, esAdmin }) {
         alumnos
       }
 
-      console.log('Enviando a Apps Script:', APPS_SCRIPT_URL)
-      console.log('Payload:', JSON.stringify(payload).substring(0, 200) + '...')
-
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -2830,10 +3085,6 @@ function CursoView({ user, esAdmin }) {
         body: JSON.stringify(payload)
       })
 
-      console.log('Respuesta tipo:', res.type, 'status:', res.status)
-
-      // Con no-cors, el status siempre es 0 y type es 'opaque'.
-      // No podemos leer la respuesta, pero la petición SÍ llegó a Google.
       setMsgNotificacion(`✓ Enviado a Google Apps Script (${alumnos.length} alumno${alumnos.length === 1 ? '' : 's'})`)
     } catch (e) {
       console.error('Error notificando:', e)
@@ -3033,7 +3284,7 @@ function CursoView({ user, esAdmin }) {
 }
 
 /* ============================================================
-   DETALLE DEL CURSO (página de rutas lado a lado)
+   DETALLE DEL CURSO
    ============================================================ */
 function CursoDetalle({ user, esAdmin }) {
   const { id } = useParams()
