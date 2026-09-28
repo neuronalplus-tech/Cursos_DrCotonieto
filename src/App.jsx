@@ -996,6 +996,7 @@ function Perfil({ user }) {
    MENSAJES · INBOX (Supabase Realtime)
    ============================================================ */
 function MensajesInbox({ user, esAdmin }) {
+  // Conversaciones y chat 1-a-1
   const [conversaciones, setConversaciones] = useState([])
   const [chatCon, setChatCon] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -1004,17 +1005,27 @@ function MensajesInbox({ user, esAdmin }) {
   const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [msgExito, setMsgExito] = useState('')
   const mensajesEndRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Tabs sidebar (solo admin)
+  // Tabs sidebar (admin)
   const [vistaSidebar, setVistaSidebar] = useState('conversaciones')
   const [contactos, setContactos] = useState([])
   const [cargandoContactos, setCargandoContactos] = useState(false)
   const [cursosLista, setCursosLista] = useState([])
   const [cursoFiltro, setCursoFiltro] = useState('todos')
 
-  // 1. Admin ID para alumnos
+  // Multi-selección
+  const [seleccionadosContactos, setSeleccionadosContactos] = useState(new Set())
+  const [modoEnvioMultiple, setModoEnvioMultiple] = useState(false)
+
+  // Adjuntos
+  const [archivoAdjunto, setArchivoAdjunto] = useState(null)
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // 1. adminId para alumnos
   useEffect(() => {
     if (!user || esAdmin) return
     supabase.rpc('get_admin_id').then(({ data, error }) => {
@@ -1023,14 +1034,14 @@ function MensajesInbox({ user, esAdmin }) {
     })
   }, [user, esAdmin])
 
-  // 2. Cursos (para dropdown de filtro)
+  // 2. Cursos para dropdown
   useEffect(() => {
     if (!esAdmin || !user) return
     supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin, user])
 
-  // 3. Conversaciones (admin)
+  // 3. Conversaciones existentes (admin)
   useEffect(() => {
     if (!esAdmin || !user) return
     async function load() {
@@ -1063,7 +1074,7 @@ function MensajesInbox({ user, esAdmin }) {
     load()
   }, [esAdmin, user, mensajes.length])
 
-  // 4. Contactos (admin, solo cuando abre el tab)
+  // 4. Contactos (admin)
   useEffect(() => {
     if (!esAdmin || !user || vistaSidebar !== 'contactos') return
     async function load() {
@@ -1078,11 +1089,8 @@ function MensajesInbox({ user, esAdmin }) {
         if (!f.usuario_id) return
         if (!mapa[f.usuario_id]) {
           mapa[f.usuario_id] = {
-            usuario_id: f.usuario_id,
-            email: f.email,
-            nombre: f.nombre_completo,
-            cursos: [],
-            curso_ids: [],
+            usuario_id: f.usuario_id, email: f.email, nombre: f.nombre_completo,
+            cursos: [], curso_ids: [],
           }
         }
         if (f.curso && !mapa[f.usuario_id].cursos.includes(f.curso)) {
@@ -1098,7 +1106,7 @@ function MensajesInbox({ user, esAdmin }) {
 
   // 5. Mensajes de la conversación activa
   useEffect(() => {
-    if (!user || !chatCon) return
+    if (!user || !chatCon || modoEnvioMultiple) return
     async function load() {
       const { data, error } = await supabase
         .from('mensajes')
@@ -1109,7 +1117,7 @@ function MensajesInbox({ user, esAdmin }) {
       setMensajes(data || [])
     }
     load()
-  }, [user, chatCon])
+  }, [user, chatCon, modoEnvioMultiple])
 
   // 6. Realtime
   useEffect(() => {
@@ -1121,7 +1129,7 @@ function MensajesInbox({ user, esAdmin }) {
         (payload) => {
           const m = payload.new
           if (m.de_id !== user.id && m.para_id !== user.id) return
-          if (chatCon) {
+          if (chatCon && !modoEnvioMultiple) {
             const esDeEsta =
               (m.de_id === user.id && m.para_id === chatCon) ||
               (m.de_id === chatCon && m.para_id === user.id)
@@ -1133,11 +1141,11 @@ function MensajesInbox({ user, esAdmin }) {
       )
       .subscribe()
     return () => { supabase.removeChannel(canal) }
-  }, [user, chatCon])
+  }, [user, chatCon, modoEnvioMultiple])
 
   // 7. Marcar como leídos
   useEffect(() => {
-    if (!user || !chatCon) return
+    if (!user || !chatCon || modoEnvioMultiple) return
     supabase.from('mensajes')
       .update({ leido: true })
       .eq('para_id', user.id)
@@ -1150,26 +1158,152 @@ function MensajesInbox({ user, esAdmin }) {
           ))
         }
       })
-  }, [user, chatCon, mensajes.length, esAdmin])
+  }, [user, chatCon, mensajes.length, esAdmin, modoEnvioMultiple])
 
   // 8. Scroll al final
   useEffect(() => {
     mensajesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes])
 
-  const enviar = async () => {
-    if (!nuevoMensaje.trim() || !user || !chatCon || enviando) return
-    setEnviando(true)
-    const contenido = nuevoMensaje.trim()
-    setNuevoMensaje('')
-    const { error } = await supabase.from('mensajes').insert({
-      de_id: user.id, para_id: chatCon, contenido
+  // ===== MULTI-SELECCIÓN =====
+  const toggleSeleccionContacto = (id) => {
+    setSeleccionadosContactos(prev => {
+      const nuevo = new Set(prev)
+      if (nuevo.has(id)) nuevo.delete(id)
+      else nuevo.add(id)
+      return nuevo
     })
-    if (error) { setError(error.message); setNuevoMensaje(contenido) }
-    setEnviando(false)
-    inputRef.current?.focus()
   }
 
+  const toggleTodosContactos = (lista) => {
+    const todos = lista.every(c => seleccionadosContactos.has(c.usuario_id))
+    if (todos) {
+      setSeleccionadosContactos(new Set())
+    } else {
+      setSeleccionadosContactos(new Set(lista.map(c => c.usuario_id)))
+    }
+  }
+
+  const limpiarSeleccion = () => {
+    setSeleccionadosContactos(new Set())
+    setModoEnvioMultiple(false)
+    setNuevoMensaje('')
+    setArchivoAdjunto(null)
+    setError(null)
+  }
+
+  const abrirEnvioMultiple = () => {
+    if (seleccionadosContactos.size === 0) return
+    if (seleccionadosContactos.size === 1) {
+      // 1 solo → abrir chat normal
+      const soloId = [...seleccionadosContactos][0]
+      setChatCon(soloId)
+      setModoEnvioMultiple(false)
+      setSeleccionadosContactos(new Set())
+      return
+    }
+    // 2+ → modo grupal
+    setModoEnvioMultiple(true)
+    setChatCon(null)
+    setNuevoMensaje('')
+    setArchivoAdjunto(null)
+  }
+
+  // ===== ARCHIVOS =====
+  const seleccionarArchivo = () => fileInputRef.current?.click()
+
+  const onArchivoSeleccionado = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite volver a subir el mismo
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      setError('El archivo supera los 10 MB. Comprime o elige otro.')
+      return
+    }
+    setError(null)
+    setArchivoAdjunto(file)
+  }
+
+  const subirArchivo = async () => {
+    if (!archivoAdjunto || !user) return null
+    setSubiendoArchivo(true)
+    try {
+      const limpio = archivoAdjunto.name.replace(/[^\w.\-]/g, '_')
+      const path = `${user.id}/${Date.now()}_${limpio}`
+      const { error: errU } = await supabase.storage
+        .from('chat_adjuntos')
+        .upload(path, archivoAdjunto, { contentType: archivoAdjunto.type })
+      if (errU) throw errU
+      const { data: pub } = supabase.storage.from('chat_adjuntos').getPublicUrl(path)
+      const esImagen = archivoAdjunto.type?.startsWith('image/')
+      return {
+        url: pub.publicUrl,
+        nombre: archivoAdjunto.name,
+        tipo: esImagen ? 'imagen' : 'archivo',
+      }
+    } finally {
+      setSubiendoArchivo(false)
+    }
+  }
+
+  // ===== ENVIAR =====
+  const enviar = async () => {
+    const texto = nuevoMensaje.trim()
+    if ((!texto && !archivoAdjunto) || !user || enviando) return
+
+    setEnviando(true)
+    setError(null)
+
+    try {
+      let adjunto = null
+      if (archivoAdjunto) adjunto = await subirArchivo()
+
+      // Modo grupal
+      if (modoEnvioMultiple && seleccionadosContactos.size > 0) {
+        const destinatarios = [...seleccionadosContactos]
+        const inserts = destinatarios.map(para_id => ({
+          de_id: user.id,
+          para_id,
+          contenido: texto || '(adjunto)',
+          adjunto_url: adjunto?.url || null,
+          adjunto_nombre: adjunto?.nombre || null,
+          adjunto_tipo: adjunto?.tipo || null,
+        }))
+        const { error: errI } = await supabase.from('mensajes').insert(inserts)
+        if (errI) throw errI
+
+        setMsgExito(`✓ Enviado a ${destinatarios.length} alumno(s)`)
+        setTimeout(() => setMsgExito(''), 3500)
+        setNuevoMensaje('')
+        setArchivoAdjunto(null)
+        setSeleccionadosContactos(new Set())
+        setModoEnvioMultiple(false)
+        setVistaSidebar('conversaciones')
+        return
+      }
+
+      // Modo 1-a-1
+      if (!chatCon) return
+      const { error: errI } = await supabase.from('mensajes').insert({
+        de_id: user.id,
+        para_id: chatCon,
+        contenido: texto || '(adjunto)',
+        adjunto_url: adjunto?.url || null,
+        adjunto_nombre: adjunto?.nombre || null,
+        adjunto_tipo: adjunto?.tipo || null,
+      })
+      if (errI) throw errI
+      setNuevoMensaje('')
+      setArchivoAdjunto(null)
+      inputRef.current?.focus()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  // ===== FILTROS =====
   const conversacionesFiltradas = conversaciones.filter(c => {
     if (!busqueda.trim()) return true
     const t = busqueda.toLowerCase()
@@ -1194,7 +1328,430 @@ function MensajesInbox({ user, esAdmin }) {
     return 'Alumno'
   }
 
+  // Convierte URLs en links clicables
+  const renderizarTexto = (texto) => {
+    if (!texto) return null
+    const regex = /(https?:\/\/[^\s]+)/g
+    const partes = texto.split(regex)
+    return partes.map((p, i) =>
+      regex.test(p)
+        ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="chat-link">{p}</a>
+        : <span key={i}>{p}</span>
+    )
+  }
+
+  // Renderiza adjunto de un mensaje
+  const renderAdjunto = (m) => {
+    if (!m.adjunto_url) return null
+    if (m.adjunto_tipo === 'imagen') {
+      return (
+        <a href={m.adjunto_url} target="_blank" rel="noopener noreferrer">
+          <img src={m.adjunto_url} alt={m.adjunto_nombre || ''} className="chat-adjunto-img" loading="lazy" />
+        </a>
+      )
+    }
+    return (
+      <a href={m.adjunto_url} target="_blank" rel="noopener noreferrer" className="chat-adjunto-archivo">
+        📎 {m.adjunto_nombre || 'Archivo adjunto'}
+      </a>
+    )
+  }
+
+  // Input file oculto (se usa en todos los composers)
+  const inputFileOculto = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      style={{ display: 'none' }}
+      onChange={onArchivoSeleccionado}
+      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+    />
+  )
+
+  // Preview del adjunto pendiente
+  const previewAdjunto = archivoAdjunto && (
+    <div className="chat-adjunto-preview">
+      <span className="chat-adjunto-preview-icono">
+        {archivoAdjunto.type?.startsWith('image/') ? '🖼️' : '📎'}
+      </span>
+      <span className="chat-adjunto-preview-nombre">{archivoAdjunto.name}</span>
+      <button
+        type="button"
+        className="chat-adjunto-preview-quitar"
+        onClick={() => setArchivoAdjunto(null)}
+        title="Quitar adjunto"
+      >×</button>
+    </div>
+  )
+
   if (!user) return null
+
+  // ===== VISTA ALUMNO =====
+  if (!esAdmin) {
+    return (
+      <div className="inbox-simple">
+        <header className="inbox-simple-header">
+          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="inbox-avatar-img" />
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17 }}>Dr. Ernesto Cotonieto</h2>
+            <p className="sutil" style={{ margin: 0, fontSize: 12.5 }}>Te responderé pronto</p>
+          </div>
+        </header>
+
+        <div className="chat-mensajes">
+          {mensajes.length === 0 ? (
+            <p className="sutil" style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.7 }}>
+              Escríbeme lo que necesites.<br />Te responderé pronto.
+            </p>
+          ) : (
+            mensajes.map(m => {
+              const esMio = m.de_id === user.id
+              return (
+                <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                  <div className="chat-burbuja">
+                    {renderizarTexto(m.contenido)}
+                    {renderAdjunto(m)}
+                  </div>
+                  <div className="chat-hora">
+                    {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              )
+            })
+          )}
+          <div ref={mensajesEndRef} />
+        </div>
+
+        {error && (
+          <p className="aviso-error" style={{ margin: '8px 12px 0', fontSize: 12.5 }}>{error}</p>
+        )}
+        {previewAdjunto}
+
+        <div className="chat-input-area">
+          <button type="button" className="chat-attach-btn" onClick={seleccionarArchivo}
+                  disabled={subiendoArchivo} title="Adjuntar archivo">
+            📎
+          </button>
+          <textarea
+            ref={inputRef}
+            className="chat-input"
+            placeholder="Escribe un mensaje..."
+            value={nuevoMensaje}
+            onChange={e => setNuevoMensaje(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+            }}
+            rows="1"
+          />
+          <button type="button" className="chat-enviar-btn" onClick={enviar}
+                  disabled={enviando || subiendoArchivo || (!nuevoMensaje.trim() && !archivoAdjunto)}>
+            {subiendoArchivo ? '⏳' : '➤'}
+          </button>
+        </div>
+        {inputFileOculto}
+      </div>
+    )
+  }
+
+  // ===== VISTA ADMIN =====
+  const seleccionArray = [...seleccionadosContactos]
+  const nombresSeleccionados = seleccionArray
+    .map(id => contactos.find(c => c.usuario_id === id))
+    .filter(Boolean)
+
+  return (
+    <div className="inbox-admin">
+      <aside className="inbox-lista">
+
+        <div className="inbox-sidebar-tabs">
+          <button
+            type="button"
+            className={`inbox-sidebar-tab ${vistaSidebar === 'conversaciones' ? 'activa' : ''}`}
+            onClick={() => { setVistaSidebar('conversaciones'); setBusqueda(''); limpiarSeleccion() }}
+          >💬 Conversaciones</button>
+          <button
+            type="button"
+            className={`inbox-sidebar-tab ${vistaSidebar === 'contactos' ? 'activa' : ''}`}
+            onClick={() => { setVistaSidebar('contactos'); setBusqueda('') }}
+          >👥 Contactos</button>
+        </div>
+
+        {/* Barra de selección múltiple */}
+        {vistaSidebar === 'contactos' && seleccionadosContactos.size > 0 && (
+          <div className="inbox-seleccion-bar">
+            <span className="inbox-seleccion-count">
+              {seleccionadosContactos.size} seleccionado(s)
+            </span>
+            <button type="button" className="inbox-seleccion-btn" onClick={abrirEnvioMultiple}>
+              {seleccionadosContactos.size === 1 ? 'Abrir chat' : '✉️ Enviar mensaje'}
+            </button>
+            <button type="button" className="inbox-seleccion-cancel" onClick={limpiarSeleccion}>
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {vistaSidebar === 'conversaciones' ? (
+          <>
+            <div className="inbox-buscar">
+              <input
+                type="text"
+                placeholder="🔍 Buscar conversación..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="inbox-input-buscar"
+              />
+            </div>
+            <div className="inbox-conversaciones">
+              {cargando ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
+              ) : conversacionesFiltradas.length === 0 ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+                  Aún no hay conversaciones.<br />
+                  Cuando un alumno te escriba aparecerá aquí.<br /><br />
+                  <em>Para iniciar una nueva, ve a la pestaña "Contactos".</em>
+                </p>
+              ) : (
+                conversacionesFiltradas.map(c => (
+                  <button
+                    key={c.usuario_id}
+                    type="button"
+                    className={`inbox-conv-item ${chatCon === c.usuario_id && !modoEnvioMultiple ? 'activo' : ''} ${c.noLeidos > 0 ? 'no-leido' : ''}`}
+                    onClick={() => { setChatCon(c.usuario_id); setModoEnvioMultiple(false) }}
+                  >
+                    <div className="chat-avatar">
+                      {(c.nombre || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="inbox-conv-info">
+                      <div className="inbox-conv-nombre">{c.nombre || 'Alumno'}</div>
+                      <div className="inbox-conv-preview">
+                        {c.ultimo.contenido.substring(0, 45)}
+                        {c.ultimo.contenido.length > 45 ? '...' : ''}
+                      </div>
+                    </div>
+                    {c.noLeidos > 0 && <span className="chat-conv-badge">{c.noLeidos}</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="inbox-buscar">
+              <select value={cursoFiltro} onChange={e => setCursoFiltro(e.target.value)}
+                className="inbox-select-curso">
+                <option value="todos">📚 Todos los cursos</option>
+                {cursosLista.map(c => (
+                  <option key={c.id} value={c.id}>{c.titulo}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="🔍 Buscar alumno..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="inbox-input-buscar"
+              />
+              {contactosFiltrados.length > 0 && (
+                <button
+                  type="button"
+                  className="inbox-seleccion-cancel"
+                  style={{ marginTop: 6, textAlign: 'left', padding: 0 }}
+                  onClick={() => toggleTodosContactos(contactosFiltrados)}
+                >
+                  {contactosFiltrados.every(c => seleccionadosContactos.has(c.usuario_id))
+                    ? '☐ Deseleccionar todos'
+                    : `☑ Seleccionar los ${contactosFiltrados.length} visibles`}
+                </button>
+              )}
+            </div>
+            <div className="inbox-conversaciones">
+              {cargandoContactos ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center' }}>Cargando...</p>
+              ) : contactosFiltrados.length === 0 ? (
+                <p className="sutil" style={{ padding: 20, textAlign: 'center', lineHeight: 1.6 }}>
+                  No se encontraron alumnos<br />con ese criterio.
+                </p>
+              ) : (
+                contactosFiltrados.map(c => {
+                  const checked = seleccionadosContactos.has(c.usuario_id)
+                  return (
+                    <div
+                      key={c.usuario_id}
+                      className={`inbox-conv-item ${chatCon === c.usuario_id && !modoEnvioMultiple ? 'activo' : ''} ${checked ? 'seleccionado' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => { setChatCon(c.usuario_id); setModoEnvioMultiple(false) }}
+                      onKeyDown={e => { if (e.key === 'Enter') { setChatCon(c.usuario_id); setModoEnvioMultiple(false) } }}
+                      style={checked ? { background: '#FFF4E6' } : undefined}
+                    >
+                      <span
+                        className="inbox-conv-check"
+                        onClick={e => { e.stopPropagation(); toggleSeleccionContacto(c.usuario_id) }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSeleccionContacto(c.usuario_id)}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      </span>
+                      <div className="chat-avatar">
+                        {(c.nombre || c.email || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="inbox-conv-info">
+                        <div className="inbox-conv-nombre">{c.nombre || '(sin nombre)'}</div>
+                        <div className="inbox-conv-preview">{c.email}</div>
+                        {c.cursos.length > 0 && (
+                          <div className="inbox-conv-cursos">
+                            {c.cursos.slice(0, 2).map((cur, i) => (
+                              <span key={i} className="badge-curso" title={cur}>{cur}</span>
+                            ))}
+                            {c.cursos.length > 2 && (
+                              <span className="badge-curso">+{c.cursos.length - 2}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </>
+        )}
+      </aside>
+
+      <main className="inbox-chat">
+        {/* Modo grupal */}
+        {modoEnvioMultiple ? (
+          <div className="inbox-chat-multiple">
+            <div className="inbox-multiple-header">
+              <h3 className="inbox-multiple-titulo">
+                📢 Enviando a {nombresSeleccionados.length} alumno(s)
+              </h3>
+              <div className="inbox-multiple-lista">
+                {nombresSeleccionados.slice(0, 6).map((c, i) => (
+                  <span key={i}>
+                    {c.nombre || c.email}{i < Math.min(nombresSeleccionados.length, 6) - 1 ? ' · ' : ''}
+                  </span>
+                ))}
+                {nombresSeleccionados.length > 6 && (
+                  <span> y {nombresSeleccionados.length - 6} más…</span>
+                )}
+              </div>
+            </div>
+
+            <div className="inbox-multiple-body">
+              <p className="sutil" style={{ maxWidth: 380, lineHeight: 1.7 }}>
+                Escribe el mensaje que quieres enviar a todos.<br />
+                Cada alumno lo verá en su propio chat individual.
+              </p>
+            </div>
+
+            {error && (
+              <p className="aviso-error" style={{ margin: '0 14px 8px', fontSize: 12.5 }}>{error}</p>
+            )}
+            {previewAdjunto}
+
+            <div className="chat-input-area">
+              <button type="button" className="chat-attach-btn" onClick={seleccionarArchivo}
+                      disabled={subiendoArchivo} title="Adjuntar archivo">
+                📎
+              </button>
+              <textarea
+                className="chat-input"
+                placeholder={`Escribe el mensaje para ${nombresSeleccionados.length} alumno(s)...`}
+                value={nuevoMensaje}
+                onChange={e => setNuevoMensaje(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+                }}
+                rows="2"
+              />
+              <button type="button" className="chat-enviar-btn" onClick={enviar}
+                      disabled={enviando || subiendoArchivo || (!nuevoMensaje.trim() && !archivoAdjunto)}>
+                {enviando ? '...' : (subiendoArchivo ? '⏳' : '➤')}
+              </button>
+            </div>
+          </div>
+        ) : !chatCon ? (
+          <div className="inbox-vacio">
+            <div className="inbox-vacio-icono">💬</div>
+            <p className="sutil" style={{ textAlign: 'center', lineHeight: 1.7 }}>
+              Selecciona una conversación<br />
+              o marca varios contactos y pulsa "Enviar mensaje".
+            </p>
+          </div>
+        ) : (
+          <>
+            <header className="inbox-chat-header">
+              <div className="chat-avatar">{nombreChatActivo().charAt(0).toUpperCase()}</div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>{nombreChatActivo()}</h3>
+              </div>
+            </header>
+
+            <div className="chat-mensajes">
+              {error && (
+                <p className="aviso-error" style={{ margin: 12, fontSize: 13 }}>{error}</p>
+              )}
+              {mensajes.length === 0 ? (
+                <p className="sutil" style={{ textAlign: 'center', marginTop: 40 }}>
+                  Inicia la conversación.
+                </p>
+              ) : (
+                mensajes.map(m => {
+                  const esMio = m.de_id === user.id
+                  return (
+                    <div key={m.id} className={`chat-mensaje ${esMio ? 'mio' : 'suyo'}`}>
+                      <div className="chat-burbuja">
+                        {renderizarTexto(m.contenido)}
+                        {renderAdjunto(m)}
+                      </div>
+                      <div className="chat-hora">
+                        {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+              <div ref={mensajesEndRef} />
+            </div>
+
+            {previewAdjunto}
+
+            <div className="chat-input-area">
+              <button type="button" className="chat-attach-btn" onClick={seleccionarArchivo}
+                      disabled={subiendoArchivo} title="Adjuntar archivo">
+                📎
+              </button>
+              <textarea
+                ref={inputRef}
+                className="chat-input"
+                placeholder="Escribe un mensaje..."
+                value={nuevoMensaje}
+                onChange={e => setNuevoMensaje(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
+                }}
+                rows="1"
+              />
+              <button type="button" className="chat-enviar-btn" onClick={enviar}
+                      disabled={enviando || subiendoArchivo || (!nuevoMensaje.trim() && !archivoAdjunto)}>
+                {subiendoArchivo ? '⏳' : '➤'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {msgExito && <div className="chat-toast">{msgExito}</div>}
+      </main>
+
+      {inputFileOculto}
+    </div>
+  )
+}
 
   // ===== VISTA ALUMNO =====
   if (!esAdmin) {
