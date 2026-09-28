@@ -959,3 +959,17 @@ a { color: var(--primary); }
   from { transform: translate(-50%, 20px); opacity: 0 }
   to { transform: translate(-50%, 0); opacity: 1 }
 }
+.modal-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-family: var(--texto);
+  font-size: 14px;
+  resize: vertical;
+}
+.modal-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193,122,94,.15);
+}
