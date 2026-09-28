@@ -1029,6 +1029,16 @@ function Admin({ user, esAdmin }) {
 
   const [confirmacion, setConfirmacion] = useState(null)
 
+    // Inscripción masiva
+  const [masivoAbierto, setMasivoAbierto] = useState(false)
+  const [emailsMasivos, setEmailsMasivos] = useState('')
+  const [passMasivo, setPassMasivo] = useState('')
+  const [cursosMasivos, setCursosMasivos] = useState([])
+  const [creandoMasivo, setCreandoMasivo] = useState(false)
+  const [progresoMasivo, setProgresoMasivo] = useState({ actual: 0, total: 0 })
+  const [resultadoMasivo, setResultadoMasivo] = useState(null)
+  const [msgMasivo, setMsgMasivo] = useState('')
+  
   const navigate = useNavigate()
 
   useEffect(() => {
