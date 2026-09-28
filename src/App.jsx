@@ -31,7 +31,7 @@ const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/
 
 const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
 const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbywR0DkfdsniT1M3fYiyUv7E5KcQql-HiZCgALT1pzAuxzMnlAw5iXGy5PoAXtti81Wpg/exec'
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXelwiqlZwGDeKhe724rUmbh5fLNaph4Cpm83LxRxWjfOXZ1sGr8eHFzNwPCAfXbK4Rw/exec'
 
 const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',
