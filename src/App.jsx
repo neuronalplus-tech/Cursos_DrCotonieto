@@ -986,13 +986,15 @@ function Perfil({ user }) {
    PANEL ADMIN
    ============================================================ */
 function Admin({ user, esAdmin }) {
+  const [vista, setVista] = useState('inscripciones') // 'inscripciones' | 'usuarios'
+
+  // ── Estado: Inscripciones (tabla) ──
   const [filas, setFilas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [filtro, setFiltro] = useState('todos')
   const [error, setError] = useState(null)
-  const navigate = useNavigate()
 
-  // Estado del formulario de nuevo usuario
+  // ── Estado: Formulario nuevo usuario ──
   const [formAbierto, setFormAbierto] = useState(false)
   const [nuevoEmail, setNuevoEmail] = useState('')
   const [nuevoPass, setNuevoPass] = useState('')
@@ -1001,6 +1003,17 @@ function Admin({ user, esAdmin }) {
   const [creando, setCreando] = useState(false)
   const [msg, setMsg] = useState('')
 
+  // ── Estado: Gestión de usuarios ──
+  const [usuarios, setUsuarios] = useState([])
+  const [accesos, setAccesos] = useState({}) // { usuario_id: Set(curso_id) }
+  const [busqueda, setBusqueda] = useState('')
+  const [toggling, setToggling] = useState({}) // { "uid-cid": true }
+  const [cargandoGestion, setCargandoGestion] = useState(false)
+  const [msgGestion, setMsgGestion] = useState('')
+
+  const navigate = useNavigate()
+
+  // Cargar inscripciones (tabla)
   useEffect(() => {
     if (!user) { navigate(rutaAcceso('/admin')); return }
     async function load() {
@@ -1012,12 +1025,53 @@ function Admin({ user, esAdmin }) {
     load()
   }, [user, navigate])
 
-  // Cargar lista de cursos activos (solo cuando el admin entra)
+  // Cargar lista de cursos activos
   useEffect(() => {
     if (!esAdmin) return
     supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin])
+
+  // Cargar usuarios + accesos (solo cuando se entra a la pestaña de usuarios)
+  useEffect(() => {
+    if (!esAdmin || vista !== 'usuarios' || usuarios.length > 0) return
+    async function loadGestion() {
+      setCargandoGestion(true)
+      try {
+        // Usuarios únicos que aparecen en inscripciones
+        const { data: inscripciones } = await supabase
+          .from('vista_admin_inscripciones')
+          .select('usuario_id, email, nombre_completo, profesion')
+
+        const usuariosMap = new Map()
+        ;(inscripciones || []).forEach(i => {
+          if (!usuariosMap.has(i.usuario_id)) {
+            usuariosMap.set(i.usuario_id, {
+              usuario_id: i.usuario_id,
+              email: i.email,
+              nombre_completo: i.nombre_completo,
+              profesion: i.profesion
+            })
+          }
+        })
+        setUsuarios([...usuariosMap.values()].sort((a, b) => a.email.localeCompare(b.email)))
+
+        // Todos los accesos
+        const { data: todosAccesos } = await supabase.from('acceso').select('usuario_id, curso_id')
+        const accMap = {}
+        ;(todosAccesos || []).forEach(a => {
+          if (!accMap[a.usuario_id]) accMap[a.usuario_id] = new Set()
+          accMap[a.usuario_id].add(a.curso_id)
+        })
+        setAccesos(accMap)
+      } catch (e) {
+        console.error('Error cargando gestión:', e)
+      } finally {
+        setCargandoGestion(false)
+      }
+    }
+    loadGestion()
+  }, [esAdmin, vista, usuarios.length])
 
   const toggleCurso = (id) => {
     setCursosSeleccionados(prev =>
@@ -1038,9 +1092,6 @@ function Admin({ user, esAdmin }) {
       if (!token) { setMsg('Error: no hay sesión activa'); setCreando(false); return }
 
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuario`
-      console.log('URL Edge Function:', url)
-      console.log('Token (primeros 30):', token.substring(0, 30))
-
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -1056,9 +1107,6 @@ function Admin({ user, esAdmin }) {
       })
 
       const texto = await res.text()
-      console.log('Status:', res.status)
-      console.log('Respuesta cruda:', texto)
-
       let json = {}
       try { json = JSON.parse(texto) } catch {}
       const errorReal = json.error || json.message || json.code || texto || 'sin detalles'
@@ -1070,16 +1118,63 @@ function Admin({ user, esAdmin }) {
         setNuevoEmail('')
         setNuevoPass('')
         setCursosSeleccionados([])
-        // Refrescar la tabla
         const { data } = await supabase.from('vista_admin_inscripciones')
           .select('*').order('inscrito_el', { ascending: false })
         setFilas(data || [])
+        // Resetear la pestaña de gestión para forzar recarga
+        setUsuarios([])
       }
     } catch (e) {
       setMsg('Error inesperado: ' + (e.message || e.toString()))
-      console.error('Excepción completa:', e)
     }
     setCreando(false)
+  }
+
+  const toggleAcceso = async (usuario_id, curso_id, tiene) => {
+    const key = `${usuario_id}-${curso_id}`
+    setToggling(prev => ({ ...prev, [key]: true }))
+    setMsgGestion('')
+    try {
+      if (tiene) {
+        const { error } = await supabase
+          .from('acceso')
+          .delete()
+          .eq('usuario_id', usuario_id)
+          .eq('curso_id', curso_id)
+        if (error) throw error
+        setAccesos(prev => {
+          const nuevo = { ...prev }
+          nuevo[usuario_id] = new Set(nuevo[usuario_id] || [])
+          nuevo[usuario_id].delete(curso_id)
+          return nuevo
+        })
+        setMsgGestion('✓ Acceso revocado')
+      } else {
+        const { error } = await supabase
+          .from('acceso')
+          .insert({ usuario_id, curso_id, grupo: null })
+        if (error) throw error
+        setAccesos(prev => {
+          const nuevo = { ...prev }
+          nuevo[usuario_id] = new Set(nuevo[usuario_id] || [])
+          nuevo[usuario_id].add(curso_id)
+          return nuevo
+        })
+        setMsgGestion('✓ Acceso otorgado')
+      }
+      // Refrescar tabla de inscripciones si aplica
+      const { data } = await supabase.from('vista_admin_inscripciones')
+        .select('*').order('inscrito_el', { ascending: false })
+      setFilas(data || [])
+    } catch (e) {
+      setMsgGestion('Error: ' + e.message)
+    } finally {
+      setToggling(prev => {
+        const nuevo = { ...prev }
+        delete nuevo[key]
+        return nuevo
+      })
+    }
   }
 
   if (!user) return null
@@ -1092,102 +1187,194 @@ function Admin({ user, esAdmin }) {
   const alumnosUnicos = new Set(filas.map(f => f.usuario_id)).size
   const fecha = (d) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
+  const usuariosFiltrados = usuarios.filter(u => {
+    const t = busqueda.toLowerCase()
+    return u.email.toLowerCase().includes(t) || (u.nombre_completo || '').toLowerCase().includes(t)
+  })
+
   return (
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
       <h1>Panel de administración</h1>
 
-      {/* Formulario de nuevo usuario */}
-      <div className="admin-bloque-nuevo">
+      {/* Pestañas */}
+      <div className="admin-tabs">
         <button
           type="button"
-          className="button primary"
-          onClick={() => setFormAbierto(v => !v)}
+          className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`}
+          onClick={() => setVista('inscripciones')}
         >
-          {formAbierto ? '✕ Cerrar' : '➕ Crear nuevo usuario'}
+          📋 Inscripciones
         </button>
+        <button
+          type="button"
+          className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`}
+          onClick={() => setVista('usuarios')}
+        >
+          👥 Gestión de usuarios
+        </button>
+      </div>
 
-        {formAbierto && (
-          <div className="nuevo-usuario-form">
-            <h3>Nuevo usuario</h3>
-            <label>Correo electrónico</label>
-            <input
-              type="email"
-              value={nuevoEmail}
-              onChange={e => setNuevoEmail(e.target.value)}
-              placeholder="alumno@ejemplo.com"
-            />
-            <label>Contraseña temporal</label>
-            <input
-              type="text"
-              value={nuevoPass}
-              onChange={e => setNuevoPass(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-            />
-            <label>Cursos a los que tendrá acceso</label>
-            <div className="cursos-checkboxes">
-              {cursosLista.map(c => (
-                <label key={c.id} className="curso-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={cursosSeleccionados.includes(c.id)}
-                    onChange={() => toggleCurso(c.id)}
-                  />
-                  <span>{c.titulo}</span>
-                </label>
-              ))}
-            </div>
+      {vista === 'inscripciones' && (
+        <>
+          {/* Formulario nuevo usuario */}
+          <div className="admin-bloque-nuevo">
             <button
               type="button"
-              className="button whatsapp"
-              onClick={crearUsuario}
-              disabled={creando}
+              className="button primary"
+              onClick={() => setFormAbierto(v => !v)}
             >
-              {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
+              {formAbierto ? '✕ Cerrar' : '➕ Crear nuevo usuario'}
             </button>
-            {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
-          </div>
-        )}
-      </div>
 
-      <div className="kpi-fila">
-        <div className="kpi"><span className="kpi-num">{alumnosUnicos}</span><span className="kpi-lbl">Alumnos</span></div>
-        <div className="kpi"><span className="kpi-num">{filas.length}</span><span className="kpi-lbl">Inscripciones</span></div>
-        <div className="kpi"><span className="kpi-num">{cursos.length}</span><span className="kpi-lbl">Cursos con alumnos</span></div>
-      </div>
-      <div className="filtros">
-        <button className={`filtro ${filtro === 'todos' ? 'activo' : ''}`} onClick={() => setFiltro('todos')}>Todos</button>
-        {cursos.map(c => (
-          <button key={c} className={`filtro ${filtro === c ? 'activo' : ''}`} onClick={() => setFiltro(c)}>{c}</button>
-        ))}
-      </div>
-      <div className="tabla-scroll">
-        <table className="tabla-admin">
-          <thead><tr><th>Alumno</th><th>Curso</th><th>Progreso</th><th>Inscrito</th><th>Último ingreso</th></tr></thead>
-          <tbody>
-            {visibles.map((f, i) => {
-              const pct = f.total_recursos > 0 ? Math.round((f.recursos_completados / f.total_recursos) * 100) : 0
-              return (
-                <tr key={i}>
-                  <td>
-                    <strong>{f.nombre_completo || '(sin nombre)'}</strong>
-                    <span className="celda-sub">{f.email}</span>
-                    {f.profesion && <span className="celda-sub">{f.profesion}</span>}
-                  </td>
-                  <td>{f.curso}</td>
-                  <td>
-                    <div className="mini-barra"><div className="mini-lleno" style={{ width: `${pct}%` }} /></div>
-                    <span className="celda-sub">{f.recursos_completados}/{f.total_recursos} · {pct}%</span>
-                  </td>
-                  <td>{fecha(f.inscrito_el)}</td>
-                  <td>{fecha(f.ultimo_ingreso)}</td>
-                </tr>
-              )
-            })}
-            {visibles.length === 0 && <tr><td colSpan="5" className="sutil">Sin inscripciones todavía.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+            {formAbierto && (
+              <div className="nuevo-usuario-form">
+                <h3>Nuevo usuario</h3>
+                <label>Correo electrónico</label>
+                <input
+                  type="email"
+                  value={nuevoEmail}
+                  onChange={e => setNuevoEmail(e.target.value)}
+                  placeholder="alumno@ejemplo.com"
+                />
+                <label>Contraseña temporal</label>
+                <input
+                  type="text"
+                  value={nuevoPass}
+                  onChange={e => setNuevoPass(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                />
+                <label>Cursos a los que tendrá acceso</label>
+                <div className="cursos-checkboxes">
+                  {cursosLista.map(c => (
+                    <label key={c.id} className="curso-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cursosSeleccionados.includes(c.id)}
+                        onChange={() => toggleCurso(c.id)}
+                      />
+                      <span>{c.titulo}</span>
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="button whatsapp"
+                  onClick={crearUsuario}
+                  disabled={creando}
+                >
+                  {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
+                </button>
+                {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
+              </div>
+            )}
+          </div>
+
+          <div className="kpi-fila">
+            <div className="kpi"><span className="kpi-num">{alumnosUnicos}</span><span className="kpi-lbl">Alumnos</span></div>
+            <div className="kpi"><span className="kpi-num">{filas.length}</span><span className="kpi-lbl">Inscripciones</span></div>
+            <div className="kpi"><span className="kpi-num">{cursos.length}</span><span className="kpi-lbl">Cursos con alumnos</span></div>
+          </div>
+          <div className="filtros">
+            <button className={`filtro ${filtro === 'todos' ? 'activo' : ''}`} onClick={() => setFiltro('todos')}>Todos</button>
+            {cursos.map(c => (
+              <button key={c} className={`filtro ${filtro === c ? 'activo' : ''}`} onClick={() => setFiltro(c)}>{c}</button>
+            ))}
+          </div>
+          <div className="tabla-scroll">
+            <table className="tabla-admin">
+              <thead><tr><th>Alumno</th><th>Curso</th><th>Progreso</th><th>Inscrito</th><th>Último ingreso</th></tr></thead>
+              <tbody>
+                {visibles.map((f, i) => {
+                  const pct = f.total_recursos > 0 ? Math.round((f.recursos_completados / f.total_recursos) * 100) : 0
+                  return (
+                    <tr key={i}>
+                      <td>
+                        <strong>{f.nombre_completo || '(sin nombre)'}</strong>
+                        <span className="celda-sub">{f.email}</span>
+                        {f.profesion && <span className="celda-sub">{f.profesion}</span>}
+                      </td>
+                      <td>{f.curso}</td>
+                      <td>
+                        <div className="mini-barra"><div className="mini-lleno" style={{ width: `${pct}%` }} /></div>
+                        <span className="celda-sub">{f.recursos_completados}/{f.total_recursos} · {pct}%</span>
+                      </td>
+                      <td>{fecha(f.inscrito_el)}</td>
+                      <td>{fecha(f.ultimo_ingreso)}</td>
+                    </tr>
+                  )
+                })}
+                {visibles.length === 0 && <tr><td colSpan="5" className="sutil">Sin inscripciones todavía.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {vista === 'usuarios' && (
+        <>
+          <p className="seccion-intro">
+            Administra el acceso de cada usuario a los cursos. Puedes dar o quitar acceso con un clic.
+            La contraseña del usuario nunca se modifica.
+          </p>
+
+          <input
+            type="text"
+            className="gestion-busqueda"
+            placeholder="🔍 Buscar por correo o nombre..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+          />
+
+          {msgGestion && (
+            <p className={msgGestion.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>
+              {msgGestion}
+            </p>
+          )}
+
+          {cargandoGestion ? (
+            <div className="loading">Cargando usuarios...</div>
+          ) : usuarios.length === 0 ? (
+            <p className="sutil">No hay usuarios registrados todavía.</p>
+          ) : (
+            <div className="gestion-usuarios">
+              {usuariosFiltrados.length === 0 && (
+                <p className="sutil">No se encontraron usuarios con ese criterio.</p>
+              )}
+              {usuariosFiltrados.map(u => (
+                <div key={u.usuario_id} className="gestion-usuario-card">
+                  <div className="gestion-usuario-header">
+                    <strong>{u.nombre_completo || '(sin nombre)'}</strong>
+                    <span className="celda-sub">{u.email}</span>
+                    {u.profesion && <span className="celda-sub">{u.profesion}</span>}
+                  </div>
+                  <div className="gestion-cursos">
+                    {cursosLista.map(c => {
+                      const tiene = accesos[u.usuario_id]?.has(c.id) || false
+                      const key = `${u.usuario_id}-${c.id}`
+                      const ocupado = toggling[key]
+                      return (
+                        <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
+                          <span className="gestion-curso-titulo">{c.titulo}</span>
+                          <button
+                            type="button"
+                            className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
+                            onClick={() => toggleAcceso(u.usuario_id, c.id, tiene)}
+                            disabled={ocupado}
+                          >
+                            {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       <BandaRedes />
     </section>
   )
