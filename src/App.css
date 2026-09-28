@@ -124,7 +124,7 @@ a { color: var(--primary); }
   overflow: hidden; box-shadow: var(--sombra); background: var(--bg-card); }
 .carrusel-track { display: flex; height: 100%; min-height: 260px; touch-action: pan-y; cursor: grab;
   user-select: none; transition: transform .45s ease; }
-.carrusel-track.arrastrando { transition: none; cursor: grabbing; }
+.carrusel-track.arrastando { transition: none; cursor: grabbing; }
 .carrusel-slide { position: relative; flex: 0 0 100%; min-height: 260px; overflow: hidden; }
 .carrusel-fondo { position: absolute; inset: 0; }
 .carrusel-fondo .portada-svg { width: 100%; height: 100%; -webkit-user-drag: none; pointer-events: none; }
@@ -697,6 +697,7 @@ a { color: var(--primary); }
 .entregables-header { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
 .entregables-header h3 { margin: 0 0 4px; font-size: 18px; color: var(--primary); }
 .entregables-acciones { display: flex; flex-direction: column; }
+
 /* ============================================================
    FORMULARIO DE NUEVO USUARIO (panel admin)
    ============================================================ */
@@ -753,6 +754,7 @@ a { color: var(--primary); }
 .curso-checkbox input {
   accent-color: var(--accent);
 }
+
 /* ============================================================
    PESTAÑAS DEL PANEL ADMIN
    ============================================================ */
@@ -887,7 +889,6 @@ a { color: var(--primary); }
   .gestion-curso-fila { flex-direction: column; align-items: stretch; }
   .gestion-toggle { width: 100%; }
 }
-/* Cabecera de card colapsable */
 .gestion-usuario-acciones {
   display: flex;
   flex-direction: column;
@@ -920,6 +921,7 @@ a { color: var(--primary); }
     width: 100%;
   }
 }
+
 /* Toast de notificación (admin) */
 .notificacion-toast {
   position: fixed;
@@ -959,6 +961,7 @@ a { color: var(--primary); }
   from { transform: translate(-50%, 20px); opacity: 0 }
   to { transform: translate(-50%, 0); opacity: 1 }
 }
+
 .modal-textarea {
   width: 100%;
   padding: 12px;
@@ -973,6 +976,7 @@ a { color: var(--primary); }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(193,122,94,.15);
 }
+
 /* ============================================================
    MÉTRICAS / ANALYTICS
    ============================================================ */
@@ -991,7 +995,6 @@ a { color: var(--primary); }
   margin: 0 0 18px;
 }
 
-/* Gráfico de barras verticales (inscripciones por mes) */
 .grafico-barras-vertical {
   display: flex;
   align-items: flex-end;
@@ -1039,7 +1042,6 @@ a { color: var(--primary); }
   text-transform: capitalize;
 }
 
-/* Gráfico de barras horizontales (por curso) */
 .grafico-barras-horizontal {
   display: flex;
   flex-direction: column;
@@ -1097,6 +1099,7 @@ a { color: var(--primary); }
   .grafico-barras-vertical { height: 140px; gap: 4px; }
   .barra-v-label { font-size: 9px; }
 }
+
 /* ============================================================
    EDITOR DE COMUNICADOS (WYSIWYG)
    ============================================================ */
@@ -1160,7 +1163,7 @@ a { color: var(--primary); }
 .comunicado-preview-body h3 { font-family: var(--titulo); color: var(--primary); }
 .comunicado-preview-body ul,
 .comunicado-preview-body ol { padding-left: 22px; }
-/* Botón HTML en la barra del editor */
+
 .editor-btn-html {
   font-family: 'Courier New', monospace;
   font-weight: 700;
@@ -1173,7 +1176,6 @@ a { color: var(--primary); }
   border-color: #6B3A1F;
 }
 
-/* Modal de código HTML */
 .modal-box.modal-html {
   max-width: 800px;
   width: calc(100% - 40px);
@@ -1199,6 +1201,7 @@ a { color: var(--primary); }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(193,122,94,.15);
 }
+
 /* ============================================================
    CHAT INTERNO
    ============================================================ */
@@ -1229,7 +1232,6 @@ a { color: var(--primary); }
   background: var(--gris);
 }
 
-/* El WhatsApp sube para no chocar con el chat */
 .wa-flotante {
   bottom: 90px !important;
 }
@@ -1472,7 +1474,183 @@ a { color: var(--primary); }
   align-items: center;
   justify-content: center;
 }
-/* Tabs dentro de la sidebar del inbox */
+
+/* ============================================================
+   INBOX DE MENSAJES
+   ============================================================ */
+
+/* --- Vista alumno (simple) --- */
+.inbox-simple {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  display: flex;
+  flex-direction: column;
+  height: 640px;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+.inbox-simple-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--bg-card);
+}
+.inbox-avatar-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center top;
+  border: 2px solid var(--accent);
+}
+
+/* --- Vista admin (completa) --- */
+.inbox-admin {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 680px;
+  max-height: calc(100vh - 220px);
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+  position: relative;
+}
+
+.inbox-lista {
+  border-right: 1px solid var(--borde);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.inbox-buscar {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--borde);
+  background: #fff;
+  flex-shrink: 0;
+}
+.inbox-input-buscar {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  font-family: var(--texto);
+  font-size: 13.5px;
+  background: var(--bg);
+}
+.inbox-input-buscar:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193,122,94,.12);
+}
+
+.inbox-conversaciones {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.inbox-conv-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--borde);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s;
+  font-family: var(--texto);
+}
+.inbox-conv-item:hover { background: #fff; }
+.inbox-conv-item.activo {
+  background: #fff;
+  border-left: 3px solid var(--accent);
+  padding-left: 13px;
+}
+.inbox-conv-item.no-leido { background: #FFF8E7; }
+.inbox-conv-item.no-leido:hover { background: #FFF1CE; }
+.inbox-conv-item.no-leido.activo { background: #FFF1CE; }
+.inbox-conv-item.seleccionado { background: #FFF4E6 !important; }
+
+.inbox-conv-info { flex: 1; min-width: 0; }
+.inbox-conv-nombre {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--primary);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbox-conv-preview {
+  font-size: 12px;
+  color: var(--gris);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inbox-chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+  position: relative;
+}
+
+.inbox-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--borde);
+  flex-shrink: 0;
+}
+
+.inbox-vacio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.inbox-vacio-icono {
+  font-size: 48px;
+  margin-bottom: 14px;
+  opacity: .35;
+}
+
+@media (max-width: 780px) {
+  .inbox-admin {
+    grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
+  }
+  .inbox-lista {
+    max-height: 320px;
+    border-right: none;
+    border-bottom: 1px solid var(--borde);
+  }
+  .inbox-chat {
+    min-height: 420px;
+  }
+}
+
+/* --- Tabs internos de la sidebar --- */
 .inbox-sidebar-tabs {
   display: flex;
   border-bottom: 1px solid var(--borde);
@@ -1500,7 +1678,7 @@ a { color: var(--primary); }
   border-bottom-color: var(--accent);
 }
 
-/* Select de curso dentro del buscador */
+/* --- Select de curso dentro del buscador --- */
 .inbox-select-curso {
   width: 100%;
   padding: 9px 12px;
@@ -1519,7 +1697,7 @@ a { color: var(--primary); }
   box-shadow: 0 0 0 3px rgba(193,122,94,.12);
 }
 
-/* Badges de curso en las tarjetas de contacto */
+/* --- Badges de curso en las tarjetas de contacto --- */
 .inbox-conv-cursos {
   display: flex;
   flex-wrap: wrap;
@@ -1539,11 +1717,7 @@ a { color: var(--primary); }
   max-width: 120px;
 }
 
-/* Ajuste: el .inbox-buscar ahora puede contener select + input */
-.inbox-buscar {
-  padding: 10px 12px;
-
-  /* ============================================================
+/* ============================================================
    CHAT — MULTI-SELECCIÓN, ADJUNTOS Y ENLACES
    ============================================================ */
 
@@ -1554,6 +1728,8 @@ a { color: var(--primary); }
 .inbox-conv-check {
   flex-shrink: 0;
   margin-right: 4px;
+  display: flex;
+  align-items: center;
 }
 .inbox-conv-check input {
   width: 18px;
@@ -1572,6 +1748,7 @@ a { color: var(--primary); }
   align-items: center;
   gap: 8px;
   font-size: 13px;
+  flex-shrink: 0;
 }
 .inbox-seleccion-count {
   font-weight: 700;
@@ -1648,6 +1825,7 @@ a { color: var(--primary); }
   border-radius: 8px;
   font-size: 13px;
   margin: 0 14px 8px;
+  flex-shrink: 0;
 }
 .chat-adjunto-preview-icono {
   font-size: 18px;
@@ -1749,6 +1927,4 @@ a { color: var(--primary); }
   z-index: 10;
   box-shadow: 0 6px 20px rgba(0,0,0,.2);
   animation: chatSlideUp .2s ease;
-}
-  
 }
