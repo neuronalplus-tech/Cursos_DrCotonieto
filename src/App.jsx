@@ -1160,6 +1160,104 @@ function Admin({ user, esAdmin }) {
     }
     setCreando(false)
   }
+  const toggleCursoMasivo = (id) => {
+    setCursosMasivos(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const parsearEmails = (texto) => {
+    return texto
+      .split(/[,;\n\r\t ]+/)
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e && e.includes('@') && e.includes('.'))
+      .filter((e, i, arr) => arr.indexOf(e) === i)
+  }
+
+  const crearUsuariosMasivos = async () => {
+    setMsgMasivo('')
+    setResultadoMasivo(null)
+
+    const emails = parsearEmails(emailsMasivos)
+
+    if (emails.length === 0) { setMsgMasivo('Error: pega al menos un correo válido'); return }
+    if (emails.length > 200) { setMsgMasivo(`Error: máximo 200 correos por lote (pegaste ${emails.length})`); return }
+    if (!passMasivo || passMasivo.length < 6) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    if (cursosMasivos.length === 0) { setMsgMasivo('Error: selecciona al menos un curso'); return }
+
+    const confirmado = await new Promise(resolve => {
+      setConfirmacion({
+        mensaje: `¿Crear ${emails.length} usuario(s) y asignarlos a ${cursosMasivos.length} curso(s)? Esta acción no se puede deshacer.`,
+        onConfirm: () => { setConfirmacion(null); resolve(true) },
+        onCancel: () => { setConfirmacion(null); resolve(false) }
+      })
+    })
+    if (!confirmado) return
+
+    setCreandoMasivo(true)
+    setProgresoMasivo({ actual: 0, total: emails.length })
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios-bulk`
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setMsgMasivo('Error: no hay sesión activa'); setCreandoMasivo(false); return }
+
+    const BATCH = 25
+    const todosResultados = []
+    let creados = 0, existentes = 0, errores = 0
+
+    try {
+      for (let i = 0; i < emails.length; i += BATCH) {
+        const lote = emails.slice(i, i + BATCH)
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            emails: lote,
+            password: passMasivo,
+            curso_ids: cursosMasivos,
+          }),
+        })
+
+        const json = await res.json()
+        if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`)
+
+        creados += json.creados || 0
+        existentes += json.existentes || 0
+        errores += json.errores || 0
+        todosResultados.push(...(json.resultados || []))
+
+        setProgresoMasivo({ actual: Math.min(i + BATCH, emails.length), total: emails.length })
+      }
+
+      setResultadoMasivo({
+        total: emails.length,
+        creados,
+        existentes,
+        errores,
+        detalles: todosResultados,
+      })
+      setMsgMasivo(`✓ Proceso terminado: ${creados} creados, ${existentes} ya existían, ${errores} con error.`)
+
+      const { data } = await supabase.from('vista_admin_inscripciones')
+        .select('*').order('inscrito_el', { ascending: false })
+      setFilas(data || [])
+      setUsuarios([])
+      setEmailsMasivos('')
+      setCursosMasivos([])
+
+    } catch (e) {
+      console.error('Error masivo:', e)
+      setMsgMasivo('Error en inscripción masiva: ' + e.message)
+    } finally {
+      setCreandoMasivo(false)
+      setProgresoMasivo({ actual: 0, total: 0 })
+    }
+  }
 
   const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
     if (tiene) {
@@ -1408,6 +1506,108 @@ function Admin({ user, esAdmin }) {
                   {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
                 </button>
                 {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}>{msg}</p>}
+              </div>
+            )}
+          </div>
+          {/* ===== INSCRIPCIÓN MASIVA ===== */}
+          <div className="admin-bloque-nuevo">
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setMasivoAbierto(v => !v)}
+            >
+              {masivoAbierto ? '✕ Cerrar inscripción masiva' : '📥 Inscripción masiva (hasta 200 correos)'}
+            </button>
+
+            {masivoAbierto && (
+              <div className="nuevo-usuario-form">
+                <h3>Inscripción masiva de usuarios</h3>
+                <p className="sutil" style={{ marginTop: 0, marginBottom: 14 }}>
+                  Pega los correos separados por coma, punto y coma o salto de línea.
+                  Se crearán todos con la misma contraseña temporal y se asignarán a los cursos que elijas.
+                </p>
+
+                <label>Correos electrónicos</label>
+                <textarea
+                  rows="6"
+                  className="modal-textarea"
+                  value={emailsMasivos}
+                  onChange={e => setEmailsMasivos(e.target.value)}
+                  placeholder={"alumno1@correo.com, alumno2@correo.com\nalumno3@correo.com; alumno4@correo.com"}
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }}
+                />
+                <p className="nota" style={{ marginTop: 6 }}>
+                  {parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)
+                </p>
+
+                <label>Contraseña temporal (misma para todos)</label>
+                <input
+                  type="text"
+                  value={passMasivo}
+                  onChange={e => setPassMasivo(e.target.value)}
+                  placeholder="Ej. Curso2026!"
+                />
+                <p className="nota" style={{ marginTop: 6 }}>
+                  ⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.
+                </p>
+
+                <label>Cursos a los que tendrán acceso</label>
+                <div className="cursos-checkboxes">
+                  {cursosLista.map(c => (
+                    <label key={c.id} className="curso-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cursosMasivos.includes(c.id)}
+                        onChange={() => toggleCursoMasivo(c.id)}
+                      />
+                      <span>{c.titulo}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className="button whatsapp"
+                  onClick={crearUsuariosMasivos}
+                  disabled={creandoMasivo}
+                >
+                  {creandoMasivo
+                    ? `Procesando... ${progresoMasivo.actual} / ${progresoMasivo.total}`
+                    : `Crear ${parsearEmails(emailsMasivos).length} usuario(s)`}
+                </button>
+
+                {msgMasivo && (
+                  <p className={msgMasivo.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>
+                    {msgMasivo}
+                  </p>
+                )}
+
+                {resultadoMasivo && (
+                  <div style={{ marginTop: 18 }}>
+                    <div className="kpi-fila" style={{ marginTop: 8 }}>
+                      <div className="kpi"><span className="kpi-num">{resultadoMasivo.creados}</span><span className="kpi-lbl">Creados</span></div>
+                      <div className="kpi"><span className="kpi-num">{resultadoMasivo.existentes}</span><span className="kpi-lbl">Ya existían</span></div>
+                      <div className="kpi"><span className="kpi-num">{resultadoMasivo.errores}</span><span className="kpi-lbl">Con error</span></div>
+                    </div>
+
+                    {resultadoMasivo.errores > 0 && (
+                      <details style={{ marginTop: 12 }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                          Ver detalle de errores ({resultadoMasivo.errores})
+                        </summary>
+                        <ul style={{ fontSize: 13, marginTop: 8 }}>
+                          {resultadoMasivo.detalles
+                            .filter(r => r.status !== 'creado')
+                            .map((r, i) => (
+                              <li key={i}>
+                                <strong>{r.email}</strong> — {r.status}: {r.mensaje}
+                              </li>
+                            ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
