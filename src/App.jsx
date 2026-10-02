@@ -3243,7 +3243,7 @@ function VideoPlayer({ url }) {
   return (
     <div className="video-wrapper">
       <iframe src={src} className="video-iframe" title="Video del curso"
-              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+              allow="accelerometer; autoplay; camera; microphone; display-capture; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen />
     </div>
   )
 }
@@ -4212,7 +4212,7 @@ function ModalEditarTaller({ curso, onClose, onGuardado }) {
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
-      const botonesValidos = form.botones_extra.filter(b => b.texto.trim() && b.url.trim())
+      const botonesValidos = form.botones_extra.filter(b => (b.texto || '').trim() && (b.url || '').trim())
       const payload = {
         fecha_sesion:    form.fecha_sesion.trim() || null,
         link_registro:   form.link_registro.trim() || null,
@@ -4222,10 +4222,29 @@ function ModalEditarTaller({ curso, onClose, onGuardado }) {
         link_materiales: form.link_materiales.trim() || null,
         botones_extra:   botonesValidos,
       }
-      const { data, error } = await supabase.from('cursos').update(payload).eq('id', curso.id).select().single()
-      if (error) throw error
+      let data = null
+      let parcial = false
+      try {
+        const res = await supabase.from('cursos').update(payload).eq('id', curso.id).select().single()
+        if (res.error) throw res.error
+        data = res.data
+      } catch (eColumna) {
+        // Si la columna botones_extra aún no existe en Supabase, guardamos el resto
+        // y avisamos cómo crearla (el botón extra queda visible solo en esta sesión).
+        const sinBotones = { ...payload }
+        delete sinBotones.botones_extra
+        const res2 = await supabase.from('cursos').update(sinBotones).eq('id', curso.id).select().single()
+        if (res2.error) throw res2.error
+        data = { ...res2.data, botones_extra: botonesValidos }
+        parcial = true
+        console.warn('Columna botones_extra ausente en Supabase, se guardó el resto:', eColumna?.message)
+        setMsg('Guardado parcial: falta crear la columna botones_extra (jsonb, default []) en la tabla cursos de Supabase. El botón extra se ve ahora, pero se perderá al recargar hasta crearla.')
+      }
       onGuardado(data)
-      onClose()
+      // Solo cerramos automáticamente si fue guardado completo.
+      // Si hubo guardado parcial (falta columna), dejamos el modal abierto
+      // para que leas el aviso en rojo.
+      if (!parcial) onClose()
     } catch (e) {
       setMsg('Error: ' + e.message)
     } finally {
@@ -4310,6 +4329,8 @@ function TallerRecursos({ curso, user, esAdmin, onActualizado }) {
   const registroEmbebible = analizarUrl(curso.link_registro).embeddable
   const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
   const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
+  const botonesExtra = curso.botones_extra || []
+  const [verBotonesExtra, setVerBotonesExtra] = useState({})
 
   const toggleGrabacionActivo = async () => {
     const nuevo = curso.grabacion_activo === false
@@ -4478,6 +4499,41 @@ function TallerRecursos({ curso, user, esAdmin, onActualizado }) {
           </div>
         )}
       </article>
+
+      {botonesExtra.length > 0 && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">🔗</span>
+              <div><h3>Sesiones y enlaces extra</h3></div>
+            </div>
+          </div>
+          <div className="recurso-acciones" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            {botonesExtra.map((b, i) => {
+              const info = analizarUrl(b.url)
+              const verlo = !!verBotonesExtra[i]
+              return (
+                <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {info.embeddable && (
+                    <button type="button" className={`button ${verlo ? 'secondary' : 'primary'}`}
+                            onClick={() => setVerBotonesExtra(v => ({ ...v, [i]: !v[i] }))}>
+                      {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
+                    </button>
+                  )}
+                  <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                    {b.texto} ↗
+                  </a>
+                  {info.embeddable && verlo && (
+                    <div className="recurso-contenido" style={{ flexBasis: '100%' }}>
+                      <EmbedFrame url={b.url} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </article>
+      )}
 
       {editando && (
         <ModalEditarTaller curso={curso} onClose={() => setEditando(false)} onGuardado={onActualizado} />
