@@ -26,7 +26,7 @@
 | **D3** | ~~Activar **Cloudflare Web Analytics** y pasarme el *snippet*~~ ✅ **Recibido** (token `07cbd488…`) | Métricas de visitas | $0 |
 | **D4** | Crear **bucket R2** + API token | Alojar PDF/videos pesados fuera del 1 GB de Supabase | $0 (10 GB) |
 | **D5** | Confirmar acceso al **proyecto Supabase** (o compartir el SQL del esquema) | Edge Function de correo y tipos de pregunta | $0 |
-| **D6** | Decidir **Jitsi o Teams** para clases en vivo (recomiendo Jitsi embebido) | Diseño de la clase en vivo | $0 |
+| **D6** | ~~Decidir **Jitsi o Teams**~~ ✅ **Decidido 02/10: Teams** | Diseño de la clase en vivo | $0 |
 
 > Nota: **D1 no es indispensable** para los pasos 2 y 3 (Jitsi y analítica). Solo es necesaria para el correo con *tracking*.
 
@@ -38,8 +38,8 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 
 | Orden | Acción | Depende de | Quién | Riesgo |
 |---|---|---|---|---|
-| **1** | Clases en vivo con **Jitsi embebido** | nada | Yo (código) + tú (probar) | Bajo |
-| **2** | **Cloudflare Web Analytics** | D3 | Tú (activar) + Yo (integrar) | Bajo |
+| **1** | Clases en vivo con **Teams (liga externa)** | nada | ✅ Decidido | Bajo |
+| **2** | **Cloudflare Web Analytics** | D3 | ✅ Hecho (beacon en vivo) | Bajo |
 | **3** | **Archivos pesados en R2** | D4 | Tú (bucket) + Yo (código) | Medio |
 | **4** | **Comunicados con tracking (Resend)** | D1 + D2 + D5 | Tú (cuentas) + Yo (código) | Medio |
 | **5** | **Refactor de `App.jsx` en módulos** | — | Yo (por etapas) | Alto (autorizar) |
@@ -49,12 +49,11 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 
 ## 3. Detalle por acción
 
-### 3.1 Clases en vivo con Jitsi embebido — **LISTO en código (paso 1)**
-- **Qué:** al crear un recurso de tipo **Enlace** (o Video) con una URL de Jitsi (`https://meet.jit.si/MiSala`), la reunión se muestra **dentro de la plataforma** (iframe), sin salir ni instalar nada.
-- **Por qué:** reemplaza Zoom/Dropbox y da presencia "en vivo" dentro del curso. Los alumnos no crean cuenta.
-- **Qué hice:** amplié `analizarUrl()` para reconocer **Jitsi** y **Vimeo**, y habilité los permisos de cámara/micrófono en `EmbedFrame`.
-- **Qué necesito de ti:** **probar** con un enlace de prueba (p. ej. `https://meet.jit.si/PruebaDrCotonieto`) creando un recurso y uniéndote.
-- **Grabación:** Jitsi gratis (meet.jit.si) **no graba en la nube**; ver §6 (comparativa).
+### 3.1 Clases en vivo — **Decisión 02/10: Teams (liga externa), Jitsi descartado para producción**
+- **Qué:** los botones de sesión en vivo (Jitsi, Teams, Meet) se muestran como **liga externa "Unirse ↗"** (sin iframe).
+- **Por qué se descartó Jitsi embebido:** `meet.jit.si` corta el iframe a los **5 min** ("demo purposes", exige JaaS de pago para producción: Developer gratis 25 MAU, Basic $99/mes) y **ya no ofrece grabar en la nube** (issue #16024 confirmado). Para clases con datos sensibles que requieren **iniciar/detener grabación**, Teams es superior.
+- **Teams (M365 Family, ya pagado):** graba con **Más opciones → Iniciar/detener grabación** en cualquier momento (avisa a todos), guarda en **OneDrive/SharePoint** (chat de la reunión), y de ahí se **descarga y sube** a OneDrive/Supabase para embeberlo como grabación (mecanismo `1drv.ms` actual). **Ojo:** por defecto la grabación se crea como archivo normal en tu OneDrive — **tú decides cuándo detenerla** antes de datos sensibles; la "grabación automática" es opt-in por reunión.
+- **Qué hice:** `analizarUrl()` marca Jitsi como `embeddable:false` (commit pendiente) — quita el botón "Ver aquí" para evitar el corte de 5 min.
 
 ### 3.2 Analítica con Cloudflare Web Analytics — **LISTO en código**
 

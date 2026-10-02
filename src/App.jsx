@@ -239,12 +239,13 @@ function analizarUrl(url) {
     return { origen: 'vimeo', embeddable: true, embedUrl: `https://player.vimeo.com/video/${vimeo[1]}` }
   }
 
-  // Jitsi Meet (clases en vivo): el enlace de la sala se embebe tal cual en un iframe.
-  // Sirve para meet.jit.si y para cualquier servidor propio de Jitsi (meet.midominio.com).
-  // Nota: Google Meet y Microsoft Teams NO permiten iframe; para esos se usa un recurso
-  // de tipo "enlace" que muestra un botón "Unirse" que abre la reunión en otra pestaña.
+  // Jitsi / Teams / Meet: NO se embeben (se abren en pestaña aparte con botón "Unirse").
+  // - meet.jit.si gratis corta el iframe a los 5 min ("demo purposes", exige JaaS de pago
+  //   para producción) y ya ni siquiera ofrece botón de grabar en la nube.
+  // - Teams/Meet bloquean iframe por política. Patrón correcto: liga externa.
+  // Se detecta el origen solo para etiquetar, pero embeddable = false.
   if (/^https?:\/\/([a-z0-9-]+\.)*jit\.si\//i.test(url)) {
-    return { origen: 'jitsi', embeddable: true, embedUrl: url }
+    return { origen: 'jitsi', embeddable: false, embedUrl: null }
   }
 
   return externo
