@@ -233,6 +233,20 @@ function analizarUrl(url) {
     return { origen: 'msforms', embeddable: true, embedUrl: url }
   }
 
+  // Vimeo: reproductor embebible estándar.
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d{6,})/)
+  if (vimeo) {
+    return { origen: 'vimeo', embeddable: true, embedUrl: `https://player.vimeo.com/video/${vimeo[1]}` }
+  }
+
+  // Jitsi Meet (clases en vivo): el enlace de la sala se embebe tal cual en un iframe.
+  // Sirve para meet.jit.si y para cualquier servidor propio de Jitsi (meet.midominio.com).
+  // Nota: Google Meet y Microsoft Teams NO permiten iframe; para esos se usa un recurso
+  // de tipo "enlace" que muestra un botón "Unirse" que abre la reunión en otra pestaña.
+  if (/^https?:\/\/([a-z0-9-]+\.)*jit\.si\//i.test(url)) {
+    return { origen: 'jitsi', embeddable: true, embedUrl: url }
+  }
+
   return externo
 }
 
@@ -3238,7 +3252,8 @@ function EmbedFrame({ url }) {
   const { embedUrl } = analizarUrl(url)
   return (
     <div className="embed-wrapper">
-      <iframe src={embedUrl || url} className="embed-iframe" title="Material" allowFullScreen />
+      <iframe src={embedUrl || url} className="embed-iframe" title="Material"
+              allow="camera; microphone; display-capture; fullscreen; picture-in-picture; clipboard-write" allowFullScreen />
     </div>
   )
 }
