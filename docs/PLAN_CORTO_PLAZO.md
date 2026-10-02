@@ -94,7 +94,7 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 
 ## 4. Qué ya hice hoy (sin costo ni riesgo de producción)
 
-1. **Código:** soporte de **Jitsi** (clases en vivo) y **Vimeo** en `analizarUrl()`, + permisos de cámara/micrófono en `iframe`. **Build verificado (`EXIT=0`).** *Pendiente de publicar (requiere tu OK).*
+1. **Código:** soporte de **Jitsi** (clases en vivo) y **Vimeo** en `analizarUrl()`, + permisos de cámara/micrófono en `iframe`. **Build verificado (`EXIT=0`, bundle `index-4a3ee28d.js`).** Commits `b655b45` (Jitsi) y `a58ff09` (beacon), ambos **pusheados a GitHub**. ⚠️ El `wrangler deploy` **falló por falta de token** (`CLOUDFLARE_API_TOKEN`), así que el sitio en vivo **aún no muestra** estos cambios; ver §7.
 2. **Documento:** este plan.
 3. *(Sesión previa)* Restauré y respaldé tus utilidades del 29/09 (commit `0ed7399`).
 
