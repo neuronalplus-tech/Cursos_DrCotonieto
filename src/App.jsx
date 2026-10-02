@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { createClient } from '@supabase/supabase-js'
 import * as pdfjsLib from 'pdfjs-dist'
@@ -31,7 +32,7 @@ const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/
 
 const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
 const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyiDMX83dBAAgTqx5W_CBE_Z9nrcTeseuJ7jEMqDc8CL5fR0_9EmC4gpPhY1wluGC6ELA/exec'
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaFRDWlDPc0iAlfRBk7GecFWq77O2DgNg7tRSd9fUw-vNfTLZwCphLOszDZ7luNhOKTQ/exec'
 
 const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',
@@ -179,6 +180,15 @@ function esCursoProblemasContemporaneos(curso) {
   return t.includes('problemas') && t.includes('contempor')
 }
 
+// Todo modal se monta con un portal directo a <body>. Sin esto, un modal
+// renderizado dentro de una tarjeta con hover (transform: translateY en .course-card,
+// por ejemplo) queda "atrapado" dentro de esa tarjeta en vez de cubrir toda la
+// pantalla: cualquier ancestro con transform/filter crea un nuevo containing block
+// para position:fixed, así que el modal se ve chico y parpadea al entrar/salir del hover.
+function ModalPortal({ children }) {
+  return createPortal(children, document.body)
+}
+
 function normalizarTexto(s) {
   return (s || '')
     .toString()
@@ -186,6 +196,44 @@ function normalizarTexto(s) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
+}
+
+// Detecta la procedencia de un link (YouTube, Google Drive, OneDrive, otro)
+// y devuelve la versi\u00f3n embebible cuando es posible. Los links de OneDrive
+// cortos (1drv.ms) o de SharePoint no se pueden convertir de forma confiable
+// sin resolver el redirect en el servidor, as\u00ed que se quedan como "externo".
+function analizarUrl(url) {
+  const externo = { origen: 'externo', embeddable: false, embedUrl: null }
+  if (!url || typeof url !== 'string') return externo
+
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/)
+  if (yt) {
+    return { origen: 'youtube', embeddable: true, embedUrl: `https://www.youtube.com/embed/${yt[1]}` }
+  }
+
+  const drive = url.match(/drive\.google\.com\/(?:file\/d\/([a-zA-Z0-9_-]+)|open\?id=([a-zA-Z0-9_-]+))/)
+  if (drive) {
+    const id = drive[1] || drive[2]
+    return { origen: 'googledrive', embeddable: true, embedUrl: `https://drive.google.com/file/d/${id}/preview` }
+  }
+
+  const oneDriveLive = url.match(/onedrive\.live\.com\/[^\s]*resid=[^&\s]+/i)
+  if (oneDriveLive) {
+    const embedUrl = url.replace(/onedrive\.live\.com\/(?:redir|view\.aspx)?/i, 'onedrive.live.com/embed')
+    return { origen: 'onedrive', embeddable: true, embedUrl }
+  }
+
+  if (/1drv\.ms|sharepoint\.com/i.test(url)) {
+    return { origen: 'onedrive', embeddable: false, embedUrl: null }
+  }
+
+  // Microsoft Forms: pega el link que da la opción "Compartir → Insertar código (Embed)".
+  // Ese link ya viene listo para iframe, no hace falta transformarlo.
+  if (/forms\.office\.com|forms\.microsoft\.com|forms\.office365\.com/i.test(url)) {
+    return { origen: 'msforms', embeddable: true, embedUrl: url }
+  }
+
+  return externo
 }
 
 /* ============================================================
@@ -517,7 +565,7 @@ function Header({ user, esAdmin, onLogout, nombreUsuario }) {
         <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
              onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
           <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="logo-header" />
-          <span className="brand-name">Dr. Ernesto Cotonieto CANARIO-2026</span>
+          <span className="brand-name">Dr. Ernesto Cotonieto</span>
         </div>
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
         <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
@@ -597,9 +645,11 @@ function Login({ message }) {
 /* ============================================================
    TARJETA DE CURSO
    ============================================================ */
-function CursoCard({ curso, user, tieneAcceso }) {
+function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
+  const [curso, setCurso] = useState(cursoProp)
   const [abierto, setAbierto] = useState(false)
   const [abiertoCustom, setAbiertoCustom] = useState(false)
+  const [editandoTaller, setEditandoTaller] = useState(false)
   const navigate = useNavigate()
   const gratis = !!curso.gratuito
   const prox = !!curso.proximamente
@@ -607,6 +657,39 @@ function CursoCard({ curso, user, tieneAcceso }) {
   const mostrarCustom = !gratis && !prox && !esContenedor
   const especial = cursoEspecial(curso)
   const tieneDetalles = !!especial
+
+  const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
+  const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
+  const botonesExtra = curso.botones_extra || []
+
+  const toggleGrabacion = async () => {
+    const nuevo = curso.grabacion_activo === false
+    const { error } = await supabase.from('cursos').update({ grabacion_activo: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error: ' + error.message); return }
+    setCurso(c => ({ ...c, grabacion_activo: nuevo }))
+  }
+
+  const toggleRegistro = async () => {
+    const nuevo = curso.registro_activo === false
+    const { error } = await supabase.from('cursos').update({ registro_activo: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error: ' + error.message); return }
+    setCurso(c => ({ ...c, registro_activo: nuevo }))
+  }
+
+  const toggleProximamente = async () => {
+    const nuevo = !curso.proximamente
+    if (nuevo === true) {
+      const ok = window.confirm(
+        '¿Seguro que quieres marcar este curso como "Próximamente"?\n\n' +
+        'Se oculta de inmediato para todo el público y solo queda visible el botón de WhatsApp. ' +
+        'Puedes reabrirlo cuando quieras desde este mismo candado.'
+      )
+      if (!ok) return
+    }
+    const { error } = await supabase.from('cursos').update({ proximamente: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error: ' + error.message); return }
+    setCurso(c => ({ ...c, proximamente: nuevo }))
+  }
 
   if (esContenedor) {
     return (
@@ -696,32 +779,78 @@ function CursoCard({ curso, user, tieneAcceso }) {
             </Link>
           )}
           {prox ? (
-            <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
-               href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>
-              Me interesa · avísame
-            </a>
+            esAdmin ? (
+              <>
+                <p className="nota" style={{ marginTop: 0 }}>🔒 Marcado como "Próximamente" — el público solo ve el botón de WhatsApp.</p>
+                <div className="card-boton-admin">
+                  <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar (vista admin) →</Link>
+                  <button type="button" className="candado-toggle cerrado" onClick={toggleProximamente} title="Abrir al público">
+                    🔒
+                  </button>
+                </div>
+                {gratis && (
+                  <button type="button" className="button texto ancho" onClick={() => setEditandoTaller(true)}>
+                    ✏️ Editar links y textos
+                  </button>
+                )}
+              </>
+            ) : (
+              <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
+                 href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>
+                Me interesa · avísame
+              </a>
+            )
           ) : gratis ? (
             <>
               <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar al taller</Link>
 
-              {curso.link_sesion_vivo ? (
-                <a className="button azul ancho" target="_blank" rel="noopener noreferrer" href={curso.link_sesion_vivo}>
-                  📅 Registrarme a la sesión en vivo
-                </a>
-              ) : (
-                <a className="button azul ancho" target="_blank" rel="noopener noreferrer"
-                   href={wa(`Hola, me interesa el taller "${curso.titulo}". ¿Me avisas cuando abra el registro?`)}>
-                  📅 Próximamente — avísame
-                </a>
+              {curso.link_registro && (
+                <div className="card-boton-admin">
+                  {registroAbierto ? (
+                    <a className="button azul ancho" target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
+                      {curso.registro_texto || '📅 Registrarme a la sesión en vivo'}
+                    </a>
+                  ) : (
+                    <button className="button secondary ancho" disabled>🔒 Registro cerrado</button>
+                  )}
+                  {esAdmin && (
+                    <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
+                            onClick={toggleRegistro}
+                            title={curso.registro_activo === false ? 'Activar botón' : 'Desactivar botón'}>
+                      {curso.registro_activo === false ? '🔒' : '🔓'}
+                    </button>
+                  )}
+                </div>
               )}
 
-              {curso.link_grabacion ? (
-                <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
-                  🎬 Ver grabación
+              {botonesExtra.map((b, i) => (
+                <a key={i} className={`button ${b.estilo || 'azul'} ancho`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                  {b.texto}
                 </a>
-              ) : (
-                <button className="button secondary ancho" disabled>
-                  🎬 Grabación en proceso
+              ))}
+
+              <div className="card-boton-admin">
+                {grabacionAbierta ? (
+                  <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
+                    {curso.grabacion_texto || '🎬 Ver grabación'}
+                  </a>
+                ) : (
+                  <button className="button secondary ancho" disabled>
+                    🎬 Grabación en proceso
+                  </button>
+                )}
+                {esAdmin && curso.link_grabacion && (
+                  <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
+                          onClick={toggleGrabacion}
+                          title={curso.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
+                    {curso.grabacion_activo === false ? '🔒' : '🔓'}
+                  </button>
+                )}
+              </div>
+
+              {esAdmin && (
+                <button type="button" className="button texto ancho" onClick={() => setEditandoTaller(true)}>
+                  ✏️ Editar links y textos
                 </button>
               )}
             </>
@@ -741,6 +870,11 @@ function CursoCard({ curso, user, tieneAcceso }) {
           )}
         </div>
       </div>
+
+      {editandoTaller && (
+        <ModalEditarTaller curso={curso} onClose={() => setEditandoTaller(false)}
+                            onGuardado={(c) => setCurso(c)} />
+      )}
     </article>
   )
 }
@@ -748,7 +882,7 @@ function CursoCard({ curso, user, tieneAcceso }) {
 /* ============================================================
    HOME
    ============================================================ */
-function Home({ user }) {
+function Home({ user, esAdmin }) {
   const [cursos, setCursos] = useState([])
   const [accesos, setAccesos] = useState(new Set())
   const [loading, setLoading] = useState(true)
@@ -828,7 +962,7 @@ function Home({ user }) {
           <p className="aviso-error">El catálogo está vacío. Si acabas de publicar, recarga en un momento.</p>}
         {!loading && disponibles.length > 0 && (
           <div className="course-grid">
-            {disponibles.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={accesos.has(c.id)} />)}
+            {disponibles.map((c) => <CursoCard key={c.id} curso={c} user={user} esAdmin={esAdmin} tieneAcceso={accesos.has(c.id)} />)}
           </div>
         )}
         {!loading && !error && cursos.length > 0 && lineaActiva !== 'todas' && disponibles.length === 0 && proximos.length === 0 && (
@@ -844,7 +978,7 @@ function Home({ user }) {
             así también sé qué producir primero.
           </p>
           <div className="course-grid">
-            {proximos.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={false} />)}
+            {proximos.map((c) => <CursoCard key={c.id} curso={c} user={user} esAdmin={esAdmin} tieneAcceso={false} />)}
           </div>
         </section>
       )}
@@ -2956,6 +3090,7 @@ function Admin({ user, esAdmin }) {
       )}
 
       {editorHtmlAbierto && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={() => setEditorHtmlAbierto(false)}>
           <div className="modal-box modal-html" onClick={e => e.stopPropagation()}>
             <h3>Código HTML del mensaje</h3>
@@ -2968,9 +3103,11 @@ function Admin({ user, esAdmin }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {modalNotas && (
+        <ModalPortal>
         <div className="modal-overlay" onClick={() => !guardandoNota && setModalNotas(null)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <h3>Notas privadas</h3>
@@ -2988,9 +3125,11 @@ function Admin({ user, esAdmin }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {confirmacion && (
+        <ModalPortal>
         <div className="modal-overlay">
           <div className="modal-box modal-confirm">
             <h3>⚠️ Confirmar acción</h3>
@@ -3002,6 +3141,7 @@ function Admin({ user, esAdmin }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       <BandaRedes />
@@ -3084,10 +3224,21 @@ function PdfPage({ page, n, total }) {
    ============================================================ */
 function VideoPlayer({ url }) {
   if (!url) return <div className="aviso-error">La grabación todavía no está disponible. La subiré pronto.</div>
+  const { embeddable, embedUrl } = analizarUrl(url)
+  const src = embeddable ? embedUrl : url
   return (
     <div className="video-wrapper">
-      <iframe src={url} className="video-iframe" title="Video del curso"
+      <iframe src={src} className="video-iframe" title="Video del curso"
               allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+    </div>
+  )
+}
+
+function EmbedFrame({ url }) {
+  const { embedUrl } = analizarUrl(url)
+  return (
+    <div className="embed-wrapper">
+      <iframe src={embedUrl || url} className="embed-iframe" title="Material" allowFullScreen />
     </div>
   )
 }
@@ -3192,6 +3343,7 @@ function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
   }
 
   return (
+    <ModalPortal>
     <div className="modal-overlay" onClick={() => !guardando && onClose()}>
       <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
         <h3>{esNuevo ? '➕ Nuevo recurso' : '✏️ Editar recurso'}</h3>
@@ -3216,12 +3368,15 @@ function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
         {['video', 'enlace', 'autoevaluacion'].includes(form.tipo) && (
           <>
             <label>
-              URL {form.tipo === 'video' ? '(embed)' : form.tipo === 'autoevaluacion' ? '(Google Forms)' : ''}
+              URL {form.tipo === 'autoevaluacion' ? '(Google Forms)' : ''}
             </label>
             <input type="url" value={form.url} onChange={e => set('url', e.target.value)}
                    placeholder="https://..." />
             {form.tipo === 'video' && (
-              <p className="nota">Para YouTube usa: <code>https://www.youtube.com/embed/VIDEO_ID</code></p>
+              <p className="nota">Pega el link tal cual (YouTube o Google Drive). Se convierte a reproductor automáticamente.</p>
+            )}
+            {form.tipo === 'enlace' && (
+              <p className="nota">Si es de YouTube, Google Drive o OneDrive, se mostrará dentro de la plataforma además del botón para abrirlo aparte.</p>
             )}
           </>
         )}
@@ -3254,14 +3409,298 @@ function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   )
 }
 
-function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdmin, onEditar }) {
+function ModalDuplicarModulo({ modulo, recursos, onClose }) {
+  const navigate = useNavigate()
+  const [cursosLista, setCursosLista] = useState([])
+  const [cursoDestino, setCursoDestino] = useState('')
+  const [titulo, setTitulo] = useState(modulo.titulo)
+  const [grupo, setGrupo] = useState(modulo.grupo || '')
+  const [orden, setOrden] = useState(modulo.orden ?? 100)
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [resultado, setResultado] = useState(null)
+
+  useEffect(() => {
+    supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
+      .then(({ data }) => {
+        setCursosLista(data || [])
+        if (data?.length) setCursoDestino(String(modulo.curso_id))
+      })
+  }, [modulo.curso_id])
+
+  const duplicar = async () => {
+    if (!cursoDestino) { setMsg('Elige un curso destino'); return }
+    if (!titulo.trim()) { setMsg('El título es obligatorio'); return }
+    setGuardando(true); setMsg('')
+    try {
+      const { data: nuevoModulo, error: eM } = await supabase.from('modulos').insert({
+        curso_id:    parseInt(cursoDestino, 10),
+        titulo:      titulo.trim(),
+        descripcion: modulo.descripcion || null,
+        orden:       parseInt(orden, 10) || 100,
+        grupo:       grupo.trim() || null,
+        oculto:      modulo.oculto ?? false,
+        disponible:  modulo.disponible ?? true,
+        activo:      true,
+      }).select().single()
+      if (eM) throw eM
+
+      if (recursos.length) {
+        const payload = recursos.map(r => ({
+          modulo_id:   nuevoModulo.id,
+          tipo:        r.tipo,
+          titulo:      r.titulo,
+          descripcion: r.descripcion,
+          url:         r.url,
+          archivo:     r.archivo,
+          contenido:   r.contenido,
+          orden:       r.orden,
+        }))
+        const { error: eR } = await supabase.from('recursos').insert(payload)
+        if (eR) throw eR
+      }
+
+      setResultado(nuevoModulo)
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>📋 Duplicar módulo</h3>
+
+        {resultado ? (
+          <>
+            <p className="aviso-ok">
+              "{resultado.titulo}" se creó con {recursos.length} recurso(s) copiado(s).
+            </p>
+            <div className="modal-botones" style={{ marginTop: 18 }}>
+              <button type="button" className="button secondary" onClick={onClose}>Cerrar</button>
+              <button type="button" className="button primary" onClick={() => navigate(`/modulo/${resultado.id}`)}>
+                Ir al módulo nuevo →
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="nota" style={{ marginTop: 0 }}>
+              Copia el título, la descripción y los {recursos.length} recurso(s) de "{modulo.titulo}" a un módulo nuevo,
+              en el curso y subgrupo que elijas. Los archivos y enlaces se comparten, no se duplican en Storage.
+            </p>
+
+            <label>Curso destino</label>
+            <select value={cursoDestino} onChange={e => setCursoDestino(e.target.value)}>
+              <option value="">— Elige un curso —</option>
+              {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+            </select>
+
+            <label>Título del módulo nuevo</label>
+            <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} />
+
+            <label>Subgrupo (grupo)</label>
+            <input type="text" value={grupo} onChange={e => setGrupo(e.target.value)}
+                   placeholder="Ej. Clínica — vacío = visible para todo el curso" />
+
+            <label>Orden</label>
+            <input type="number" value={orden} onChange={e => setOrden(e.target.value)} />
+
+            {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+            <div className="modal-botones" style={{ marginTop: 18 }}>
+              <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+              <button type="button" className="button primary" onClick={duplicar} disabled={guardando}>
+                {guardando ? 'Duplicando...' : `Duplicar con ${recursos.length} recurso(s)`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+function ModalDuplicarRecurso({ recurso, cursoActualId, onClose }) {
+  const navigate = useNavigate()
+  const [cursosLista, setCursosLista] = useState([])
+  const [cursoDestino, setCursoDestino] = useState(cursoActualId ? String(cursoActualId) : '')
+  const [modulosDestino, setModulosDestino] = useState([])
+  const [moduloDestinoId, setModuloDestinoId] = useState('')
+  const [cargandoModulos, setCargandoModulos] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [resultado, setResultado] = useState(null)
+
+  useEffect(() => {
+    supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
+      .then(({ data }) => setCursosLista(data || []))
+  }, [])
+
+  useEffect(() => {
+    if (!cursoDestino) { setModulosDestino([]); setModuloDestinoId(''); return }
+    setCargandoModulos(true)
+    supabase.from('modulos').select('id, titulo, grupo').eq('curso_id', cursoDestino).eq('activo', true).order('orden')
+      .then(({ data }) => { setModulosDestino(data || []); setModuloDestinoId(''); setCargandoModulos(false) })
+  }, [cursoDestino])
+
+  const duplicar = async () => {
+    if (!moduloDestinoId) { setMsg('Elige un módulo destino'); return }
+    setGuardando(true); setMsg('')
+    try {
+      const { data, error } = await supabase.from('recursos').insert({
+        modulo_id:   parseInt(moduloDestinoId, 10),
+        tipo:        recurso.tipo,
+        titulo:      recurso.titulo,
+        descripcion: recurso.descripcion,
+        url:         recurso.url,
+        archivo:     recurso.archivo,
+        contenido:   recurso.contenido,
+        orden:       recurso.orden,
+      }).select().single()
+      if (error) throw error
+      setResultado(data)
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>📋 Duplicar recurso</h3>
+
+        {resultado ? (
+          <>
+            <p className="aviso-ok">"{recurso.titulo}" se copió al módulo destino.</p>
+            <div className="modal-botones" style={{ marginTop: 18 }}>
+              <button type="button" className="button secondary" onClick={onClose}>Cerrar</button>
+              <button type="button" className="button primary" onClick={() => navigate(`/modulo/${resultado.modulo_id}`)}>
+                Ir al módulo →
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="nota" style={{ marginTop: 0 }}>
+              Copia "{recurso.titulo}" a otro módulo (de cualquier curso). El archivo o enlace se comparte, no se duplica.
+            </p>
+
+            <label>Curso destino</label>
+            <select value={cursoDestino} onChange={e => setCursoDestino(e.target.value)}>
+              <option value="">— Elige un curso —</option>
+              {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+            </select>
+
+            <label>Módulo destino</label>
+            <select value={moduloDestinoId} onChange={e => setModuloDestinoId(e.target.value)} disabled={!cursoDestino || cargandoModulos}>
+              <option value="">{cargandoModulos ? 'Cargando...' : '— Elige un módulo —'}</option>
+              {modulosDestino.map(m => (
+                <option key={m.id} value={m.id}>{m.titulo}{m.grupo ? ` (${m.grupo})` : ''}</option>
+              ))}
+            </select>
+
+            {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+            <div className="modal-botones" style={{ marginTop: 18 }}>
+              <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+              <button type="button" className="button primary" onClick={duplicar} disabled={guardando}>
+                {guardando ? 'Duplicando...' : 'Duplicar recurso'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
+  const [emails, setEmails] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const parsearEmailsLocal = (texto) => texto
+    .split(/[,;\n\r\t ]+/)
+    .map(e => e.trim().toLowerCase())
+    .filter(e => e && e.includes('@') && e.includes('.'))
+    .filter((e, i, arr) => arr.indexOf(e) === i)
+
+  const destinatarios = parsearEmailsLocal(emails)
+  const link = `${window.location.origin}/modulo/${modulo.id}#r-${recurso.id}`
+
+  const enviar = async () => {
+    if (destinatarios.length === 0) { setMsg('Pega al menos un correo válido'); return }
+    setEnviando(true); setMsg('')
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          tipo: 'recurso-nuevo',
+          curso: { titulo: curso?.titulo || modulo.titulo, url: link },
+          recurso: { titulo: recurso.titulo, descripcion: recurso.descripcion || '' },
+          alumnos: destinatarios.map(email => ({ email, nombre_completo: '' })),
+        })
+      })
+      setMsg(`✓ Enviado a Google Apps Script (${destinatarios.length} correo(s))`)
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !enviando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>📧 Notificar recurso nuevo</h3>
+        <p className="nota" style={{ marginTop: 0 }}>
+          Pega los correos de quienes deben enterarse de "{recurso.titulo}". Se les manda un correo con el link directo
+          al recurso dentro de la plataforma. Úsalo para talleres gratuitos donde no hay inscripción formal.
+        </p>
+
+        <label>Correos (separados por coma, punto y coma o salto de línea)</label>
+        <textarea rows="5" value={emails} onChange={e => setEmails(e.target.value)}
+                  placeholder="alumno1@correo.com, alumno2@correo.com..."
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
+        <p className="nota" style={{ marginTop: 6 }}>{destinatarios.length} correo(s) válido(s) detectado(s)</p>
+        <p className="nota" style={{ marginTop: 6 }}>Link que se incluirá: <code>{link}</code></p>
+
+        {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={enviando}>Cerrar</button>
+          <button type="button" className="button whatsapp" onClick={enviar} disabled={enviando || destinatarios.length === 0}>
+            {enviando ? 'Enviando...' : `Notificar a ${destinatarios.length} correo(s)`}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdmin, onEditar, onDuplicar, onNotificar, onToggleDisponible, esGratuito }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
-  const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo)
+  const enlaceEmbebible = recurso.tipo === 'enlace' && analizarUrl(recurso.url).embeddable
+  const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo) || enlaceEmbebible
   const videoSinUrl = recurso.tipo === 'video' && (!recurso.url || recurso.url === 'PENDIENTE')
+  const bloqueado = recurso.disponible === false && !esAdmin
 
   const abrirNuevaPestana = async () => {
     setOcupado(true)
@@ -3301,8 +3740,26 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdmin, onE
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           {visto && <span className="badge ok">✔ Visto</span>}
+          {esAdmin && recurso.disponible === false && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
+          {esAdmin && onToggleDisponible && (
+            <button type="button" className={`candado-toggle ${recurso.disponible === false ? 'cerrado' : 'abierto'}`}
+                    onClick={() => onToggleDisponible(recurso)}
+                    title={recurso.disponible === false ? 'Abrir recurso' : 'Cerrar recurso'}>
+              {recurso.disponible === false ? '🔒' : '🔓'}
+            </button>
+          )}
+          {esAdmin && esGratuito && onNotificar && (
+            <button type="button" className="recurso-edit-btn" onClick={() => onNotificar(recurso)} title="Notificar por correo">
+              📧 Notificar
+            </button>
+          )}
+          {esAdmin && onDuplicar && (
+            <button type="button" className="recurso-edit-btn" onClick={() => onDuplicar(recurso)} title="Duplicar recurso">
+              📋 Duplicar
+            </button>
+          )}
           {esAdmin && onEditar && (
             <button type="button" className="recurso-edit-btn"
                     onClick={() => onEditar(recurso)}
@@ -3315,35 +3772,44 @@ function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdmin, onE
 
       {recurso.descripcion && <p className="recurso-desc">{recurso.descripcion}</p>}
 
-      <div className="recurso-acciones">
-        {colapsable && !videoSinUrl && (
-          <button className={`button ${abierto ? 'secondary' : 'primary'}`} onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
-            {abierto ? 'Ocultar material' : 'Ver material'}
-          </button>
-        )}
-        {videoSinUrl && <button className="button secondary" disabled>🎬 Grabación en proceso</button>}
-        {recurso.tipo === 'enlace' && (
-          <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
-        )}
-        {recurso.tipo === 'pdf' && (
-          <button className="button secondary" onClick={abrirNuevaPestana} disabled={ocupado}>
-            {ocupado ? 'Abriendo...' : 'Abrir en pestaña nueva ↗'}
-          </button>
-        )}
-        {recurso.tipo === 'word' && (
-          <button className="button primary" onClick={descargar} disabled={ocupado}>
-            {ocupado ? 'Descargando...' : 'Descargar documento'}
-          </button>
-        )}
-        {user && !visto && recurso.tipo !== 'autoevaluacion' && !videoSinUrl && (
-          <button className="button texto" onClick={() => onMarcarVisto(recurso.id)}>Marcar como visto</button>
-        )}
-      </div>
+      {bloqueado ? (
+        <div className="recurso-acciones">
+          <button className="button secondary" disabled>🔒 Próximamente</button>
+        </div>
+      ) : (
+        <>
+          <div className="recurso-acciones">
+            {colapsable && !videoSinUrl && (
+              <button className={`button ${abierto ? 'secondary' : 'primary'}`} onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
+                {abierto ? 'Ocultar material' : 'Ver material'}
+              </button>
+            )}
+            {videoSinUrl && <button className="button secondary" disabled>🎬 Grabación en proceso</button>}
+            {recurso.tipo === 'enlace' && (
+              <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
+            )}
+            {recurso.tipo === 'pdf' && (
+              <button className="button secondary" onClick={abrirNuevaPestana} disabled={ocupado}>
+                {ocupado ? 'Abriendo...' : 'Abrir en pestaña nueva ↗'}
+              </button>
+            )}
+            {recurso.tipo === 'word' && (
+              <button className="button primary" onClick={descargar} disabled={ocupado}>
+                {ocupado ? 'Descargando...' : 'Descargar documento'}
+              </button>
+            )}
+            {user && !visto && recurso.tipo !== 'autoevaluacion' && !videoSinUrl && (
+              <button className="button texto" onClick={() => onMarcarVisto(recurso.id)}>Marcar como visto</button>
+            )}
+          </div>
+        </>
+      )}
 
-      {abierto && (
+      {!bloqueado && abierto && (
         <div className="recurso-contenido">
           {recurso.tipo === 'pdf' && <PdfViewer archivo={recurso.archivo} bucket={bucket} />}
           {recurso.tipo === 'video' && <VideoPlayer url={recurso.url} />}
+          {enlaceEmbebible && <EmbedFrame url={recurso.url} />}
           {recurso.tipo === 'autoevaluacion' && user &&
             <Autoevaluacion url={recurso.url} recursoId={recurso.id} userId={user.id} onComplete={() => onMarcarVisto(recurso.id)} />}
         </div>
@@ -3519,6 +3985,492 @@ function ExamenModulo({ moduloId, user }) {
   )
 }
 
+function ModalEditarBotonesRuta({ curso, grupo, onClose, onGuardado }) {
+  const [botones, setBotones] = useState(curso.rutas_botones?.[grupo]?.length ? curso.rutas_botones[grupo] : [])
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const guardar = async () => {
+    setGuardando(true); setMsg('')
+    try {
+      const botonesValidos = botones.filter(b => b.texto.trim() && b.url.trim())
+      const nuevoMapa = { ...(curso.rutas_botones || {}), [grupo]: botonesValidos }
+      const { data, error } = await supabase.from('cursos')
+        .update({ rutas_botones: nuevoMapa }).eq('id', curso.id).select().single()
+      if (error) throw error
+      onGuardado(data)
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>🔗 Botones de "{grupo}"</h3>
+        <p className="nota" style={{ marginTop: 0 }}>
+          Se muestran arriba de los módulos de esta ruta/subgrupo, para todos. Bórralos cuando ya no apliquen.
+        </p>
+        <EditorBotonesExtra botones={botones} onChange={setBotones} />
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+function ModalNuevoModulo({ cursoId, orden, onClose, onCreado }) {
+  const [titulo, setTitulo] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [grupo, setGrupo] = useState('')
+  const [ordenVal, setOrdenVal] = useState(orden ?? 100)
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const crear = async () => {
+    if (!titulo.trim()) { setMsg('El título es obligatorio'); return }
+    setGuardando(true); setMsg('')
+    try {
+      const { data, error } = await supabase.from('modulos').insert({
+        curso_id:    cursoId,
+        titulo:      titulo.trim(),
+        descripcion: descripcion.trim() || null,
+        orden:       parseInt(ordenVal, 10) || 100,
+        grupo:       grupo.trim() || null,
+        oculto:      false,
+        disponible:  true,
+        activo:      true,
+      }).select().single()
+      if (error) throw error
+      onCreado(data)
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>➕ Nuevo módulo</h3>
+
+        <label>Título</label>
+        <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
+               placeholder="Ej. Grabación del taller" />
+
+        <label>Descripción</label>
+        <textarea rows="3" value={descripcion} onChange={e => setDescripcion(e.target.value)}
+                  placeholder="Texto que aparece debajo del título" />
+
+        <label>Subgrupo (grupo)</label>
+        <input type="text" value={grupo} onChange={e => setGrupo(e.target.value)}
+               placeholder="Vacío = visible para todo el curso" />
+
+        <label>Orden</label>
+        <input type="number" value={ordenVal} onChange={e => setOrdenVal(e.target.value)} />
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={crear} disabled={guardando}>
+            {guardando ? 'Creando...' : 'Crear módulo'}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+const ESTILOS_BOTON = [
+  { valor: 'primary',   etiqueta: 'Oscuro sólido' },
+  { valor: 'secondary', etiqueta: 'Contorno' },
+  { valor: 'azul',      etiqueta: 'Azul' },
+  { valor: 'whatsapp',  etiqueta: 'Verde WhatsApp' },
+]
+
+// Editor reutilizable de "botones libres" — lo usan curso, módulo y ruta/subgrupo.
+// El padre es dueño del estado (botones + onChange); este componente es solo la UI.
+function EditorBotonesExtra({ botones, onChange }) {
+  const actualizar = (i, campo, valor) =>
+    onChange(botones.map((b, idx) => idx === i ? { ...b, [campo]: valor } : b))
+  const agregar = () => onChange([...botones, { texto: '', url: '', estilo: 'azul' }])
+  const eliminar = (i) => onChange(botones.filter((_, idx) => idx !== i))
+
+  return (
+    <>
+      {botones.map((b, i) => (
+        <div key={i} className="boton-extra-fila">
+          <select value={b.estilo} onChange={e => actualizar(i, 'estilo', e.target.value)}>
+            {ESTILOS_BOTON.map(e => <option key={e.valor} value={e.valor}>{e.etiqueta}</option>)}
+          </select>
+          <input type="text" placeholder="Texto del botón" value={b.texto}
+                 onChange={e => actualizar(i, 'texto', e.target.value)} />
+          <input type="url" placeholder="https://..." value={b.url}
+                 onChange={e => actualizar(i, 'url', e.target.value)} />
+          <button type="button" className="boton-extra-quitar" onClick={() => eliminar(i)} title="Quitar botón">✕</button>
+        </div>
+      ))}
+      <button type="button" className="button secondary" style={{ marginTop: 8 }} onClick={agregar}>
+        ➕ Agregar botón
+      </button>
+    </>
+  )
+}
+
+function ModalEditarBotonesModulo({ modulo, onClose, onGuardado }) {
+  const [botones, setBotones] = useState(modulo.botones_extra?.length ? modulo.botones_extra : [])
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const guardar = async () => {
+    setGuardando(true); setMsg('')
+    try {
+      const botonesValidos = botones.filter(b => b.texto.trim() && b.url.trim())
+      const { data, error } = await supabase.from('modulos')
+        .update({ botones_extra: botonesValidos }).eq('id', modulo.id).select().single()
+      if (error) throw error
+      onGuardado(data)
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>🔗 Botones de "{modulo.titulo}"</h3>
+        <p className="nota" style={{ marginTop: 0 }}>
+          Se muestran arriba del módulo, para todos. Útil para un registro puntual, una liga de examen, etc.
+          Bórralos cuando ya no apliquen.
+        </p>
+        <EditorBotonesExtra botones={botones} onChange={setBotones} />
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+function ModalEditarTaller({ curso, onClose, onGuardado }) {
+  const [form, setForm] = useState({
+    fecha_sesion:    curso.fecha_sesion || '',
+    link_registro:   curso.link_registro || '',
+    registro_texto:  curso.registro_texto || '',
+    link_grabacion:  curso.link_grabacion || '',
+    grabacion_texto: curso.grabacion_texto || '',
+    link_materiales: curso.link_materiales || '',
+    botones_extra:   curso.botones_extra?.length ? curso.botones_extra : [],
+  })
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const guardar = async () => {
+    setGuardando(true); setMsg('')
+    try {
+      const botonesValidos = form.botones_extra.filter(b => b.texto.trim() && b.url.trim())
+      const payload = {
+        fecha_sesion:    form.fecha_sesion.trim() || null,
+        link_registro:   form.link_registro.trim() || null,
+        registro_texto:  form.registro_texto.trim() || null,
+        link_grabacion:  form.link_grabacion.trim() || null,
+        grabacion_texto: form.grabacion_texto.trim() || null,
+        link_materiales: form.link_materiales.trim() || null,
+        botones_extra:   botonesValidos,
+      }
+      const { data, error } = await supabase.from('cursos').update(payload).eq('id', curso.id).select().single()
+      if (error) throw error
+      onGuardado(data)
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal>
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>✏️ Editar taller</h3>
+
+        <label>Fecha y hora de la sesión (texto libre)</label>
+        <input type="text" value={form.fecha_sesion} onChange={e => set('fecha_sesion', e.target.value)}
+               placeholder="Ej. 13 de septiembre de 2026 · 7:30 – 9:00 pm (CST)" />
+
+        <label>Link de registro a la sesión en vivo</label>
+        <input type="url" value={form.link_registro} onChange={e => set('link_registro', e.target.value)}
+               placeholder="https://forms.office.com/..." />
+        <p className="nota">
+          Si es de Microsoft Forms o Google Forms (usa el link de "Insertar código/Embed"), se puede mostrar
+          incrustado en la página. Cualquier otro link solo abre aparte.
+        </p>
+
+        <label>Texto del botón (cuando está activo)</label>
+        <input type="text" value={form.registro_texto} onChange={e => set('registro_texto', e.target.value)}
+               placeholder="📅 Registrarme a la sesión en vivo" />
+        <p className="nota">
+          El candado 🔓/🔒 lo prende o apaga sin borrar el link — ciérralo en cuanto la sesión ya se haya dado.
+        </p>
+
+        <label>Link de la grabación</label>
+        <input type="url" value={form.link_grabacion} onChange={e => set('link_grabacion', e.target.value)}
+               placeholder="https://..." />
+        <p className="nota">Acceso directo para cualquier visitante, sin pedir correo.</p>
+
+        <label>Texto del botón (cuando está activo)</label>
+        <input type="text" value={form.grabacion_texto} onChange={e => set('grabacion_texto', e.target.value)}
+               placeholder="🎬 Ver grabación" />
+        <p className="nota">
+          El candado 🔓/🔒 junto a este botón en la tarjeta del curso lo prende o apaga sin borrar el link.
+        </p>
+
+        <label>Link de materiales</label>
+        <input type="url" value={form.link_materiales} onChange={e => set('link_materiales', e.target.value)}
+               placeholder="https://..." />
+        <p className="nota">A los visitantes sin cuenta se les pide su correo antes de mostrarles este link.</p>
+
+        <label>Botones adicionales (ej. registro a una sesión en vivo)</label>
+        <p className="nota" style={{ marginTop: 0 }}>
+          Agrégalos cuando programes algo y bórralos cuando ya pasó — no se quedan mostrando un "próximamente" viejo.
+        </p>
+        <EditorBotonesExtra botones={form.botones_extra} onChange={(b) => set('botones_extra', b)} />
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+function TallerRecursos({ curso, user, esAdmin, onActualizado }) {
+  const [editando, setEditando] = useState(false)
+  const [emailLead, setEmailLead] = useState('')
+  const [solicitando, setSolicitando] = useState(false)
+  const [desbloqueado, setDesbloqueado] = useState(false)
+  const [msgLead, setMsgLead] = useState('')
+  const [verGrabacion, setVerGrabacion] = useState(false)
+  const [verMateriales, setVerMateriales] = useState(false)
+  const [verRegistro, setVerRegistro] = useState(false)
+
+  const grabacionEmbebible = analizarUrl(curso.link_grabacion).embeddable
+  const materialesEmbebible = analizarUrl(curso.link_materiales).embeddable
+  const registroEmbebible = analizarUrl(curso.link_registro).embeddable
+  const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
+  const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
+
+  const toggleGrabacionActivo = async () => {
+    const nuevo = curso.grabacion_activo === false
+    const { error } = await supabase.from('cursos').update({ grabacion_activo: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error: ' + error.message); return }
+    onActualizado({ ...curso, grabacion_activo: nuevo })
+  }
+
+  const toggleRegistroActivo = async () => {
+    const nuevo = curso.registro_activo === false
+    const { error } = await supabase.from('cursos').update({ registro_activo: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error: ' + error.message); return }
+    onActualizado({ ...curso, registro_activo: nuevo })
+  }
+
+  const solicitarMateriales = async () => {
+    const email = emailLead.trim().toLowerCase()
+    if (!email.includes('@') || !email.includes('.')) { setMsgLead('Escribe un correo válido'); return }
+    setSolicitando(true); setMsgLead('')
+    try {
+      await supabase.from('leads_talleres').insert({ curso_id: curso.id, email })
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ tipo: 'solicitud-materiales', curso: { titulo: curso.titulo }, email })
+      }).catch(() => {})
+      setDesbloqueado(true)
+    } catch (e) {
+      setMsgLead('Error: ' + e.message)
+    } finally {
+      setSolicitando(false)
+    }
+  }
+
+  return (
+    <section className="taller-recursos">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <h2 className="titulo-seccion">Material del taller</h2>
+        {esAdmin && (
+          <button type="button" className="button secondary" onClick={() => setEditando(true)}>✏️ Editar taller</button>
+        )}
+      </div>
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">📝</span>
+            <div><h3>Registro a la sesión en vivo</h3></div>
+          </div>
+          {esAdmin && curso.link_registro && (
+            <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
+                    onClick={toggleRegistroActivo}
+                    title={curso.registro_activo === false ? 'Activar botón' : 'Desactivar botón'}>
+              {curso.registro_activo === false ? '🔒' : '🔓'}
+            </button>
+          )}
+        </div>
+        {registroAbierto ? (
+          <>
+            <div className="recurso-acciones">
+              {registroEmbebible && (
+                <button className={`button ${verRegistro ? 'secondary' : 'primary'}`} onClick={() => setVerRegistro(v => !v)}>
+                  {verRegistro ? 'Ocultar formulario' : 'Registrarme aquí'}
+                </button>
+              )}
+              <a className={`button ${registroEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
+                {curso.registro_texto || 'Registrarme ↗'}
+              </a>
+            </div>
+            {registroEmbebible && verRegistro && (
+              <div className="recurso-contenido">
+                <EmbedFrame url={curso.link_registro} />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>
+              {curso.link_registro ? '🔒 Registro cerrado (la sesión ya se dio o aún no abre)' : '📝 Registro aún no disponible'}
+            </button>
+          </div>
+        )}
+      </article>
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">🎬</span>
+            <div><h3>Grabación de la sesión</h3></div>
+          </div>
+          {esAdmin && curso.link_grabacion && (
+            <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
+                    onClick={toggleGrabacionActivo}
+                    title={curso.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
+              {curso.grabacion_activo === false ? '🔒' : '🔓'}
+            </button>
+          )}
+        </div>
+        {grabacionAbierta ? (
+          <>
+            <div className="recurso-acciones">
+              {grabacionEmbebible && (
+                <button className={`button ${verGrabacion ? 'secondary' : 'primary'}`} onClick={() => setVerGrabacion(v => !v)}>
+                  {verGrabacion ? 'Ocultar grabación' : 'Ver aquí'}
+                </button>
+              )}
+              <a className={`button ${grabacionEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
+                {curso.grabacion_texto || 'Ver grabación ↗'}
+              </a>
+            </div>
+            {grabacionEmbebible && verGrabacion && (
+              <div className="recurso-contenido">
+                <VideoPlayer url={curso.link_grabacion} />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>
+              {curso.link_grabacion ? '🔒 Grabación cargada, aún cerrada' : '🎬 Grabación en proceso'}
+            </button>
+          </div>
+        )}
+      </article>
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">📄</span>
+            <div><h3>Materiales del taller</h3></div>
+          </div>
+        </div>
+
+        {!curso.link_materiales ? (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>📄 Materiales en preparación</button>
+          </div>
+        ) : (user || desbloqueado) ? (
+          <>
+            <div className="recurso-acciones">
+              {materialesEmbebible && (
+                <button className={`button ${verMateriales ? 'secondary' : 'primary'}`} onClick={() => setVerMateriales(v => !v)}>
+                  {verMateriales ? 'Ocultar materiales' : 'Ver aquí'}
+                </button>
+              )}
+              <a className={`button ${materialesEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_materiales}>
+                Descargar materiales ↗
+              </a>
+            </div>
+            {materialesEmbebible && verMateriales && (
+              <div className="recurso-contenido">
+                <EmbedFrame url={curso.link_materiales} />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="taller-lead-form">
+            <p className="nota" style={{ marginTop: 0 }}>Déjanos tu correo para enviarte los materiales y avisarte de futuros talleres.</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input type="email" value={emailLead} onChange={e => setEmailLead(e.target.value)} placeholder="tu@correo.com" />
+              <button type="button" className="button primary" onClick={solicitarMateriales} disabled={solicitando}>
+                {solicitando ? 'Enviando...' : 'Quiero los materiales'}
+              </button>
+            </div>
+            {msgLead && <p className="aviso-error" style={{ marginTop: 8 }}>{msgLead}</p>}
+          </div>
+        )}
+      </article>
+
+      {editando && (
+        <ModalEditarTaller curso={curso} onClose={() => setEditando(false)} onGuardado={onActualizado} />
+      )}
+    </section>
+  )
+}
+
 /* ============================================================
    CURSO
    ============================================================ */
@@ -3536,6 +4488,8 @@ function CursoView({ user, esAdmin }) {
   const [notificando, setNotificando] = useState(null)
   const [msgNotificacion, setMsgNotificacion] = useState('')
   const [confirmacion, setConfirmacion] = useState(null)
+  const [nuevoModuloAbierto, setNuevoModuloAbierto] = useState(false)
+  const [editandoBotonesRuta, setEditandoBotonesRuta] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -3544,7 +4498,7 @@ function CursoView({ user, esAdmin }) {
         if (eC) throw eC
         setCurso(c)
         if (!c) { setEstado('ok'); return }
-        if (c.proximamente) { setEstado('proximo'); return }
+        if (c.proximamente && !esAdmin) { setEstado('proximo'); return }
 
         if (esContenedorTalleres(c)) {
           const { data: hermanos, error: eH } = await supabase.from('cursos')
@@ -3617,7 +4571,7 @@ function CursoView({ user, esAdmin }) {
         {talleres.length === 0
           ? <p className="sutil">Todavía no hay talleres publicados en esta sección.</p>
           : <div className="course-grid">
-              {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />)}
+              {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} esAdmin={esAdmin} tieneAcceso={false} />)}
             </div>}
         <BandaRedes />
       </section>
@@ -3679,12 +4633,29 @@ function CursoView({ user, esAdmin }) {
     return false
   }
 
+  const toggleCursoProximamente = async () => {
+    if (!esAdmin) return
+    const nuevo = !curso.proximamente
+    if (nuevo === true) {
+      const ok = window.confirm(
+        '¿Seguro que quieres marcar este curso como "Próximamente"?\n\n' +
+        'Se oculta de inmediato para todo el público (incluida esta misma tarjeta en los listados) ' +
+        'y solo queda visible el botón de WhatsApp "Me interesa · avísame". ' +
+        'Puedes volver a abrirlo en cualquier momento desde aquí o desde la tarjeta del curso.'
+      )
+      if (!ok) return
+    }
+    const { error } = await supabase.from('cursos').update({ proximamente: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error al cambiar disponibilidad del curso: ' + error.message); return }
+    setCurso(prev => ({ ...prev, proximamente: nuevo }))
+  }
+
   const toggleDisponible = async (m) => {
     if (!esAdmin) return
     const nuevo = !m.disponible
 
     let notificar = false
-    if (nuevo === true) {
+    if (nuevo === true && !curso.gratuito) {
       notificar = await new Promise(resolve => {
         setConfirmacion({
           mensaje: '¿Quieres enviar un correo a los alumnos del curso avisando que este módulo está disponible?',
@@ -3781,7 +4752,7 @@ function CursoView({ user, esAdmin }) {
       <div key={m.id} className="modulo-row">
         <Link to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
         <button type="button"
-          className={`modulo-toggle ${m.disponible ? 'abierto' : 'cerrado'}`}
+          className={`candado-toggle ${m.disponible ? 'abierto' : 'cerrado'}`}
           onClick={() => toggleDisponible(m)}
           disabled={notificando === m.id}
           title={m.disponible ? 'Cerrar módulo' : 'Abrir módulo'}>
@@ -3810,9 +4781,25 @@ function CursoView({ user, esAdmin }) {
         </div>
       )}
 
+      {esTallerIndividual(curso) && (
+        <div className="taller-institucion-cta">
+          <p>¿Quieres que imparta este taller en vivo para tu institución?</p>
+          <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+             href={wa(`Hola, me interesa que impartas el taller "${curso.titulo}" en vivo para mi institución. Entiendo que tiene una cuota de recuperación, ¿me compartes más información?`)}>
+            💬 Quiero este taller para mi institución
+          </a>
+        </div>
+      )}
+
       {esAdmin && (
         <div className="admin-banner">
           <strong>Vista de administrador.</strong> Ves todas las rutas y módulos. Los módulos con <em>🔒 Bloqueado (solo admin)</em> no están abiertos todavía para alumnos.
+          <div style={{ marginTop: 10 }}>
+            <button type="button" className={`candado-toggle ${curso.proximamente ? 'cerrado' : 'abierto'}`}
+                    onClick={toggleCursoProximamente}>
+              {curso.proximamente ? '🔒 Curso marcado como "Próximamente" — clic para abrirlo' : '🔓 Curso abierto al público — clic para marcarlo "Próximamente"'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -3829,7 +4816,18 @@ function CursoView({ user, esAdmin }) {
         </div>
       )}
 
-      <h2 className="titulo-seccion">Contenido del curso</h2>
+      {esTallerIndividual(curso) ? (
+        <TallerRecursos curso={curso} user={user} esAdmin={esAdmin} onActualizado={(c) => setCurso(c)} />
+      ) : (
+      <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <h2 className="titulo-seccion">Contenido del curso</h2>
+        {esAdmin && (
+          <button type="button" className="button secondary" onClick={() => setNuevoModuloAbierto(true)}>
+            ➕ Nuevo módulo
+          </button>
+        )}
+      </div>
 
       {grupos.length > 0 ? (
         grupos.map(g => {
@@ -3848,6 +4846,21 @@ function CursoView({ user, esAdmin }) {
                       ? '🔒 Esta ruta requiere inscripción. Inicia sesión si ya tienes acceso, o solicita información para inscribirte.'
                       : '🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión con la cuenta correcta.'}
                   </p>
+                )}
+                {(curso.rutas_botones?.[g] || []).length > 0 && (
+                  <div className="ruta-botones-extra">
+                    {curso.rutas_botones[g].map((b, i) => (
+                      <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                        {b.texto}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {esAdmin && (
+                  <button type="button" className="button texto" style={{ marginTop: 10 }}
+                          onClick={() => setEditandoBotonesRuta(g)}>
+                    🔗 Botones de esta ruta
+                  </button>
                 )}
               </header>
 
@@ -3890,8 +4903,11 @@ function CursoView({ user, esAdmin }) {
           <div className="modulo-grid">{modsSinGrupo.map((m, i) => renderModulo(m, i))}</div>
         </section>
       )}
+      </>
+      )}
 
       {confirmacion && (
+        <ModalPortal>
         <div className="modal-overlay">
           <div className="modal-box modal-confirm">
             <h3>Confirmar</h3>
@@ -3906,6 +4922,7 @@ function CursoView({ user, esAdmin }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {msgNotificacion && (
@@ -3913,6 +4930,24 @@ function CursoView({ user, esAdmin }) {
           {msgNotificacion}
           <button type="button" onClick={() => setMsgNotificacion('')}>×</button>
         </div>
+      )}
+
+      {nuevoModuloAbierto && (
+        <ModalNuevoModulo
+          cursoId={curso.id}
+          orden={modulos.length ? Math.max(...modulos.map(m => m.orden || 0)) + 10 : 100}
+          onClose={() => setNuevoModuloAbierto(false)}
+          onCreado={(m) => { setModulos(prev => [...prev, m]); navigate(`/modulo/${m.id}`) }}
+        />
+      )}
+
+      {editandoBotonesRuta && (
+        <ModalEditarBotonesRuta
+          curso={curso}
+          grupo={editandoBotonesRuta}
+          onClose={() => setEditandoBotonesRuta(null)}
+          onGuardado={(c) => setCurso(c)}
+        />
       )}
 
       <BandaRedes />
@@ -4098,6 +5133,10 @@ function ModuloView({ user, esAdmin }) {
 
   // ✨ NUEVO: modal de edición de recurso
   const [editandoRecurso, setEditandoRecurso] = useState(null)
+  const [duplicando, setDuplicando] = useState(false)
+  const [editandoBotonesModulo, setEditandoBotonesModulo] = useState(false)
+  const [duplicandoRecurso, setDuplicandoRecurso] = useState(null)
+  const [notificandoRecurso, setNotificandoRecurso] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -4163,6 +5202,13 @@ function ModuloView({ user, esAdmin }) {
   const irA = (rid) => {
     const el = document.getElementById(`r-${rid}`)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const toggleRecursoDisponible = async (r) => {
+    const nuevo = r.disponible === false
+    const { error } = await supabase.from('recursos').update({ disponible: nuevo }).eq('id', r.id)
+    if (error) { alert('Error al cambiar disponibilidad: ' + error.message); return }
+    setRecursos(prev => prev.map(x => x.id === r.id ? { ...x, disponible: nuevo } : x))
   }
 
   // ✨ NUEVO: handler de guardado/borrado del modal
@@ -4274,6 +5320,15 @@ function ModuloView({ user, esAdmin }) {
             {user && recursos.length > 0 && (
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
             )}
+            {(modulo.botones_extra || []).length > 0 && (
+              <div className="modulo-botones-extra">
+                {modulo.botones_extra.map((b, i) => (
+                  <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                    {b.texto}
+                  </a>
+                ))}
+              </div>
+            )}
           </header>
 
           {mostrarDiapositivas && <DiapositivasPresentarCaso />}
@@ -4281,7 +5336,13 @@ function ModuloView({ user, esAdmin }) {
 
           {/* ✨ NUEVO: botón de "Nuevo recurso" solo para admin */}
           {esAdmin && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+              <button type="button" className="button secondary" onClick={() => setEditandoBotonesModulo(true)}>
+                🔗 Botones del módulo
+              </button>
+              <button type="button" className="button secondary" onClick={() => setDuplicando(true)}>
+                📋 Duplicar módulo
+              </button>
               <button type="button" className="button primary"
                       onClick={() => setEditandoRecurso({})}>
                 ➕ Nuevo recurso
@@ -4300,6 +5361,10 @@ function ModuloView({ user, esAdmin }) {
                 onMarcarVisto={marcarVisto}
                 esAdmin={esAdmin}
                 onEditar={setEditandoRecurso}
+                onDuplicar={setDuplicandoRecurso}
+                onNotificar={setNotificandoRecurso}
+                onToggleDisponible={toggleRecursoDisponible}
+                esGratuito={!!curso?.gratuito}
               />
             ))}
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
@@ -4325,6 +5390,39 @@ function ModuloView({ user, esAdmin }) {
           moduloId={parseInt(id, 10)}
           onClose={() => setEditandoRecurso(null)}
           onGuardado={onGuardadoRecurso}
+        />
+      )}
+
+      {duplicando && (
+        <ModalDuplicarModulo
+          modulo={modulo}
+          recursos={recursos}
+          onClose={() => setDuplicando(false)}
+        />
+      )}
+
+      {editandoBotonesModulo && (
+        <ModalEditarBotonesModulo
+          modulo={modulo}
+          onClose={() => setEditandoBotonesModulo(false)}
+          onGuardado={(m) => setModulo(m)}
+        />
+      )}
+
+      {duplicandoRecurso && (
+        <ModalDuplicarRecurso
+          recurso={duplicandoRecurso}
+          cursoActualId={curso?.id}
+          onClose={() => setDuplicandoRecurso(null)}
+        />
+      )}
+
+      {notificandoRecurso && (
+        <ModalNotificarRecurso
+          recurso={notificandoRecurso}
+          modulo={modulo}
+          curso={curso}
+          onClose={() => setNotificandoRecurso(null)}
         />
       )}
 
@@ -4526,7 +5624,7 @@ function App() {
       <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} nombreUsuario={nombreUsuario} />
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Home user={user} />} />
+          <Route path="/" element={<Home user={user} esAdmin={esAdmin} />} />
           <Route path="/acceso" element={<Login message={message} />} />
           <Route path="/perfil" element={<Perfil user={user} />} />
           <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
