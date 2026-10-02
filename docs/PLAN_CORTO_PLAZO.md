@@ -28,7 +28,7 @@
 | **D5** | Confirmar acceso al **proyecto Supabase** (o compartir el SQL del esquema) | Edge Function de correo y tipos de pregunta | $0 |
 | **D6** | ~~Decidir **Jitsi o Teams**~~ ✅ **Decidido 02/10: Teams** | Diseño de la clase en vivo | $0 |
 
-> Nota: **D1 no es indispensable** para los pasos 2 y 3 (Jitsi y analítica). Solo es necesaria para el correo con *tracking*.
+> Nota: **D1 no es indispensable** para los pasos ya hechos. Solo será necesaria para el correo con *tracking* (paso 4).
 
 ---
 
