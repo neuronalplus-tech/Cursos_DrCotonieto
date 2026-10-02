@@ -23,7 +23,7 @@
 |---|---|---|---|
 | **D1** | Decidir si compramos **dominio propio** (ej. `drcotonieto.com`) vía Cloudflare Registrar | Habilita correo con *tracking* (Resend), analítica automática y sitio con marca | ~US$10/año |
 | **D2** | Crear cuenta **Resend** (gratis) + API key + verificar dominio | Comunicados con métricas de apertura/clics | $0 |
-| **D3** | Activar **Cloudflare Web Analytics** y pasarme el *snippet* (token público) | Saber qué recursos se abren más | $0 |
+| **D3** | ~~Activar **Cloudflare Web Analytics** y pasarme el *snippet*~~ ✅ **Recibido** (token `07cbd488…`) | Métricas de visitas | $0 |
 | **D4** | Crear **bucket R2** + API token | Alojar PDF/videos pesados fuera del 1 GB de Supabase | $0 (10 GB) |
 | **D5** | Confirmar acceso al **proyecto Supabase** (o compartir el SQL del esquema) | Edge Function de correo y tipos de pregunta | $0 |
 | **D6** | Decidir **Jitsi o Teams** para clases en vivo (recomiendo Jitsi embebido) | Diseño de la clase en vivo | $0 |
@@ -56,7 +56,13 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 - **Qué necesito de ti:** **probar** con un enlace de prueba (p. ej. `https://meet.jit.si/PruebaDrCotonieto`) creando un recurso y uniéndote.
 - **Grabación:** Jitsi gratis (meet.jit.si) **no graba en la nube**; ver §6 (comparativa).
 
-### 3.2 Analítica con Cloudflare Web Analytics — **paso 2**
+### 3.2 Analítica con Cloudflare Web Analytics — **LISTO en código**
+
+> **Estado (02/10/2026):** beacon integrado en `index.html` (token `07cbd488…`)
+> tras recibir tu snippet (D3 ✅). Build EXIT=0 (`index-4a3ee28d.js`);
+> commit `a58ff09`, **pusheado a GitHub**. ⚠️ El `wrangler deploy` desde aquí
+> **falló por falta de login** (`CLOUDFLARE_API_TOKEN`), así que el sitio en vivo
+> aún no lo muestra hasta que se logre el **deploy** (ver §7).
 - **Qué:** saber cuántas visitas y **qué recursos/cursos se abren más**.
 - **Por qué:** **reemplaza a Umami self-host** (que exigiría un servidor). Es **gratis, sin cookies y sin servidor**.
 - **Qué necesito de ti:** en el panel de Cloudflare → *Web Analytics* → *Add a site* (hostname `cursos-drcotonieto.neuronal-plus.workers.dev`) → copiarme el **JS snippet** (token público, no es secreto).
