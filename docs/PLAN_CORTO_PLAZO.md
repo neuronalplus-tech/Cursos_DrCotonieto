@@ -59,10 +59,9 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 ### 3.2 Analítica con Cloudflare Web Analytics — **LISTO en código**
 
 > **Estado (02/10/2026):** beacon integrado en `index.html` (token `07cbd488…`)
-> tras recibir tu snippet (D3 ✅). Build EXIT=0 (`index-4a3ee28d.js`);
-> commit `a58ff09`, **pusheado a GitHub**. ⚠️ El `wrangler deploy` desde aquí
-> **falló por falta de login** (`CLOUDFLARE_API_TOKEN`), así que el sitio en vivo
-> aún no lo muestra hasta que se logre el **deploy** (ver §7).
+> tras recibir tu snippet (D3 ✅). Commit `a58ff09`, **pusheado a GitHub**, y
+> verificado en el sitio en vivo: `/` sirve `index-f1c080b6.js` **con el beacon**.
+> Las métricas ya deben estar llegando a tu panel de Cloudflare Web Analytics.
 - **Qué:** saber cuántas visitas y **qué recursos/cursos se abren más**.
 - **Por qué:** **reemplaza a Umami self-host** (que exigiría un servidor). Es **gratis, sin cookies y sin servidor**.
 - **Qué necesito de ti:** en el panel de Cloudflare → *Web Analytics* → *Add a site* (hostname `cursos-drcotonieto.neuronal-plus.workers.dev`) → copiarme el **JS snippet** (token público, no es secreto).
