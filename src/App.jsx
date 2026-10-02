@@ -4280,8 +4280,8 @@ function ModalEditarTaller({ curso, onClose, onGuardado }) {
 
         <label>Link de la grabación</label>
         <input type="url" value={form.link_grabacion} onChange={e => set('link_grabacion', e.target.value)}
-               placeholder="https://..." />
-        <p className="nota">Acceso directo para cualquier visitante, sin pedir correo.</p>
+               placeholder="https://youtube.com/watch?v=... (no listado)" />
+        <p className="nota">Pega el link de YouTube <strong>no listado</strong> — se incrusta solo. Para Zoom/Teams/Jitsi/Meet usa abajo "Botones adicionales" (abren en pestaña aparte, sin límite de 5 min).</p>
 
         <label>Texto del botón (cuando está activo)</label>
         <input type="text" value={form.grabacion_texto} onChange={e => set('grabacion_texto', e.target.value)}
@@ -4292,12 +4292,12 @@ function ModalEditarTaller({ curso, onClose, onGuardado }) {
 
         <label>Link de materiales</label>
         <input type="url" value={form.link_materiales} onChange={e => set('link_materiales', e.target.value)}
-               placeholder="https://..." />
-        <p className="nota">A los visitantes sin cuenta se les pide su correo antes de mostrarles este link.</p>
+               placeholder="https://onedrive.live.com/embed?... (Insertar)" />
+        <p className="nota">A los visitantes sin cuenta se les pide su correo antes de mostrarles este link. Tip OneDrive: usa <strong>Compartir → Insertar / Embed</strong> (<code>onedrive.live.com/embed</code>) en vez del <code>1drv.ms</code> corto para que salga "Ver aquí".</p>
 
-        <label>Botones adicionales (ej. registro a una sesión en vivo)</label>
+        <label>Botones adicionales (ej. liga de Teams en vivo)</label>
         <p className="nota" style={{ marginTop: 0 }}>
-          Agrégalos cuando programes algo y bórralos cuando ya pasó — no se quedan mostrando un "próximamente" viejo.
+          Para sesión en vivo pega aquí la liga de <strong>Teams</strong> (abre en pestaña aparte ↗, sin límite). Agrégalos cuando programes algo y bórralos cuando ya pasó — no se quedan mostrando un "próximamente" viejo.
         </p>
         <EditorBotonesExtra botones={form.botones_extra} onChange={(b) => set('botones_extra', b)} />
 

@@ -24,7 +24,7 @@
 | **D1** | Decidir si compramos **dominio propio** (ej. `drcotonieto.com`) vía Cloudflare Registrar | Habilita correo con *tracking* (Resend), analítica automática y sitio con marca | ~US$10/año |
 | **D2** | Crear cuenta **Resend** (gratis) + API key + verificar dominio | Comunicados con métricas de apertura/clics | $0 |
 | **D3** | ~~Activar **Cloudflare Web Analytics** y pasarme el *snippet*~~ ✅ **Recibido** (token `07cbd488…`) | Métricas de visitas | $0 |
-| **D4** | Crear **bucket R2** + API token | Alojar PDF/videos pesados fuera del 1 GB de Supabase | $0 (10 GB) |
+| **D4** | ~~Crear **bucket R2** + API token~~ ❌ **Descartado 02/10: pide tarjeta. Decisión: YouTube no listado + OneDrive 1 TB** | Flujo confirmado (cero tarjeta, cero costo) | $0 |
 | **D5** | Confirmar acceso al **proyecto Supabase** (o compartir el SQL del esquema) | Edge Function de correo y tipos de pregunta | $0 |
 | **D6** | ~~Decidir **Jitsi o Teams**~~ ✅ **Decidido 02/10: Teams** | Diseño de la clase en vivo | $0 |
 
@@ -40,7 +40,7 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 |---|---|---|---|---|
 | **1** | Clases en vivo con **Teams (liga externa)** | nada | ✅ Decidido | Bajo |
 | **2** | **Cloudflare Web Analytics** | D3 | ✅ Hecho (beacon en vivo) | Bajo |
-| **3** | **Archivos pesados en R2** | D4 | Tú (bucket) + Yo (código) | Medio |
+| **3** | ~~**Archivos pesados en R2**~~ ❌ **Descartado — se sigue con YouTube no listado + OneDrive 1 TB** | — | — | — |
 | **4** | **Comunicados con tracking (Resend)** | D1 + D2 + D5 | Tú (cuentas) + Yo (código) | Medio |
 | **5** | **Refactor de `App.jsx` en módulos** | — | Yo (por etapas) | Alto (autorizar) |
 | **6** | **Tipos de pregunta en `examenes`** | D5 | Yo | Medio |
