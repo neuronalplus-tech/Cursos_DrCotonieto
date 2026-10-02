@@ -3915,13 +3915,37 @@ function ExamenModulo({ moduloId, user }) {
   if (!examen) return null
   if (!user) return null
 
+  const tipoDe = (p) => p.tipo || (p.opciones?.length === 2 &&
+    p.opciones.every(o => /^(verdadero|falso|v|f)$/i.test((o.texto || '').trim())) ? 'vf' : 'opcion')
+
+  const esCorrecta = (p) => {
+    const r = respuestas[p.id]
+    if (r == null || r === '') return false
+    const tipo = tipoDe(p)
+    if (tipo === 'vf' || tipo === 'opcion') {
+      const idx = typeof r === 'number' ? r : parseInt(r, 10)
+      return !!(p.opciones?.[idx]?.correcta)
+    }
+    if (tipo === 'corta') {
+      const esperado = (p.respuesta || '').trim().toLowerCase()
+      const dada = String(r).trim().toLowerCase()
+      if (!esperado) return false
+      if (dada === esperado) return true
+      // Acepta variantes separadas por "|" o ";" (ej. "TEPT|trastorno de estrés postraumático")
+      return esperado.split(/[|;]/).map(s => s.trim()).filter(Boolean).includes(dada)
+    }
+    if (tipo === 'emparejar') {
+      const pares = p.pares || []
+      if (!pares.length || typeof r !== 'object') return false
+      return pares.every(par => String(r[par.id] ?? '').trim() === String(par.respuesta ?? '').trim())
+    }
+    return false
+  }
+
   const calificar = () => {
     const preguntas = examen.preguntas || []
     let correctas = 0
-    preguntas.forEach(p => {
-      const idx = respuestas[p.id]
-      if (idx != null && p.opciones?.[idx]?.correcta) correctas++
-    })
+    preguntas.forEach(p => { if (esCorrecta(p)) correctas++ })
     const calificacion = preguntas.length ? Math.round((correctas / preguntas.length) * 100) : 0
     return { calificacion, aprobado: calificacion >= examen.umbral_aprobacion }
   }
@@ -3966,20 +3990,42 @@ function ExamenModulo({ moduloId, user }) {
       ) : (
         <>
           <ol className="examen-preguntas">
-            {(examen.preguntas || []).map((p) => (
+            {(examen.preguntas || []).map((p) => {
+              const tipo = tipoDe(p)
+              return (
               <li key={p.id}>
                 <p className="examen-pregunta">{p.pregunta}</p>
+                {(tipo === 'opcion' || tipo === 'vf') && (
                 <div className="examen-opciones">
-                  {p.opciones.map((o, j) => (
-                    <label key={j} className={`examen-opcion ${respuestas[p.id] === j ? 'sel' : ''}`}>
-                      <input type="radio" name={p.id} checked={respuestas[p.id] === j}
+                  {(p.opciones || []).map((o, j) => (
+                    <label key={j} className={`examen-opcion ${String(respuestas[p.id]) === String(j) ? 'sel' : ''}`}>
+                      <input type="radio" name={p.id} checked={String(respuestas[p.id]) === String(j)}
                              onChange={() => setRespuestas(r => ({ ...r, [p.id]: j }))} />
                       <span>{o.texto}</span>
                     </label>
                   ))}
                 </div>
+                )}
+                {tipo === 'corta' && (
+                  <input type="text" className="examen-corta" value={respuestas[p.id] || ''}
+                         onChange={e => setRespuestas(r => ({ ...r, [p.id]: e.target.value }))}
+                         placeholder="Escribe tu respuesta" style={{ width: '100%', marginTop: 10 }} />
+                )}
+                {tipo === 'emparejar' && (
+                  <div className="examen-opciones">
+                    {(p.pares || []).map((par) => (
+                      <label key={par.id} className="examen-opcion">
+                        <span style={{ minWidth: 120 }}>{par.premisa}</span>
+                        <input type="text" value={respuestas[p.id]?.[par.id] || ''}
+                               onChange={e => setRespuestas(r => ({ ...r, [p.id]: { ...(r[p.id] || {}), [par.id]: e.target.value } }))}
+                               placeholder="Respuesta" style={{ flex: 1 }} />
+                      </label>
+                    ))}
+                  </div>
+                )}
               </li>
-            ))}
+              )
+            })}
           </ol>
           <button className="button primary" onClick={enviar} disabled={enviando}>
             {enviando ? 'Enviando...' : 'Enviar respuestas'}

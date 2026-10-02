@@ -83,10 +83,18 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 - **Por qué:** a más funciones, más difícil y riesgoso mantener. Es la base para crecer (vivo, foro, pagos).
 - **Cuidado:** es el cambio de **mayor riesgo**. Se hará **por etapas**, cada etapa con build + prueba, en rama aparte, sin cambiar comportamiento. **No lo inicio sin tu "adelante".**
 
-### 3.6 Tipos de pregunta en `examenes` — **paso 6 (opcional)**
-- **Qué:** además de opción múltiple: **Verdadero/Falso**, **respuesta corta** y **emparejar**.
-- **Requisito:** necesito ver el esquema SQL de `examenes` / `intentos_examen` (D5) para no romper datos.
-- **Qué haré yo:** extender el modelo y la autocalificación.
+### 3.6 Tipos de pregunta en `examenes` — **LISTO en código (paso 6, sin romper nada)**
+- **Qué:** además de opción múltiple: **Verdadero/Falso** (`tipo:'vf'` o 2 opciones V/F), **respuesta corta** (`tipo:'corta'` + `respuesta:'...'`, acepta variantes con `|`) y **emparejar** (`tipo:'emparejar'` + `pares:[{id,premisa,respuesta}]`).
+- **Cómo:** extensión solo de UI + calificación en `ExamenModulo` (`tipoDe`/`esCorrecta`). **Sin migración SQL**: `preguntas` es `jsonb`, las preguntas viejas (sin `tipo`) siguen calificando igual. `intentos_examen.respuestas` guarda el mismo objeto.
+- **Ejemplo JSON para Supabase (tabla `examenes`, campo `preguntas`):**
+```json
+[
+  {"id":"p1","tipo":"opcion","pregunta":"¿...?","opciones":[{"texto":"A","correcta":false},{"texto":"B","correcta":true}]},
+  {"id":"p2","tipo":"vf","pregunta":"El duelo normativo...","opciones":[{"texto":"Verdadero","correcta":true},{"texto":"Falso","correcta":false}]},
+  {"id":"p3","tipo":"corta","pregunta":"Siglas de...","respuesta":"TEPT|trastorno de estrés postraumático"},
+  {"id":"p4","tipo":"emparejar","pregunta":"Relaciona","pares":[{"id":"a","premisa":"ACT","respuesta":"Aceptación"},{"id":"b","premisa":"DBT","respuesta":"Regulación"}]}
+]
+```
 
 ---
 
