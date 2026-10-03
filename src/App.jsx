@@ -4,6 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
 import { tipoDe, puedeIntentar, resumenIntentos } from './lib/examenes'
+import { enviarCorreo } from './lib/correo'
 import {
   esContenedorTalleres, esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
   emiteConstancia, cursoEspecial, esCursoProblemasContemporaneos,
@@ -1312,12 +1313,12 @@ function Admin({ user, esAdmin }) {
         alumnos: destinatarios,
       }
 
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-      })
+      const res = await enviarCorreo(payload)
+
+      if (!res.ok) {
+        setComunicadoMsg('⚠️ ' + (res.motivo || 'No se pudo enviar.'))
+        return
+      }
 
       setComunicadoResultado({
         enviados: destinatarios.length,
@@ -2631,7 +2632,29 @@ function ModalDuplicarRecurso({ recurso, cursoActualId, onClose }) {
 function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
   const [emails, setEmails] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [cargandoAlumnos, setCargandoAlumnos] = useState(false)
   const [msg, setMsg] = useState('')
+
+  // Trae solo a los inscritos del curso: los destinatarios ya no se teclean a mano.
+  const traerInscritos = async () => {
+    if (!curso?.id) { setMsg('Este recurso no pertenece a un curso con inscritos.'); return }
+    setCargandoAlumnos(true); setMsg('')
+    try {
+      const { data, error } = await supabase
+        .from('vista_admin_inscripciones').select('email, curso_id')
+      if (error) throw error
+      const delCurso = (data || []).filter(f => String(f.curso_id) === String(curso.id))
+      const lista = [...new Set(delCurso.map(f => (f.email || '').trim().toLowerCase()).filter(Boolean))]
+      if (!lista.length) { setMsg('No hay alumnos inscritos en este curso.'); return }
+      const yaPegados = emails.split(/[,;\n\t ]+/).map(e => e.trim()).filter(Boolean)
+      setEmails([...new Set(yaPegados.concat(lista))].join(', '))
+      setMsg(`✓ ${lista.length} inscrito(s) agregado(s) a la lista.`)
+    } catch (e) {
+      setMsg('Error al leer inscritos: ' + e.message)
+    } finally {
+      setCargandoAlumnos(false)
+    }
+  }
 
   const parsearEmailsLocal = (texto) => texto
     .split(/[,;\n\r\t ]+/)
@@ -2646,17 +2669,15 @@ function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
     if (destinatarios.length === 0) { setMsg('Pega al menos un correo válido'); return }
     setEnviando(true); setMsg('')
     try {
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          tipo: 'recurso-nuevo',
-          curso: { titulo: curso?.titulo || modulo.titulo, url: link },
-          recurso: { titulo: recurso.titulo, descripcion: recurso.descripcion || '' },
-          alumnos: destinatarios.map(email => ({ email, nombre_completo: '' })),
-        })
+      const res = await enviarCorreo({
+        tipo: 'recurso-nuevo',
+        curso: { titulo: curso?.titulo || modulo.titulo, url: link },
+        recurso: { titulo: recurso.titulo, descripcion: recurso.descripcion || '' },
+        alumnos: destinatarios.map(email => ({ email, nombre_completo: '' })),
       })
-      setMsg(`✓ Enviado a Google Apps Script (${destinatarios.length} correo(s))`)
+      setMsg(res.ok
+        ? `✓ Enviado y confirmado por el script (${destinatarios.length} correo(s)).`
+        : `⚠️ ${res.motivo || 'No se pudo enviar.'} Revisa "Enviados" en Gmail.`)
     } catch (e) {
       setMsg('Error: ' + e.message)
     } finally {
@@ -2675,8 +2696,16 @@ function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
         </p>
 
         <label>Correos (separados por coma, punto y coma o salto de línea)</label>
+        <div className="examen-import-botones" style={{ marginTop: 0 }}>
+          <button type="button" className="button secondary" onClick={traerInscritos} disabled={cargandoAlumnos}>
+            {cargandoAlumnos ? 'Buscando…' : '👥 Traer a los inscritos del curso'}
+          </button>
+          <button type="button" className="button texto" onClick={() => setEmails('')} disabled={!emails}>
+            Vaciar lista
+          </button>
+        </div>
         <textarea rows="5" value={emails} onChange={e => setEmails(e.target.value)}
-                  placeholder="alumno1@correo.com, alumno2@correo.com..."
+                  placeholder="O presiona «Traer a los inscritos»"
                   style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
         <p className="nota" style={{ marginTop: 6 }}>{destinatarios.length} correo(s) válido(s) detectado(s)</p>
         <p className="nota" style={{ marginTop: 6 }}>Link que se incluirá: <code>{link}</code></p>
@@ -3271,13 +3300,11 @@ function CursoView({ user, esAdmin }) {
         alumnos
       }
 
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      })
+      const res = await enviarCorreo(payload)
 
-      setMsgNotificacion(`✓ Enviado a Google Apps Script (${alumnos.length} alumno${alumnos.length === 1 ? '' : 's'})`)
+      setMsgNotificacion(res.ok
+        ? `✓ Enviado y confirmado (${alumnos.length} alumno${alumnos.length === 1 ? '' : 's'})`
+        : `⚠️ ${res.motivo || 'No se pudo enviar.'}`)
     } catch (e) {
       console.error('Error notificando:', e)
       setMsgNotificacion('Error: ' + e.message)

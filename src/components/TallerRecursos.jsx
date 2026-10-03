@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { ModalPortal, EmbedFrame, VideoPlayer, EditorBotonesExtra } from './ui'
 import { analizarUrl } from '../lib/helpers'
-import { APPS_SCRIPT_URL } from '../config'
+import { enviarCorreo } from '../lib/correo'
 import ExamenModulo from './ExamenModulo'
 
 /* ============================================================
@@ -167,11 +167,8 @@ export default function TallerRecursos({ curso, user, esAdmin, onActualizado }) 
     setSolicitando(true); setMsgLead('')
     try {
       await supabase.from('leads_talleres').insert({ curso_id: curso.id, email })
-      fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ tipo: 'solicitud-materiales', curso: { titulo: curso.titulo }, email })
-      }).catch(() => {})
+      // El correo es "best effort": si falla, el lead ya quedó guardado.
+      enviarCorreo({ tipo: 'solicitud-materiales', curso: { titulo: curso.titulo }, email }).catch(() => {})
       setDesbloqueado(true)
     } catch (e) {
       setMsgLead('Error: ' + e.message)
