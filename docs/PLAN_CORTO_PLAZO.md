@@ -2,9 +2,24 @@
 
 > **Proyecto:** `Cursos_DrCotonieto` — Dr. Ernesto Cotonieto
 > **Basado en:** `docs/CORTE_DIAGNOSTICO_1_CLINE.md` (§5.1 Corto plazo)
-> **Fecha:** 2 de octubre de 2026
+> **Fecha:** 2 de octubre de 2026 · **Actualizado:** 3 de octubre de 2026 (estado de publicación verificado, ver §7)
 > **Autor:** Cline (agente de código)
 > **Tipo de documento:** plan de implementación (define dependencias, orden y responsables)
+
+---
+
+## Estado verificado (03/10/2026)
+
+| Paso | Acción | Estado |
+|---|---|---|
+| 1 | Clases en vivo (Teams como liga externa) | ✅ Decidido e implementado |
+| 2 | Cloudflare Web Analytics (beacon) | ✅ En vivo y funcionando |
+| 3 | Archivos pesados en R2 | ❌ Descartado (pide tarjeta) → YouTube no listado + OneDrive 1 TB |
+| 4 | Comunicados con *tracking* (Resend) | ⏳ **Bloqueado** — espera tus cuentas (D1, D2, D5) |
+| 5 | Refactor de `App.jsx` en módulos | ⏳ **Pide tu autorización** ("adelante") |
+| 6 | Tipos de pregunta en `examenes` | ✅ **Hecho** (commit `0734945`) |
+
+**Lo pendiente de tu lado:** nada urgente. Lo único que bloquea trabajo es la **decisión de cuál de los pasos 4 o 5** quieres primero.
 
 ---
 
@@ -100,9 +115,11 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 
 ## 4. Qué ya hice hoy (sin costo ni riesgo de producción)
 
-1. **Código:** soporte de **Jitsi** (clases en vivo) y **Vimeo** en `analizarUrl()`, + permisos de cámara/micrófono en `iframe`. **Build verificado (`EXIT=0`, bundle `index-4a3ee28d.js`).** Commits `b655b45` (Jitsi) y `a58ff09` (beacon), ambos **pusheados a GitHub**. ⚠️ El `wrangler deploy` **falló por falta de token** (`CLOUDFLARE_API_TOKEN`), así que el sitio en vivo **aún no muestra** estos cambios; ver §7.
-2. **Documento:** este plan.
-3. *(Sesión previa)* Restauré y respaldé tus utilidades del 29/09 (commit `0ed7399`).
+1. **Código:** soporte de **Jitsi** (clases en vivo) y **Vimeo** en `analizarUrl()`, + permisos de cámara/micrófono en `iframe`. **Build verificado (`EXIT=0`, bundle `index-4a3ee28d.js`).** Commits `b655b45` (Jitsi) y `a58ff09` (beacon), ambos **pusheados a GitHub**. ✅ **Actualización 03/10:** el sitio en vivo **sí está actualizado** (verificado en §7); la nota anterior que decía "el deploy falló" quedó obsoleta.
+2. **Exámenes:** tipos de pregunta nuevos (V/F, respuesta corta, emparejar) en commit `0734945`. **Publicado en vivo** ✅.
+3. **Reto S4:** botón "abrir en ventana nueva" + `public/juegos/juego-s4.html` en commit `a946fee`. **Publicado en vivo** ✅ (verificado en §7).
+4. **Documento:** este plan.
+5. *(Sesión previa)* Restauré y respaldé tus utilidades del 29/09 (commit `0ed7399`).
 
 ---
 
@@ -129,5 +146,56 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 
 **Estrategia sugerida:** clase en vivo **embebida con Jitsi** (fricción cero); si quieres grabar, **graba en Teams**, **descarga** el video dentro de los 30 días y **súbelo a OneDrive/Supabase** para embeberlo en el curso (ya funciona con el mecanismo actual de `1drv.ms`).
 
+> ⚠️ **Nota:** esta §6 es el comparativo original. La **decisión final** está en §3.1 (Teams como liga externa, Jitsi embebido descartado por el corte de 5 min de `meet.jit.si`). Conserva el valor histórico de por qué se descartó.
+
 ---
+
+## 7. Publicación (deploy) — estado verificado 03/10/2026
+
+### 7.1 Verificación hecha hoy
+
+Se consultó el sitio en vivo `https://cursos-drcotonieto.neuronal-plus.workers.dev/` y se comparó con el código local:
+
+| Comprobación | Resultado |
+|---|---|
+| Bundle JS servido | `assets/index-cb8531e2.js` (1,290,599 bytes) |
+| CSS servido | `assets/index-6b11348c.css` |
+| Beacon de Cloudflare Web Analytics | ✅ **Presente** (`cloudflareinsights`) |
+| Contiene `juego-s4` (commit `a946fee`) | ✅ **Sí** |
+| Contiene `emparejar` (commit `0734945`) | ✅ **Sí** |
+| Árbol de trabajo local | ✅ Limpio |
+| `origin/main` | ✅ Al día |
+
+> **Conclusión:** el sitio en vivo **sí contiene los últimos commits**. La nota anterior de §4 que decía que el deploy había fallado quedó obsoleta y ya fue corregida.
+
+### 7.2 Cómo se publica (para futuras sesiones)
+
+```bash
+npm run build                 # genera dist/
+npx wrangler pages deploy dist
+```
+
+Si `wrangler` pide autenticación, hace falta `CLOUDFLARE_API_TOKEN` (token de API de Cloudflare, no la contraseña de la cuenta). Pasos:
+1. Cloudflare → *My Profile* → *API Tokens* → *Create Token* → plantilla **Edit Cloudflare Workers** (o *Workers Scripts: Edit* + *Workers KV Storage: Edit*).
+2. Exportar: `setx CLOUDFLARE_API_TOKEN <token>` (y reiniciar la terminal).
+
+### 7.3 Verificar que el deploy salió bien
+
+```bash
+# 1. Ver qué bundle sirve el sitio en vivo
+curl -s https://cursos-drcotonieto.neuronal-plus.workers.dev/ | Select-String "assets/index-.*\.js"
+
+# 2. Confirmar que ese bundle está en tu dist local
+Get-ChildItem dist\assets\index-*.js
+```
+
+Si los nombres coinciden → publicado correctamente.
+
+### 7.4 Rollback
+
+```bash
+git revert <commit>     # deshace el cambio
+npm run build
+npx wrangler pages deploy dist
+```
 
