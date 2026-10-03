@@ -163,6 +163,9 @@ src/
 │   └── examenes.js         → lógica de exámenes: tipos, calificación, importador
 ├── components/
 │   ├── ui.jsx              → UI compartida (ModalPortal, Breadcrumb, VideoPlayer, …)
+│   ├── MensajesInbox.jsx   → bandeja de mensajes (Realtime) + página de mensajes
+│   ├── TallerRecursos.jsx  → modal de edición de taller + material del taller
+│   ├── ExamenModulo.jsx    → examen autocalificable (módulo o curso)
 │   ├── AdminExamenes.jsx   → vista del panel de exámenes
 │   ├── EditorExamen.jsx    → modal crear/editar + carga masiva
 │   └── EditorPregunta.jsx  → captura manual de una pregunta
@@ -177,15 +180,21 @@ supabase/
 
 **Progreso del refactor:**
 
-| Etapa | Qué se movió | Estado |
-|---|---|---|
-| 1 | `lib/supabase.js`, `lib/examenes.js`, `components/*` (exámenes) | ✅ |
-| 2a | `config.js` + `lib/helpers.js` | ✅ |
-| 2b | `components/ui.jsx` (UI compartida) | ✅ |
-| 2c | `MensajesInbox`, `TallerRecursos`, `Header`, modales | ⏳ Siguiente |
+| Etapa | Qué se movió | Líneas movidas | Estado |
+|---|---|---|---|
+| 1 | `lib/supabase.js`, `lib/examenes.js`, componentes de exámenes | ~600 | ✅ |
+| 2a | `config.js` + `lib/helpers.js` | ~250 | ✅ |
+| 2b | `components/ui.jsx` (UI compartida) | ~165 | ✅ |
+| 2c | `MensajesInbox`, `TallerRecursos`, `ExamenModulo` | **~1.290** | ✅ |
+| 2d | `Header`, `CursoView`, `ModuloView`, modales de admin | ~1.500 | ⏳ Siguiente |
 
-> `App.jsx` bajó de ~5.640 a **~4.500 líneas** sin cambiar comportamiento.
-> El bundle mantiene el mismo tamaño (1.314 kB), señal de que fue un movimiento puro.
+> `App.jsx`: **5.640 → ~4.220 líneas** (‑25%) sin cambiar comportamiento.
+> El bundle se mantiene en ~1.314 kB, señal de que fue un movimiento puro.
+
+**Bug encontrado y corregido en la 2c:** `TallerRecursos.jsx` usaba `<VideoPlayer>`
+sin importarlo. El build de Vite **no** detecta variables no definidas en runtime, así que
+esto habría roto la página de talleres recién al entrar. Se detectó con un chequeo de
+dependencias por archivo (identificador usado vs. importado) antes de publicar.
 
 ---
 
