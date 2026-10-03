@@ -1,2 +1,8 @@
 node_modules/ 
 dist/ 
+
+# Archivos temporales de editores
+*.swp
+*.swo
+*~
+.vscode/
