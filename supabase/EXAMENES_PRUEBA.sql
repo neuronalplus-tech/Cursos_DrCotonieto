@@ -25,6 +25,13 @@ create index if not exists examenes_curso_id_idx  on public.examenes(curso_id);
 -- 2) EXAMEN DE PRUEBA (autocontenido: crea su propio curso/módulo)
 --    No toca tus cursos reales. Entrarás al portal y lo verás
 --    como "PRUEBA — Exámenes".
+--
+--  ⚠️ IMPORTANTE — por qué `gratuito = false`:
+--    En el código, `esTallerIndividual()` clasifica como "taller"
+--    a TODO curso con `gratuito = true` que NO tenga `linea`, y la
+--    página principal los filtra con `.filter(c => !esTallerIndividual(c))`.
+--    Por eso un curso de prueba "gratuito" se crea pero NO se ve
+--    en la portada. Aquí va como curso normal para que sí aparezca.
 -- -------------------------------------------------------------
 do $$
 declare
@@ -32,12 +39,29 @@ declare
   v_modulo_id bigint;
 begin
 
-  -- Curso de prueba (gratuito para que puedas verlo sin inscripción)
-  insert into public.cursos (titulo, descripcion, activo, orden, gratuito)
-  values ('PRUEBA — Exámenes',
-          'Curso temporal para probar los tipos de pregunta. Bórralo cuando termines.',
-          true, 999, true)
-  returning id into v_curso_id;
+  -- Si ya existe de una corrida anterior, lo reaprovechamos y lo corregimos
+  select id into v_curso_id from public.cursos
+   where titulo = 'PRUEBA — Exámenes' limit 1;
+
+  if v_curso_id is not null then
+    update public.cursos
+       set gratuito = false, constancia = false, activo = true, proximamente = false, orden = 999
+     where id = v_curso_id;
+
+    -- Empezamos limpio: borra exámenes y módulos de la corrida anterior
+    delete from intentos_examen
+     where examen_id in (select id from public.examenes where modulo_id in
+                          (select id from public.modulos where curso_id = v_curso_id));
+    delete from public.examenes where modulo_id in
+      (select id from public.modulos where curso_id = v_curso_id);
+    delete from public.modulos where curso_id = v_curso_id;
+  else
+    insert into public.cursos (titulo, descripcion, activo, orden, gratuito, constancia)
+    values ('PRUEBA — Exámenes',
+            'Curso temporal para probar los tipos de pregunta. Bórralo cuando termines.',
+            true, 999, false, false)
+    returning id into v_curso_id;
+  end if;
 
   -- Módulo de prueba
   insert into public.modulos (curso_id, titulo, descripcion, orden, activo, disponible)
@@ -93,13 +117,28 @@ begin
 end $$;
 
 -- -------------------------------------------------------------
--- 3) CÓMO PROBARLO
---    1) Entra al portal con tu cuenta de admin.
---    2) Panel → 📝 Exámenes → debe verse el curso "PRUEBA — Exámenes".
---    3) Abre el módulo del curso y responde las 4 preguntas.
---    4) Debe salir tu calificación y el historial de intentos.
+-- 3) POR QUÉ NO LO VEÍAS EN LA PÁGINA PRINCIPAL
+--    El código tiene esta regla (App.jsx, función esTallerIndividual):
+--        esTallerIndividual(c) = c.gratuito && !c.linea
+--    y la portada filtra:
+--        .filter(c => !esTallerIndividual(c))
+--    O sea: TODO curso con `gratuito = true` y sin `linea`
+--    se clasifica como "taller" y se oculta de la portada.
+--    → Por eso la v1 de este script (con gratuito = true) creaba
+--      el curso pero no se veía en el inicio.
+--    → Este script ya lo crea con `gratuito = false`.
+--    → Si ya lo habías creado antes, NO hace falta borrarlo:
+--      este script reutiliza el existente y lo corrige.
 --
--- 4) CÓMO BORRAR LA PRUEBA (cuando ya no la necesites)
+-- 4) CÓMO PROBARLO
+--    1) Entra al portal con tu cuenta de admin.
+--    2) Inicio → debe aparecer la tarjeta "PRUEBA — Exámenes".
+--    3) Ábrelo → entra al módulo → responde las 4 preguntas.
+--    4) Debe salir tu calificación y el historial de intentos.
+--    5) Panel → 📝 Exámenes → el curso debe salir con su módulo
+--       y el botón "✏️ Editar".
+--
+-- 5) CÓMO BORRAR LA PRUEBA (cuando ya no la necesites)
 --    delete from public.cursos where titulo = 'PRUEBA — Exámenes';
 --    (borrar el curso se lleva sus módulos y sus exámenes)
 -- =============================================================

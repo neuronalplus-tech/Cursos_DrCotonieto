@@ -210,50 +210,49 @@ supabase/
 
 ## 7. Publicación (deploy) — estado verificado 03/10/2026
 
-### 7.1 Verificación hecha hoy
+### 7.1 El deploy es AUTOMÁTICO (no necesito token)
 
-Se consultó el sitio en vivo `https://cursos-drcotonieto.neuronal-plus.workers.dev/` y se comparó con el código local:
+**Descubrimiento clave:** Cloudflare Pages tiene **integración con GitHub** conectada a este repo. Cada `git push` a `main` dispara el build y la publicación solos.
 
 | Comprobación | Resultado |
 |---|---|
-| Bundle JS servido | `assets/index-cb8531e2.js` (1,290,599 bytes) |
-| CSS servido | `assets/index-6b11348c.css` |
-| Beacon de Cloudflare Web Analytics | ✅ **Presente** (`cloudflareinsights`) |
-| Contiene `juego-s4` (commit `a946fee`) | ✅ **Sí** |
-| Contiene `emparejar` (commit `0734945`) | ✅ **Sí** |
+| Bundle servido (antes) | `assets/index-cb8531e2.js` |
+| Bundle servido (después del push `219c9b5`) | `assets/index-2aac866d.js` ✅ |
+| Contiene "Examen del curso completo" | ✅ Sí |
+| Contiene "Cargar preguntas desde Excel" | ✅ Sí |
+| Contiene `juego-s4` (commit `a946fee`) | ✅ Sí |
 | Árbol de trabajo local | ✅ Limpio |
 | `origin/main` | ✅ Al día |
 
-> **Conclusión:** el sitio en vivo **sí contiene los últimos commits**. La nota anterior de §4 que decía que el deploy había fallado quedó obsoleta y ya fue corregida.
+> **Conclusión:** publicar = `commit` + `push`. No hace falta `wrangler` ni `CLOUDFLARE_API_TOKEN`.
+> Los deploys manuales con `wrangler deploy` **fallan** (no hay token y no hay sesión OAuth), pero **no afectan nada** porque el auto-deploy ya publica. Es ruido histórico en los logs.
 
-### 7.2 Cómo se publica (para futuras sesiones)
+### 7.2 Cómo publicar (regla)
 
 ```bash
-npm run build                 # genera dist/
-npx wrangler pages deploy dist
+npm run build      # siempre, para verificar que compile
+git add -A
+git commit -m "mensaje"
+git push origin main      # ← esto publica
 ```
 
-Si `wrangler` pide autenticación, hace falta `CLOUDFLARE_API_TOKEN` (token de API de Cloudflare, no la contraseña de la cuenta). Pasos:
-1. Cloudflare → *My Profile* → *API Tokens* → *Create Token* → plantilla **Edit Cloudflare Workers** (o *Workers Scripts: Edit* + *Workers KV Storage: Edit*).
-2. Exportar: `setx CLOUDFLARE_API_TOKEN <token>` (y reiniciar la terminal).
-
-### 7.3 Verificar que el deploy salió bien
+Después del push, Cloudflare Pages tarda ~1–2 minutos en actualizar. Puedes verificarlo así:
 
 ```bash
-# 1. Ver qué bundle sirve el sitio en vivo
+# Ver qué bundle sirve el sitio en vivo
 curl -s https://cursos-drcotonieto.neuronal-plus.workers.dev/ | Select-String "assets/index-.*\.js"
 
-# 2. Confirmar que ese bundle está en tu dist local
+# Confirmar que ese bundle existe en tu dist local
 Get-ChildItem dist\assets\index-*.js
 ```
 
 Si los nombres coinciden → publicado correctamente.
 
-### 7.4 Rollback
+### 7.3 Rollback
 
 ```bash
-git revert <commit>     # deshace el cambio
-npm run build
-npx wrangler pages deploy dist
+git revert <commit>
+git push origin main     # publica el revert automáticamente
 ```
+
 
