@@ -15,9 +15,9 @@
 | 1 | Clases en vivo (Teams como liga externa) | ✅ Decidido e implementado |
 | 2 | Cloudflare Web Analytics (beacon) | ✅ En vivo y funcionando |
 | 3 | Archivos pesados en R2 | ❌ Descartado (pide tarjeta) → YouTube no listado + OneDrive 1 TB |
-| 4 | Comunicados con *tracking* (Resend) | ⏳ **Bloqueado** — espera tus cuentas (D1, D2, D5) |
-| 5 | Refactor de `App.jsx` en módulos | ⏳ **Pide tu autorización** ("adelante") |
-| 6 | Tipos de pregunta en `examenes` | ✅ **Hecho** (commit `0734945`) |
+| 4 | Comunicados con *tracking* (Resend) | ⏳ **Bloqueado** — espera tus cuentas (D1, D2, D5) — **D1 se puede posponer sin problema** |
+| 5 | Refactor de `App.jsx` en módulos | 🔄 **Iniciado** — `src/lib/` y `src/components/` creados (etapa 1) |
+| 6 | Tipos de pregunta en `examenes` | ✅ **Hecho** (commit `0734945`) + **panel admin completo** (03/10) |
 
 **Lo pendiente de tu lado:** nada urgente. Lo único que bloquea trabajo es la **decisión de cuál de los pasos 4 o 5** quieres primero.
 
@@ -111,9 +111,67 @@ El orden respeta **dependencias** (qué habilita a qué) y prioriza **valor/cost
 ]
 ```
 
+## 4. Qué ya hice hoy (sin costo ni riesgo de producción)
+
+### 4.0 Exámenes: panel admin + carga masiva desde Excel (03/10/2026)
+
+**Antes:** los exámenes solo se podían crear entrando a Supabase a mano, y únicamente se mostraban en páginas de **módulo**. Los talleres (que no tienen módulos) no podían tener examen.
+
+**Ahora:**
+
+| Capacidad | Dónde |
+|---|---|
+| Crear/editar exámenes sin tocar Supabase | Panel → **📝 Exámenes** |
+| Examen a nivel **módulo** | Aparece al final de la página del módulo |
+| Examen a nivel **curso** (nuevo) | Aparece al final de la página del curso **y de los talleres** |
+| Carga masiva desde Excel / Sheets / CSV | Pegar la tabla (Ctrl+C) o subir el archivo |
+| Descargar plantilla `.tsv` | Botón «⬇️ Descargar plantilla» en el editor |
+| Editar un examen ya existente en Excel | Botón «⬇️ Descargar estas preguntas» → edita → vuelve a pegar |
+| Activar/desactivar sin borrar | Checkbox «Examen activo» |
+| Eliminar examen + sus intentos | Botón «🗑️ Eliminar examen» (pide confirmación) |
+
+**Formato de la tabla (10 columnas):**
+
+| tipo | pregunta | op1…op5 | correcta | respuesta | pares |
+|---|---|---|---|---|---|
+| `opcion` | el enunciado | las opciones | **número** (1) o **texto exacto** | — | — |
+| `vf` | el enunciado | — | `1`=Verdadero, `0`=Falso | — | — |
+| `corta` | el enunciado | — | — | `TEPT\|trastorno de estrés postraumático` | — |
+| `emparejar` | el enunciado | — | — | — | `ACT=Aceptar; DBT=Regular` |
+
+Detalles que hace el importador:
+- Detecta solo si el texto es **TSV** (tabulador, al copiar de Excel) o **CSV** (comas).
+- **Mapea por nombre de encabezado**: acepta `Opción 2`, `Correcta`, `Respuesta correcta`, `Enunciado`, y columnas `A`–`E`. Aunque uses solo 3 columnas.
+- Si no hay encabezado, respeta el orden fijo de 10 columnas.
+- Respeta comillas y comas dentro del texto (`"Di, ¿cómo estás?"`).
+- Las filas con problema **se reportan una por una** y no detienen el resto.
+- Las preguntas viejas (sin `tipo`) siguen funcionando igual.
+
+**Pruebas:** `supabase/test-examenes.mjs` → **36 pruebas, 0 fallos**. Ejecuta con `node supabase/test-examenes.mjs`.
+
+**SQL para el examen de prueba:** `supabase/EXAMENES_PRUEBA.sql`
+> ⚠️ **Ejecuta primero la parte 1** (el `ALTER TABLE ... add column curso_id`), si no el panel de exámenes pedirá crear la columna.
+
+### 4.0.1 Estructura creada (etapa 1 del refactor)
+
+```
+src/
+├── lib/
+│   ├── supabase.js          → cliente único (antes vivía dentro de App.jsx)
+│   └── examenes.js          → lógica pura: tipos, calificación, importador TSV/CSV
+├── components/
+│   ├── EditorExamen.jsx     → modal crear/editar + carga masiva
+│   └── AdminExamenes.jsx    → vista del panel de exámenes
+└── App.jsx                  → usa las librerías (importa, no reimplementa)
+supabase/
+├── EXAMENES_PRUEBA.sql      → columna curso_id + examen de prueba autocontenido
+└── test-examenes.mjs        → 36 pruebas de la lógica
+```
+
+**Siguiente etapa del refactor:** extraer `MensajesInbox`, `TallerRecursos` y los modales a `src/components/` (cada uno en su propia rama, con build verificado).
+
 ---
 
-## 4. Qué ya hice hoy (sin costo ni riesgo de producción)
 
 1. **Código:** soporte de **Jitsi** (clases en vivo) y **Vimeo** en `analizarUrl()`, + permisos de cámara/micrófono en `iframe`. **Build verificado (`EXIT=0`, bundle `index-4a3ee28d.js`).** Commits `b655b45` (Jitsi) y `a58ff09` (beacon), ambos **pusheados a GitHub**. ✅ **Actualización 03/10:** el sitio en vivo **sí está actualizado** (verificado en §7); la nota anterior que decía "el deploy falló" quedó obsoleta.
 2. **Exámenes:** tipos de pregunta nuevos (V/F, respuesta corta, emparejar) en commit `0734945`. **Publicado en vivo** ✅.

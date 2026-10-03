@@ -1,18 +1,15 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation } from 'react-router-dom'
-import { createClient } from '@supabase/supabase-js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { supabase } from './lib/supabase'
+import { tipoDe } from './lib/examenes'
+import AdminExamenes from './components/AdminExamenes'
 import { jsPDF } from 'jspdf'  
 import './App.css'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-)
 
 /* ============================================================
    CONFIGURACIÓN
@@ -2618,6 +2615,7 @@ function Admin({ user, esAdmin }) {
         <button type="button" className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`} onClick={() => setVista('metricas')}>📊 Métricas</button>
         <button type="button" className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`} onClick={() => setVista('comunicados')}>📧 Comunicados</button>
         <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
+        <button type="button" className={`admin-tab ${vista === 'examenes' ? 'activa' : ''}`} onClick={() => setVista('examenes')}>📝 Exámenes</button>
       </div>
 
       {vista === 'inscripciones' && (
@@ -3102,6 +3100,10 @@ function Admin({ user, esAdmin }) {
 
       {vista === 'mensajes' && (
         <MensajesInbox user={user} esAdmin={esAdmin} />
+      )}
+
+      {vista === 'examenes' && (
+        <AdminExamenes />
       )}
 
       {editorHtmlAbierto && (
@@ -3887,7 +3889,7 @@ function Entregables() {
 /* ============================================================
    EXAMEN
    ============================================================ */
-function ExamenModulo({ moduloId, user }) {
+function ExamenModulo({ moduloId, cursoId, user }) {
   const [examen, setExamen] = useState(null)
   const [intentos, setIntentos] = useState([])
   const [respuestas, setRespuestas] = useState({})
@@ -3897,8 +3899,11 @@ function ExamenModulo({ moduloId, user }) {
 
   useEffect(() => {
     async function load() {
+      // El examen pertenece a un módulo (modulo_id) o al curso completo (curso_id).
+      const columna = moduloId ? 'modulo_id' : 'curso_id'
+      const valor = moduloId ?? cursoId
       const { data: ex } = await supabase.from('examenes').select('*')
-        .eq('modulo_id', moduloId).eq('activo', true).maybeSingle()
+        .eq(columna, valor).eq('activo', true).maybeSingle()
       setExamen(ex)
       if (ex && user) {
         const { data: int } = await supabase.from('intentos_examen')
@@ -3908,15 +3913,14 @@ function ExamenModulo({ moduloId, user }) {
       }
       setCargando(false)
     }
-    load()
-  }, [moduloId, user])
+    if (moduloId || cursoId) load()
+  }, [moduloId, cursoId, user])
 
   if (cargando) return null
   if (!examen) return null
   if (!user) return null
 
-  const tipoDe = (p) => p.tipo || (p.opciones?.length === 2 &&
-    p.opciones.every(o => /^(verdadero|falso|v|f)$/i.test((o.texto || '').trim())) ? 'vf' : 'opcion')
+  // tipoDe viene de src/lib/examenes.js (misma lógica de antes, ahora compartida)
 
   const esCorrecta = (p) => {
     const r = respuestas[p.id]
@@ -4585,6 +4589,10 @@ function TallerRecursos({ curso, user, esAdmin, onActualizado }) {
       {editando && (
         <ModalEditarTaller curso={curso} onClose={() => setEditando(false)} onGuardado={onActualizado} />
       )}
+
+      {/* Examen del curso completo (nivel curso). Los talleres no tienen módulos,
+          así que aquí es donde vive su evaluación. */}
+      <ExamenModulo cursoId={curso.id} user={user} />
     </section>
   )
 }

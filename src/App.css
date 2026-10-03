@@ -2079,3 +2079,114 @@ a { color: var(--primary); }
   border-radius: 4px;
   font-size: 12.5px;
 }
+
+/* ============================================================
+   ADMIN DE EXÁMENES + IMPORTADOR DESDE EXCEL
+   ============================================================ */
+
+.admin-seccion {
+  margin-top: 22px;
+  padding: 18px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+.admin-seccion h3 { margin: 0 0 6px; font-size: 17px; }
+
+.examen-modulos { display: flex; flex-direction: column; gap: 10px; }
+
+.examen-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+.examen-fila .nota { margin: 0; font-size: 13px; }
+
+/* Modal del editor de examen */
+.modal-examen { max-width: 760px; }
+.modal-examen h4 {
+  margin: 22px 0 8px;
+  font-size: 15px;
+  color: var(--primary);
+}
+
+.examen-import {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px dashed var(--borde);
+  border-radius: 10px;
+}
+.examen-import h4 { margin: 0 0 6px; }
+
+.examen-import-botones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+  align-items: center;
+}
+
+.examen-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: #fff;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.examen-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193,122,94,.15);
+}
+
+.examen-ayuda {
+  margin-top: 10px;
+  font-size: 13.5px;
+}
+.examen-ayuda summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+.examen-ayuda ul { margin: 8px 0 0; padding-left: 20px; }
+.examen-ayuda li { margin-bottom: 5px; }
+.examen-ayuda code {
+  background: #fff;
+  border: 1px solid var(--borde);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.examen-lista-admin {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-left: 22px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: #fff;
+}
+.examen-lista-admin li { margin-bottom: 14px; }
+.examen-lista-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.examen-lista-ops {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  color: var(--texto-suave, #6b6b6b);
+}
+
