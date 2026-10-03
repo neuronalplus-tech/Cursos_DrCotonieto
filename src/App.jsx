@@ -4,93 +4,32 @@ import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation
 import { createClient } from '@supabase/supabase-js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { jsPDF } from 'jspdf'  
+import { jsPDF } from 'jspdf'
 import './App.css'
+// Refactor etapa 1: helpers puros + config viven en src/lib (mismo comportamiento)
+import { supabase } from './lib/supabase.js'
+import {
+  BUCKET_PAGO, BUCKET_TALLERES, AVATAR_BUCKET,
+  CONTACTO_EMAIL, WHATSAPP, wa, WA_CONSULTA,
+  LOGO_BLANCO, LOGO_CLARO, FOTO_PERFIL,
+  ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, APPS_SCRIPT_URL,
+  MARCA, REDES, SERVICIOS, CASOS, ENFOQUES, LINEA_COPY,
+  ICONO_TIPO, NOMBRE_TIPO, CURSOS_ESPECIALES, DETALLES_DUELO, ESTILOS_BOTON,
+} from './lib/config.js'
+import { normalizarTexto, analizarUrl, rutaAcceso } from './lib/url.js'
+import {
+  esContenedorTalleres, esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
+  emiteConstancia, cursoEspecial, esCursoProblemasContemporaneos,
+} from './lib/curso.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-)
-
 /* ============================================================
-   CONFIGURACIÓN
+   CONFIGURACIÓN y HELPERS — ver src/lib/ (refactor etapa 1)
+   (config.js, url.js, curso.js). Se importan arriba.
    ============================================================ */
-const BUCKET_PAGO = 'curso_duelo'
-const BUCKET_TALLERES = 'talleres'
-const AVATAR_BUCKET = 'avatares'
 
-const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
-const WHATSAPP = '5215637841931'
-const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
-const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
-
-const LOGO_BLANCO = '/logo_blanco_1024.png'
-const LOGO_CLARO = '/logo_claro_1024.png'
-const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/public/avatares/foto_perfil_instagram_facebook.png'
-
-const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
-const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaFRDWlDPc0iAlfRBk7GecFWq77O2DgNg7tRSd9fUw-vNfTLZwCphLOszDZ7luNhOKTQ/exec'
-
-const MARCA = {
-  nombre: 'Dr. Ernesto Cotonieto',
-  credencial: 'Cédula profesional 10521804 · Doctorado en Ciencias del Comportamiento Saludable',
-  slogan: 'No tienes que traducirte para que te entiendan.',
-  subtitulo: 'Un espacio afirmativo, para quienes cargan más de lo que muestran.',
-  bio: 'Acompaño a adolescentes (desde 13 años) y adultos en procesos psicológicos basados en evidencia, y formo a profesionales de la salud mental. Combino la práctica clínica con la investigación y la docencia.'
-}
-
-const REDES = [
-  { nombre: 'Página oficial', corto: 'Web', url: 'https://drcotonieto.netlify.app/', icono: '🌐' },
-  { nombre: 'Instagram', corto: 'Instagram', url: 'https://www.instagram.com/dr.cotonieto/', icono: '📷' },
-  { nombre: 'Facebook', corto: 'Facebook', url: 'https://www.facebook.com/dr.cotonieto', icono: '👥' },
-  { nombre: 'LinkedIn', corto: 'LinkedIn', url: 'https://www.linkedin.com/in/ernesto-cotonieto-928039235/', icono: '💼' },
-  { nombre: 'Google Scholar', corto: 'Publicaciones', url: 'https://scholar.google.com/citations?hl=es&user=8wRWA-sAAAAJ', icono: '🎓' }
-]
-
-const SERVICIOS = [
-  { titulo: 'Terapia individual en línea', detalle: 'Adolescentes desde 13 años y adultos. Procesos basados en evidencia.' },
-  { titulo: 'Llamada de encuadre sin costo', detalle: '15 a 20 minutos para conocernos y ver si es buen momento.' },
-  { titulo: 'Supervisión clínica grupal', detalle: 'Grupos cerrados de 5 a 6 profesionales, con método de formulación.' },
-  { titulo: 'Cursos y talleres', detalle: 'Formación clínica aplicada para profesionales de la salud mental.' }
-]
-
-const CASOS = [
-  'Ansiedad intensa y ataques de pánico', 'Trauma y TEPT',
-  'Distimia y estados de ánimo persistentes', 'Neurodivergencia',
-  'Crisis emocionales', 'Estrés profesional y autoexigencia extrema'
-]
-
-const ENFOQUES = ['Terapia de Aceptación y Compromiso (ACT)', 'Análisis funcional de la conducta', 'Terapia Dialéctico-Conductual (DBT)']
-
-const LINEA_COPY = {
-  'Formulación y terapias contextuales': { texto: 'Formulación de caso, ACT, DBT, mindfulness y análisis funcional para decidir con criterio clínico.', motivo: 'red' },
-  'Duelo y pérdida': { texto: 'Duelo normativo, complicado, infantil y escritura emocional reflexiva.', motivo: 'ondas' },
-  'Neurodivergencia': { texto: 'Detección, diagnóstico diferencial y acompañamiento afirmativo, con criterios DSM-5-TR.', motivo: 'malla' },
-  'Riesgo, documentación y ética': { texto: 'Evaluación de riesgo suicida, documentación clínica y límites éticos en la práctica.', motivo: 'escudo' },
-  'Peritaje psicológico': { texto: 'Fundamentos del peritaje y revisión metodológica de entrevistas forenses.', motivo: 'prisma' },
-  'Ciclo vital y bienestar': { texto: 'Mindfulness clínico, ansiedad y pánico, y bienestar en la adultez y la vejez.', motivo: 'circulos' },
-  'Práctica profesional': { texto: 'Supervisión clínica grupal, psicometría aplicada y prevención del desgaste profesional.', motivo: 'arcos' },
-  'Talleres gratuitos': { texto: 'Formación breve y de acceso libre para empezar a formarte hoy mismo.', motivo: 'arcos' },
-  'Educación': { texto: 'Debates contemporáneos y herramientas aplicables para profesionales de la educación.', motivo: 'prisma' }
-}
-
-const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', autoevaluacion: '✍️' }
-const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
-
-/* ============================================================
-   CURSOS CON METADATOS ESPECIALES
-   ============================================================ */
-const CURSOS_ESPECIALES = {
-  duelo: {
-    patron: /duelo\s+normativo/i,
-    disponibleDesde: '1 de octubre',
-    detallesKey: 'duelo'
-  }
-}
-
+/* REFACTOR-ETAPA1-INICIO (se elimina en etapa 1: movido a src/lib/config.js) */
 /* ============================================================
    DETALLES DEL CURSO DE DUELO
    ============================================================ */
@@ -133,10 +72,11 @@ const DETALLES_DUELO = {
   }
 }
 
+/* REFACTOR-ETAPA1-FIN (helpers movidos a src/lib/curso.js) */
 /* ============================================================
-   HELPERS
+   HELPERS (resto: ModalPortal queda aquí por ahora)
    ============================================================ */
-function esContenedorTalleres(curso) {
+function esContenedorTalleres__MOVIDO_A_LIB(curso) {
   if (!curso) return false
   const t = (curso.titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   return t.includes('taller') && t.includes('gratuit')
@@ -5363,6 +5303,8 @@ function ModuloView({ user, esAdmin }) {
   const mostrarConstancia = emiteConstancia(curso)
   const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
   const mostrarEntregables = curso && esCursoProblemasContemporaneos(curso)
+  const esSesion4 = (modulo.titulo || '').toLowerCase().includes('sesión 4') || (modulo.titulo || '').toLowerCase().includes('session 4')
+  const mostrarJuegoS4 = mostrarEntregables && esSesion4
 
   return (
     <div className="contenedor">
@@ -5438,7 +5380,14 @@ function ModuloView({ user, esAdmin }) {
             {user && recursos.length > 0 && (
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
             )}
-            {(modulo.botones_extra || []).length > 0 && (
+            {mostrarJuegoS4 && (
+              <div className="modulo-botones-extra">
+                <a className="button primary" href="/juegos/juego-s4.html" target="_blank" rel="noopener noreferrer">
+                  🎮 Abrir juego de la sesión 4
+                </a>
+              </div>
+            )}
+            { (modulo.botones_extra || []).length > 0 && (
               <div className="modulo-botones-extra">
                 {modulo.botones_extra.map((b, i) => (
                   <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
