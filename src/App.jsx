@@ -2298,6 +2298,9 @@ function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, onGuard
   const [msg, setMsg] = useState('')
   // Opt-in: nada se envía solo. Si marcas, avisar es parte del guardado.
   const [notificar, setNotificar] = useState(false)
+  // Tras crear (con aviso) el modal sigue abierto: evita un doble clic que
+  // volvería a insertar el mismo recurso.
+  const [creado, setCreado] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const guardar = async () => {
@@ -2317,6 +2320,7 @@ function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, onGuard
       if (esNuevo) {
         const { data, error } = await supabase.from('recursos').insert(payload).select().single()
         if (error) throw error
+        setCreado(true)
         onGuardado(data, 'creado')
 
         // Aviso opcional a los inscritos, ya con el recurso guardado en la BD.
@@ -2440,8 +2444,11 @@ function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, onGuard
             </button>
           )}
           <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
-          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
-            {guardando ? 'Guardando...' : (esNuevo ? 'Crear' : 'Guardar')}
+          <button type="button" className="button primary" onClick={guardar}
+                  disabled={guardando || (esNuevo && creado)}>
+            {guardando ? 'Guardando...'
+              : (esNuevo && creado) ? '✓ Creado'
+              : (esNuevo ? 'Crear' : 'Guardar')}
           </button>
         </div>
       </div>
