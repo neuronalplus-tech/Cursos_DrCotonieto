@@ -5,6 +5,19 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
 import { tipoDe, puedeIntentar, resumenIntentos } from './lib/examenes'
+import {
+  esContenedorTalleres, esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
+  emiteConstancia, cursoEspecial, esCursoProblemasContemporaneos,
+  normalizarTexto, analizarUrl,
+} from './lib/helpers'
+import {
+  BUCKET_PAGO, BUCKET_TALLERES, AVATAR_BUCKET,
+  CONTACTO_EMAIL, WHATSAPP, wa, WA_CONSULTA,
+  LOGO_BLANCO, LOGO_CLARO, FOTO_PERFIL,
+  ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, APPS_SCRIPT_URL,
+  MARCA, REDES, SERVICIOS, CASOS, ENFOQUES, LINEA_COPY,
+  ICONO_TIPO, NOMBRE_TIPO, CURSOS_ESPECIALES, ESTILOS_BOTON, rutaAcceso,
+} from './config'
 import AdminExamenes from './components/AdminExamenes'
 import { jsPDF } from 'jspdf'  
 import './App.css'
@@ -13,80 +26,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 /* ============================================================
    CONFIGURACIÓN
+   (movida a src/config.js)
+   CURSOS CON METADATOS ESPECIALES y DETALLES_DUELO siguen aquí
+   porque son contenido editorial de un curso concreto.
    ============================================================ */
-const BUCKET_PAGO = 'curso_duelo'
-const BUCKET_TALLERES = 'talleres'
-const AVATAR_BUCKET = 'avatares'
-
-const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
-const WHATSAPP = '5215637841931'
-const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
-const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
-
-const LOGO_BLANCO = '/logo_blanco_1024.png'
-const LOGO_CLARO = '/logo_claro_1024.png'
-const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/object/public/avatares/foto_perfil_instagram_facebook.png'
-
-const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
-const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaFRDWlDPc0iAlfRBk7GecFWq77O2DgNg7tRSd9fUw-vNfTLZwCphLOszDZ7luNhOKTQ/exec'
-
-const MARCA = {
-  nombre: 'Dr. Ernesto Cotonieto',
-  credencial: 'Cédula profesional 10521804 · Doctorado en Ciencias del Comportamiento Saludable',
-  slogan: 'No tienes que traducirte para que te entiendan.',
-  subtitulo: 'Un espacio afirmativo, para quienes cargan más de lo que muestran.',
-  bio: 'Acompaño a adolescentes (desde 13 años) y adultos en procesos psicológicos basados en evidencia, y formo a profesionales de la salud mental. Combino la práctica clínica con la investigación y la docencia.'
-}
-
-const REDES = [
-  { nombre: 'Página oficial', corto: 'Web', url: 'https://drcotonieto.netlify.app/', icono: '🌐' },
-  { nombre: 'Instagram', corto: 'Instagram', url: 'https://www.instagram.com/dr.cotonieto/', icono: '📷' },
-  { nombre: 'Facebook', corto: 'Facebook', url: 'https://www.facebook.com/dr.cotonieto', icono: '👥' },
-  { nombre: 'LinkedIn', corto: 'LinkedIn', url: 'https://www.linkedin.com/in/ernesto-cotonieto-928039235/', icono: '💼' },
-  { nombre: 'Google Scholar', corto: 'Publicaciones', url: 'https://scholar.google.com/citations?hl=es&user=8wRWA-sAAAAJ', icono: '🎓' }
-]
-
-const SERVICIOS = [
-  { titulo: 'Terapia individual en línea', detalle: 'Adolescentes desde 13 años y adultos. Procesos basados en evidencia.' },
-  { titulo: 'Llamada de encuadre sin costo', detalle: '15 a 20 minutos para conocernos y ver si es buen momento.' },
-  { titulo: 'Supervisión clínica grupal', detalle: 'Grupos cerrados de 5 a 6 profesionales, con método de formulación.' },
-  { titulo: 'Cursos y talleres', detalle: 'Formación clínica aplicada para profesionales de la salud mental.' }
-]
-
-const CASOS = [
-  'Ansiedad intensa y ataques de pánico', 'Trauma y TEPT',
-  'Distimia y estados de ánimo persistentes', 'Neurodivergencia',
-  'Crisis emocionales', 'Estrés profesional y autoexigencia extrema'
-]
-
-const ENFOQUES = ['Terapia de Aceptación y Compromiso (ACT)', 'Análisis funcional de la conducta', 'Terapia Dialéctico-Conductual (DBT)']
-
-const LINEA_COPY = {
-  'Formulación y terapias contextuales': { texto: 'Formulación de caso, ACT, DBT, mindfulness y análisis funcional para decidir con criterio clínico.', motivo: 'red' },
-  'Duelo y pérdida': { texto: 'Duelo normativo, complicado, infantil y escritura emocional reflexiva.', motivo: 'ondas' },
-  'Neurodivergencia': { texto: 'Detección, diagnóstico diferencial y acompañamiento afirmativo, con criterios DSM-5-TR.', motivo: 'malla' },
-  'Riesgo, documentación y ética': { texto: 'Evaluación de riesgo suicida, documentación clínica y límites éticos en la práctica.', motivo: 'escudo' },
-  'Peritaje psicológico': { texto: 'Fundamentos del peritaje y revisión metodológica de entrevistas forenses.', motivo: 'prisma' },
-  'Ciclo vital y bienestar': { texto: 'Mindfulness clínico, ansiedad y pánico, y bienestar en la adultez y la vejez.', motivo: 'circulos' },
-  'Práctica profesional': { texto: 'Supervisión clínica grupal, psicometría aplicada y prevención del desgaste profesional.', motivo: 'arcos' },
-  'Talleres gratuitos': { texto: 'Formación breve y de acceso libre para empezar a formarte hoy mismo.', motivo: 'arcos' },
-  'Educación': { texto: 'Debates contemporáneos y herramientas aplicables para profesionales de la educación.', motivo: 'prisma' }
-}
-
-const ICONO_TIPO = { pdf: '📄', video: '🎬', word: '📝', enlace: '🔗', autoevaluacion: '✍️' }
-const NOMBRE_TIPO = { pdf: 'Documento', video: 'Video', word: 'Descargable', enlace: 'Enlace', autoevaluacion: 'Autoevaluación' }
-
-/* ============================================================
-   CURSOS CON METADATOS ESPECIALES
-   ============================================================ */
-const CURSOS_ESPECIALES = {
-  duelo: {
-    patron: /duelo\s+normativo/i,
-    disponibleDesde: '1 de octubre',
-    detallesKey: 'duelo'
-  }
-}
 
 /* ============================================================
    DETALLES DEL CURSO DE DUELO
@@ -132,50 +75,11 @@ const DETALLES_DUELO = {
 
 /* ============================================================
    HELPERS
+   (esContenedorTalleres, esTallerIndividual, moduloVisible,
+    moduloBloqueadoParaAlumno, emiteConstancia, cursoEspecial,
+    esCursoProblemasContemporaneos, normalizarTexto y analizarUrl
+    se movieron a src/lib/helpers.js)
    ============================================================ */
-function esContenedorTalleres(curso) {
-  if (!curso) return false
-  const t = (curso.titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  return t.includes('taller') && t.includes('gratuit')
-}
-
-function esTallerIndividual(curso) {
-  if (!curso || !curso.gratuito) return false
-  if (esContenedorTalleres(curso)) return false
-  return !curso.linea
-}
-
-function moduloVisible(m, { user, esAdmin, miGrupo }) {
-  if (esAdmin) return true
-  if (m.oculto && !user) return false
-  if (m.grupo) {
-    if (!user) return false
-    if (m.grupo !== miGrupo) return false
-  }
-  return true
-}
-
-function moduloBloqueadoParaAlumno(m) {
-  return m && m.disponible === false
-}
-
-function emiteConstancia(curso) {
-  if (!curso) return false
-  if (curso.gratuito) return false
-  if (curso.constancia === false) return false
-  return true
-}
-
-function cursoEspecial(curso) {
-  if (!curso) return null
-  return Object.values(CURSOS_ESPECIALES).find(e => e.patron.test(curso.titulo || '')) || null
-}
-
-function esCursoProblemasContemporaneos(curso) {
-  if (!curso) return false
-  const t = (curso.titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  return t.includes('problemas') && t.includes('contempor')
-}
 
 // Todo modal se monta con un portal directo a <body>. Sin esto, un modal
 // renderizado dentro de una tarjeta con hover (transform: translateY en .course-card,
@@ -186,67 +90,9 @@ function ModalPortal({ children }) {
   return createPortal(children, document.body)
 }
 
-function normalizarTexto(s) {
-  return (s || '')
-    .toString()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-}
+// (normalizarTexto y analizarUrl se movieron a src/lib/helpers.js)
 
-// Detecta la procedencia de un link (YouTube, Google Drive, OneDrive, otro)
-// y devuelve la versi\u00f3n embebible cuando es posible. Los links de OneDrive
-// cortos (1drv.ms) o de SharePoint no se pueden convertir de forma confiable
-// sin resolver el redirect en el servidor, as\u00ed que se quedan como "externo".
-function analizarUrl(url) {
-  const externo = { origen: 'externo', embeddable: false, embedUrl: null }
-  if (!url || typeof url !== 'string') return externo
-
-  const yt = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/)
-  if (yt) {
-    return { origen: 'youtube', embeddable: true, embedUrl: `https://www.youtube.com/embed/${yt[1]}` }
-  }
-
-  const drive = url.match(/drive\.google\.com\/(?:file\/d\/([a-zA-Z0-9_-]+)|open\?id=([a-zA-Z0-9_-]+))/)
-  if (drive) {
-    const id = drive[1] || drive[2]
-    return { origen: 'googledrive', embeddable: true, embedUrl: `https://drive.google.com/file/d/${id}/preview` }
-  }
-
-  const oneDriveLive = url.match(/onedrive\.live\.com\/[^\s]*resid=[^&\s]+/i)
-  if (oneDriveLive) {
-    const embedUrl = url.replace(/onedrive\.live\.com\/(?:redir|view\.aspx)?/i, 'onedrive.live.com/embed')
-    return { origen: 'onedrive', embeddable: true, embedUrl }
-  }
-
-  if (/1drv\.ms|sharepoint\.com/i.test(url)) {
-    return { origen: 'onedrive', embeddable: false, embedUrl: null }
-  }
-
-  // Microsoft Forms: pega el link que da la opción "Compartir → Insertar código (Embed)".
-  // Ese link ya viene listo para iframe, no hace falta transformarlo.
-  if (/forms\.office\.com|forms\.microsoft\.com|forms\.office365\.com/i.test(url)) {
-    return { origen: 'msforms', embeddable: true, embedUrl: url }
-  }
-
-  // Vimeo: reproductor embebible estándar.
-  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d{6,})/)
-  if (vimeo) {
-    return { origen: 'vimeo', embeddable: true, embedUrl: `https://player.vimeo.com/video/${vimeo[1]}` }
-  }
-
-  // Jitsi / Teams / Meet: NO se embeben (se abren en pestaña aparte con botón "Unirse").
-  // - meet.jit.si gratis corta el iframe a los 5 min ("demo purposes", exige JaaS de pago
-  //   para producción) y ya ni siquiera ofrece botón de grabar en la nube.
-  // - Teams/Meet bloquean iframe por política. Patrón correcto: liga externa.
-  // Se detecta el origen solo para etiquetar, pero embeddable = false.
-  if (/^https?:\/\/([a-z0-9-]+\.)*jit\.si\//i.test(url)) {
-    return { origen: 'jitsi', embeddable: false, embedUrl: null }
-  }
-
-  return externo
-}
+// (analizarUrl se movió a src/lib/helpers.js)
 
 /* ============================================================
    PORTADAS VECTORIALES
@@ -561,7 +407,7 @@ function NavegacionFlotante({ prev, next, curso, mostrarConstancia }) {
   )
 }
 
-const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(destino)}`
+// (rutaAcceso se movió a src/config.js)
 
 /* ============================================================
    HEADER
@@ -4191,12 +4037,7 @@ function ModalNuevoModulo({ cursoId, orden, onClose, onCreado }) {
   )
 }
 
-const ESTILOS_BOTON = [
-  { valor: 'primary',   etiqueta: 'Oscuro sólido' },
-  { valor: 'secondary', etiqueta: 'Contorno' },
-  { valor: 'azul',      etiqueta: 'Azul' },
-  { valor: 'whatsapp',  etiqueta: 'Verde WhatsApp' },
-]
+// (ESTILOS_BOTON y rutaAcceso se movieron a src/config.js)
 
 // Editor reutilizable de "botones libres" — lo usan curso, módulo y ruta/subgrupo.
 // El padre es dueño del estado (botones + onChange); este componente es solo la UI.

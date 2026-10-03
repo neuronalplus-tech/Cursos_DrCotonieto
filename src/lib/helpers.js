@@ -1,0 +1,117 @@
+/* ============================================================
+   HELPERS PUROS (sin React, sin Supabase)
+   Extraídos de App.jsx durante el refactor. Mismo comportamiento.
+   ============================================================ */
+
+import { CURSOS_ESPECIALES } from '../config'
+
+/** Quita acentos y pasa a minúsculas, para comparar títulos de forma tolerante. */
+const sinAcentos = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+export function normalizarTexto(s) {
+  return (s || '').toString().toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').trim()
+}
+
+/** El curso contenedor de talleres (título "Talleres gratuitos"). */
+export function esContenedorTalleres(curso) {
+  if (!curso) return false
+  const t = sinAcentos(curso.titulo)
+  return t.includes('taller') && t.includes('gratuit')
+}
+
+/**
+ * Un curso gratuito sin `linea` se clasifica como "taller individual".
+ * IMPORTANTE: la portada filtra con `.filter(c => !esTallerIndividual(c))`,
+ * por eso un curso `gratuito = true` y sin `linea` NO aparece en el inicio.
+ */
+export function esTallerIndividual(curso) {
+  if (!curso || !curso.gratuito) return false
+  if (esContenedorTalleres(curso)) return false
+  return !curso.linea
+}
+
+export function moduloVisible(m, { user, esAdmin, miGrupo }) {
+  if (esAdmin) return true
+  if (m.oculto && !user) return false
+  if (m.grupo) {
+    if (!user) return false
+    if (m.grupo !== miGrupo) return false
+  }
+  return true
+}
+
+export function moduloBloqueadoParaAlumno(m) {
+  return m && m.disponible === false
+}
+
+export function emiteConstancia(curso) {
+  if (!curso) return false
+  if (curso.gratuito) return false
+  if (curso.constancia === false) return false
+  return true
+}
+
+export function cursoEspecial(curso) {
+  if (!curso) return null
+  return Object.values(CURSOS_ESPECIALES).find(e => e.patron.test(curso.titulo || '')) || null
+}
+
+export function esCursoProblemasContemporaneos(curso) {
+  if (!curso) return false
+  const t = sinAcentos(curso.titulo)
+  return t.includes('problemas') && t.includes('contempor')
+}
+
+// Detecta la procedencia de un link (YouTube, Google Drive, OneDrive, otro)
+// y devuelve la versión embebible cuando es posible. Los links de OneDrive
+// cortos (1drv.ms) o de SharePoint no se pueden convertir de forma confiable
+// sin resolver el redirect en el servidor, así que se quedan como "externo".
+export function analizarUrl(url) {
+  const externo = { origen: 'externo', embeddable: false, embedUrl: null }
+  if (!url || typeof url !== 'string') return externo
+
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/)
+  if (yt) {
+    return { origen: 'youtube', embeddable: true, embedUrl: `https://www.youtube.com/embed/${yt[1]}` }
+  }
+
+  const drive = url.match(/drive\.google\.com\/(?:file\/d\/([a-zA-Z0-9_-]+)|open\?id=([a-zA-Z0-9_-]+))/)
+  if (drive) {
+    const id = drive[1] || drive[2]
+    return { origen: 'googledrive', embeddable: true, embedUrl: `https://drive.google.com/file/d/${id}/preview` }
+  }
+
+  const oneDriveLive = url.match(/onedrive\.live\.com\/[^\s]*resid=[^&\s]+/i)
+  if (oneDriveLive) {
+    const embedUrl = url.replace(/onedrive\.live\.com\/(?:redir|view\.aspx)?/i, 'onedrive.live.com/embed')
+    return { origen: 'onedrive', embeddable: true, embedUrl }
+  }
+
+  if (/1drv\.ms|sharepoint\.com/i.test(url)) {
+    return { origen: 'onedrive', embeddable: false, embedUrl: null }
+  }
+
+  // Microsoft Forms: pega el link que da la opción "Compartir → Insertar código (Embed)".
+  // Ese link ya viene listo para iframe, no hace falta transformarlo.
+  if (/forms\.office\.com|forms\.microsoft\.com|forms\.office365\.com/i.test(url)) {
+    return { origen: 'msforms', embeddable: true, embedUrl: url }
+  }
+
+  // Vimeo: reproductor embebible estándar.
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d{6,})/)
+  if (vimeo) {
+    return { origen: 'vimeo', embeddable: true, embedUrl: `https://player.vimeo.com/video/${vimeo[1]}` }
+  }
+
+  // Jitsi / Teams / Meet: NO se embeben (se abren en pestaña aparte con botón "Unirse").
+  // - meet.jit.si gratis corta el iframe a los 5 min ("demo purposes", exige JaaS de pago
+  //   para producción) y ya ni siquiera ofrece botón de grabar en la nube.
+  // - Teams/Meet bloquean iframe por política. Patrón correcto: liga externa.
+  // Se detecta el origen solo para etiquetar, pero embeddable = false.
+  if (/^https?:\/\/([a-z0-9-]+\.)*jit\.si\//i.test(url)) {
+    return { origen: 'jitsi', embeddable: false, embedUrl: null }
+  }
+
+  return externo
+}

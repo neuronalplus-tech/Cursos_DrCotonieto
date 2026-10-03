@@ -152,23 +152,39 @@ Detalles que hace el importador:
 **SQL para el examen de prueba:** `supabase/EXAMENES_PRUEBA.sql`
 > ⚠️ **Ejecuta primero la parte 1** (el `ALTER TABLE ... add column curso_id`), si no el panel de exámenes pedirá crear la columna.
 
-### 4.0.1 Estructura creada (etapa 1 del refactor)
+### 4.0.1 Estructura creada (refactor)
 
 ```
 src/
+├── config.js               → configuración global (buckets, marca, redes, copy)
 ├── lib/
-│   ├── supabase.js          → cliente único (antes vivía dentro de App.jsx)
-│   └── examenes.js          → lógica pura: tipos, calificación, importador TSV/CSV
+│   ├── supabase.js         → cliente único
+│   ├── helpers.js          → helpers puros (analizarUrl, esTallerIndividual, …)
+│   └── examenes.js         → lógica de exámenes: tipos, calificación, importador
 ├── components/
-│   ├── EditorExamen.jsx     → modal crear/editar + carga masiva
-│   └── AdminExamenes.jsx    → vista del panel de exámenes
-└── App.jsx                  → usa las librerías (importa, no reimplementa)
+│   ├── AdminExamenes.jsx   → vista del panel de exámenes
+│   ├── EditorExamen.jsx    → modal crear/editar + carga masiva
+│   └── EditorPregunta.jsx  → captura manual de una pregunta
+├── App.jsx                 → pantallas y composición
+└── main.jsx                → punto de entrada
 supabase/
-├── EXAMENES_PRUEBA.sql      → columna curso_id + examen de prueba autocontenido
-└── test-examenes.mjs        → 36 pruebas de la lógica
+├── EXAMENES_PRUEBA.sql     → columnas curso_id + max_intentos + examen de prueba
+└── test-examenes.mjs       → 60 pruebas
 ```
 
-**Siguiente etapa del refactor:** extraer `MensajesInbox`, `TallerRecursos` y los modales a `src/components/` (cada uno en su propia rama, con build verificado).
+**Progreso del refactor:**
+
+| Etapa | Qué se movió | Estado |
+|---|---|---|
+| 1 | `lib/supabase.js`, `lib/examenes.js`, `components/*` (exámenes) | ✅ Hecho |
+| 2a | `config.js` + `lib/helpers.js` (configuración y helpers puros) | ✅ Hecho |
+| 2b | `MensajesInbox`, `TallerRecursos`, modales | ⏳ Siguiente |
+
+> `App.jsx` bajó de ~5.640 a **~5.140 líneas** sin cambiar comportamiento.
+> `src/App (1).jsx` es un **respaldo viejo** que no usa nadie (no lo importa `main.jsx`)
+> y conviene borrarlo o moverlo fuera de `src/` para que no confunda las búsquedas.
+
+---
 
 ### 4.0.2 Captura manual + límite de intentos (03/10/2026)
 
