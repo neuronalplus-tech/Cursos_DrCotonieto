@@ -162,11 +162,14 @@ src/
 │   ├── helpers.js          → helpers puros (analizarUrl, esTallerIndividual, …)
 │   └── examenes.js         → lógica de exámenes: tipos, calificación, importador
 ├── components/
+│   ├── ui.jsx              → UI compartida (ModalPortal, Breadcrumb, VideoPlayer, …)
 │   ├── AdminExamenes.jsx   → vista del panel de exámenes
 │   ├── EditorExamen.jsx    → modal crear/editar + carga masiva
 │   └── EditorPregunta.jsx  → captura manual de una pregunta
 ├── App.jsx                 → pantallas y composición
 └── main.jsx                → punto de entrada
+respaldo/
+└── App (1).jsx             → respaldo viejo (no se usa; está en git si lo necesitas)
 supabase/
 ├── EXAMENES_PRUEBA.sql     → columnas curso_id + max_intentos + examen de prueba
 └── test-examenes.mjs       → 60 pruebas
@@ -176,13 +179,13 @@ supabase/
 
 | Etapa | Qué se movió | Estado |
 |---|---|---|
-| 1 | `lib/supabase.js`, `lib/examenes.js`, `components/*` (exámenes) | ✅ Hecho |
-| 2a | `config.js` + `lib/helpers.js` (configuración y helpers puros) | ✅ Hecho |
-| 2b | `MensajesInbox`, `TallerRecursos`, modales | ⏳ Siguiente |
+| 1 | `lib/supabase.js`, `lib/examenes.js`, `components/*` (exámenes) | ✅ |
+| 2a | `config.js` + `lib/helpers.js` | ✅ |
+| 2b | `components/ui.jsx` (UI compartida) | ✅ |
+| 2c | `MensajesInbox`, `TallerRecursos`, `Header`, modales | ⏳ Siguiente |
 
-> `App.jsx` bajó de ~5.640 a **~5.140 líneas** sin cambiar comportamiento.
-> `src/App (1).jsx` es un **respaldo viejo** que no usa nadie (no lo importa `main.jsx`)
-> y conviene borrarlo o moverlo fuera de `src/` para que no confunda las búsquedas.
+> `App.jsx` bajó de ~5.640 a **~4.500 líneas** sin cambiar comportamiento.
+> El bundle mantiene el mismo tamaño (1.314 kB), señal de que fue un movimiento puro.
 
 ---
 
