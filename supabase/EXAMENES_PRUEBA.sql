@@ -17,6 +17,13 @@ alter table public.examenes
 comment on column public.examenes.curso_id is
   'Examen del curso completo. NULL = el examen pertenece a un módulo.';
 
+-- Límite de intentos por alumno (0 = ilimitado)
+alter table public.examenes
+  add column if not exists max_intentos integer not null default 3;
+
+comment on column public.examenes.max_intentos is
+  'Máximo de intentos por alumno. 0 = ilimitado. Al agotarlos se muestra la mejor nota.';
+
 -- Índices para que la búsqueda del examen sea rápida
 create index if not exists examenes_modulo_id_idx on public.examenes(modulo_id);
 create index if not exists examenes_curso_id_idx  on public.examenes(curso_id);
@@ -73,12 +80,13 @@ begin
 
   -- Examen con los 4 tipos
   insert into public.examenes
-    (modulo_id, titulo, descripcion, umbral_aprobacion, activo, preguntas)
+    (modulo_id, titulo, descripcion, umbral_aprobacion, max_intentos, activo, preguntas)
   values (
     v_modulo_id,
     'Examen de prueba — 4 tipos',
     'Si llegas al final y ves tu calificación, todo funciona.',
     70,
+    3,
     true,
     $jsonb$
     [

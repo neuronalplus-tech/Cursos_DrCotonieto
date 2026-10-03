@@ -170,6 +170,36 @@ supabase/
 
 **Siguiente etapa del refactor:** extraer `MensajesInbox`, `TallerRecursos` y los modales a `src/components/` (cada uno en su propia rama, con build verificado).
 
+### 4.0.2 Captura manual + límite de intentos (03/10/2026)
+
+**Captura manual de preguntas** (antes solo había carga masiva):
+- Botón **«✍️ Escribir pregunta a mano»** dentro del editor de exámenes.
+- Formulario con los 4 tipos: opción múltiple (hasta 6 opciones, marca la correcta con radio),
+  verdadero/falso, respuesta corta y emparejar.
+- Validación en vivo: no deja guardar sin enunciado, sin opciones, o sin marcar exactamente
+  una respuesta correcta.
+- Cada pregunta de la lista tiene **↑ ↓** (reordenar), **✏️ Editar** y **🗑️ Quitar**.
+
+**Límite de intentos** (antes ilimitado):
+- Campo «Intentos permitidos por alumno» (default **3**, `0` = ilimitado).
+- Al agotarlos se bloquea y se muestra **solo la mejor calificación**, en grande.
+- Mientras quedan intentos se indica cuántos van y cuántos faltan.
+- Si en algún intento aprueban, queda como aprobado aunque después repruebe.
+
+**Dónde viven las respuestas** (todo en Supabase, dentro del plan gratuito):
+
+| Dato | Tabla | Campo |
+|---|---|---|
+| Las preguntas del examen | `examenes` | `preguntas` (jsonb) |
+| Las respuestas del alumno | `intentos_examen` | `respuestas` (jsonb), `calificacion`, `aprobado`, `fecha` |
+
+Nada se hospeda fuera: es tu base de datos Postgres de Supabase. El plan **Free** da 500 MB,
+que alcanza para **miles de alumnos × cientos de intentos**.
+
+**Pruebas:** `node supabase/test-examenes.mjs` → **60 pruebas, 0 fallos**.
+
+**SQL actualizado:** `supabase/EXAMENES_PRUEBA.sql` ahora agrega también `max_intentos`.
+
 ---
 
 

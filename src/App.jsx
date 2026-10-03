@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
-import { tipoDe } from './lib/examenes'
+import { tipoDe, puedeIntentar, resumenIntentos } from './lib/examenes'
 import AdminExamenes from './components/AdminExamenes'
 import { jsPDF } from 'jspdf'  
 import './App.css'
@@ -3972,6 +3972,8 @@ function ExamenModulo({ moduloId, cursoId, user }) {
 
   const reintentar = () => { setRespuestas({}); setResultado(null) }
   const mejor = intentos.reduce((m, i) => Math.max(m, i.calificacion), 0)
+  const resumen = resumenIntentos(intentos, examen.max_intentos)
+  const quedanIntentos = puedeIntentar(intentos, examen.max_intentos)
 
   return (
     <div className="examen-bloque">
@@ -3980,13 +3982,38 @@ function ExamenModulo({ moduloId, cursoId, user }) {
         <div>
           <h3>{examen.titulo}</h3>
           {examen.descripcion && <p className="recurso-desc">{examen.descripcion}</p>}
-          <p className="examen-meta">Aprobación con {examen.umbral_aprobacion}% · Mejor intento: {mejor}%</p>
+          <p className="examen-meta">
+            Aprobación con {examen.umbral_aprobacion}% ·
+            {resumen.limite
+              ? ` intentos ${resumen.usados}/${resumen.limite}`
+              : ' intentos ilimitados'}
+            {resumen.usados > 0 && ` · Mejor nota: ${resumen.mejor}%`}
+          </p>
         </div>
       </header>
 
-      {resultado ? (
+      {!quedanIntentos ? (
+        <div className={resumen.aprobado ? 'aviso-ok' : 'aviso-error'}>
+          <strong>{resumen.aprobado ? '✅ Aprobado' : '❌ No aprobado'}</strong>
+          <div style={{ fontSize: 26, fontWeight: 700, margin: '6px 0' }}>{resumen.mejor}%</div>
+          <p style={{ margin: 0 }}>
+            Usaste tus {resumen.limite} intentos. Esta es tu mejor calificación
+            {resumen.aprobado ? ' y es la que cuenta.' : '.'}
+          </p>
+        </div>
+      ) : resultado ? (
         <div className={resultado.aprobado ? 'aviso-ok' : 'aviso-error'}>
           <strong>{resultado.aprobado ? '✅ Aprobado' : '❌ No aprobado'}</strong> — {resultado.calificacion}%
+          {intentos.length > 1 && (
+            <p className="nota" style={{ margin: '6px 0 0' }}>
+              Mejor nota hasta ahora: {resumen.mejor}%
+              {resumen.restantes === 1
+                ? ' · te queda 1 intento'
+                : resumen.restantes > 1
+                  ? ` · te quedan ${resumen.restantes} intentos`
+                  : ''}
+            </p>
+          )}
           <div style={{ marginTop: 10 }}>
             <button className="button secondary" onClick={reintentar}>Volver a intentar</button>
           </div>

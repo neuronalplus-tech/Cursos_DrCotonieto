@@ -309,3 +309,94 @@ export function descargarTSV(texto, nombreArchivo = 'examen.tsv') {
   URL.revokeObjectURL(url)
 }
 
+/* ------------------------------------------------------------
+   VALIDACIÓN Y LÍMITE DE INTENTOS
+   ------------------------------------------------------------ */
+
+/**
+ * Valida una pregunta escrita a mano.
+ * @returns {string|null} mensaje de error, o null si está bien.
+ */
+export function validarPregunta(p) {
+  if (!p) return 'La pregunta está vacía.'
+  if (!String(p.pregunta || '').trim()) return 'Falta escribir la pregunta.'
+
+  const tipo = tipoDe(p)
+  if (tipo === 'opcion') {
+    const ops = (p.opciones || []).filter(o => String(o.texto || '').trim())
+    if (ops.length < 2) return 'Necesitas al menos 2 opciones con texto.'
+    if (ops.filter(o => o.correcta).length !== 1) return 'Marca exactamente una opción como correcta.'
+    return null
+  }
+  if (tipo === 'vf') {
+    if ((p.opciones || []).filter(o => o.correcta).length !== 1) return 'Marca si la respuesta correcta es Verdadero o Falso.'
+    return null
+  }
+  if (tipo === 'corta') {
+    if (!String(p.respuesta || '').trim()) return 'Falta escribir la respuesta esperada.'
+    return null
+  }
+  // emparejar
+  const pares = (p.pares || []).filter(x => String(x.premisa || '').trim() && String(x.respuesta || '').trim())
+  if (pares.length < 2) return 'Necesitas al menos 2 pares completos (premisa y respuesta).'
+  return null
+}
+
+/** Crea una pregunta en blanco del tipo pedido, lista para editar a mano. */
+export function crearPreguntaVacia(tipo = 'opcion', n = 1) {
+  const id = `p${n}`
+  if (tipo === 'vf') {
+    return {
+      id, tipo: 'vf', pregunta: '',
+      opciones: [{ texto: 'Verdadero', correcta: true }, { texto: 'Falso', correcta: false }],
+    }
+  }
+  if (tipo === 'corta') return { id, tipo: 'corta', pregunta: '', respuesta: '' }
+  if (tipo === 'emparejar') {
+    return {
+      id, tipo: 'emparejar', pregunta: '',
+      pares: [
+        { id: `${id}a`, premisa: '', respuesta: '' },
+        { id: `${id}b`, premisa: '', respuesta: '' },
+      ],
+    }
+  }
+  return {
+    id, tipo: 'opcion', pregunta: '',
+    opciones: [
+      { texto: '', correcta: true }, { texto: '', correcta: false },
+      { texto: '', correcta: false }, { texto: '', correcta: false },
+    ],
+  }
+}
+
+/**
+ * ¿El alumno todavía puede responder?
+ * @param {Array} intentos  intentos ya registrados
+ * @param {number} max      máximo permitido (null/0 = ilimitado)
+ */
+export function puedeIntentar(intentos, max) {
+  const limite = parseInt(max, 10)
+  if (!limite || limite <= 0) return true           // 0 o null = ilimitado
+  return (intentos || []).length < limite
+}
+
+/** Mejor calificación entre los intentos. */
+export const mejorCalificacion = (intentos) =>
+  (intentos || []).reduce((m, i) => Math.max(m, Number(i.calificacion) || 0), 0)
+
+/** Resumen para mostrarle al alumno: cuántos intentos lleva y cuál es su mejor nota. */
+export function resumenIntentos(intentos, max) {
+  const n = (intentos || []).length
+  const limite = parseInt(max, 10)
+  const ilimitado = !limite || limite <= 0
+  return {
+    usados: n,
+    restantes: ilimitado ? Infinity : Math.max(0, limite - n),
+    limite: ilimitado ? null : limite,
+    mejor: mejorCalificacion(intentos),
+    aprobado: (intentos || []).some(i => i.aprobado),
+  }
+}
+
+

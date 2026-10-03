@@ -1,6 +1,7 @@
 // Prueba rápida de la lógica de exámenes (no es parte de la app).
 // Ejecutar: node supabase/test-examenes.mjs
-import { parseTabla, filasAPreguntas, preguntasATSV, calificar, tipoDe, PLANTILLA_TSV } from '../src/lib/examenes.js'
+import { parseTabla, filasAPreguntas, preguntasATSV, calificar, tipoDe, PLANTILLA_TSV,
+         validarPregunta, crearPreguntaVacia, puedeIntentar, resumenIntentos } from '../src/lib/examenes.js'
 
 let ok = 0, fallos = 0
 const check = (nombre, cond) => {
@@ -104,6 +105,45 @@ const { preguntas: p7, errores: e7 } = filasAPreguntas(parseTabla(
   'opcion\tOtro\tTres\tCuatro\t\t\t\t2\t\t'))
 check('2 preguntas (vacias ignoradas)', p7.length === 2)
 check('sin errores', e7.length === 0)
+
+console.log('\n12) Validacion de preguntas escritas a mano')
+const vacia = crearPreguntaVacia('opcion', 1)
+check('rechaza sin enunciado', validarPregunta({ ...vacia, pregunta: '' }) !== null)
+check('rechaza sin texto en opciones', validarPregunta({ ...vacia, pregunta: 'P' }) !== null)
+const okOp = { ...vacia, pregunta: 'P',
+  opciones: [{ texto: 'A', correcta: false }, { texto: 'B', correcta: true }] }
+check('acepta opcion valida', validarPregunta(okOp) === null)
+check('rechaza dos correctas', validarPregunta({ ...okOp, opciones: [
+  { texto: 'A', correcta: true }, { texto: 'B', correcta: true }] }) !== null)
+check('rechaza ninguna correcta', validarPregunta({ ...okOp, opciones: [
+  { texto: 'A', correcta: false }, { texto: 'B', correcta: false }] }) !== null)
+const vfOk = crearPreguntaVacia('vf', 1)
+check('rechaza vf sin enunciado', validarPregunta(vfOk) !== null)
+check('acepta vf valida', validarPregunta({ ...vfOk, pregunta: 'P' }) === null)
+check('vf por defecto = Verdadero', tipoDe(vfOk) === 'vf' && vfOk.opciones[0].correcta === true)
+check('rechaza corta sin respuesta', validarPregunta({ ...crearPreguntaVacia('corta', 1), pregunta: 'P' }) !== null)
+check('acepta corta con respuesta', validarPregunta({ ...crearPreguntaVacia('corta', 1), pregunta: 'P', respuesta: 'X' }) === null)
+const emp = crearPreguntaVacia('emparejar', 1)
+check('rechaza emparejar incompleto', validarPregunta({ ...emp, pregunta: 'P' }) !== null)
+check('acepta emparejar completo', validarPregunta({ ...emp, pregunta: 'P',
+  pares: [{ id: 'a', premisa: 'A', respuesta: 'B' }, { id: 'b', premisa: 'C', respuesta: 'D' }] }) === null)
+
+console.log('\n13) Limite de intentos')
+check('sin intentos puede', puedeIntentar([], 3) === true)
+check('con 2 de 3 puede', puedeIntentar([{}, {}], 3) === true)
+check('con 3 de 3 NO puede', puedeIntentar([{}, {}, {}], 3) === false)
+check('0 = ilimitado', puedeIntentar([{}, {}, {}, {}, {}], 0) === true)
+check('null = ilimitado', puedeIntentar([{}, {}], null) === true)
+const r1 = resumenIntentos([{ calificacion: 40 }, { calificacion: 90 }, { calificacion: 60 }], 3)
+check('usados = 3', r1.usados === 3)
+check('mejor = 90', r1.mejor === 90)
+check('restantes = 0', r1.restantes === 0)
+check('aprobado si alguno aprobo', resumenIntentos([{ calificacion: 40, aprobado: false }, { calificacion: 90, aprobado: true }], 3).aprobado === true)
+check('no aprobado si ninguno', resumenIntentos([{ calificacion: 40, aprobado: false }], 3).aprobado === false)
+const r2 = resumenIntentos([{ calificacion: 70 }], 0)
+check('ilimitado: limite null', r2.limite === null && r2.restantes === Infinity)
+check('sin intentos mejor = 0', resumenIntentos([], 3).mejor === 0)
+
 
 console.log('\n' + '='.repeat(46))
 console.log(`  ${ok} pruebas OK · ${fallos} fallos`)

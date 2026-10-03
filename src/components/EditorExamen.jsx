@@ -5,6 +5,7 @@ import {
   TIPOS_EXAMEN, ETIQUETA_TIPO, tipoDe,
   parseTabla, filasAPreguntas, preguntasATSV, descargarTSV, PLANTILLA_TSV,
 } from '../lib/examenes'
+import EditorPregunta from './EditorPregunta'
 
 function ModalPortal({ children }) {
   return createPortal(children, document.body)
@@ -24,13 +25,37 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
   const [titulo, setTitulo] = useState(examen?.titulo || '')
   const [descripcion, setDescripcion] = useState(examen?.descripcion || '')
   const [umbral, setUmbral] = useState(examen?.umbral_aprobacion ?? 70)
+  const [maxIntentos, setMaxIntentos] = useState(examen?.max_intentos ?? 3)
   const [activo, setActivo] = useState(examen?.activo !== false)
   const [preguntas, setPreguntas] = useState(examen?.preguntas || [])
+  const [editandoPregunta, setEditandoPregunta] = useState(null) // {indice, pregunta} | {indice:null}
   const [pegado, setPegado] = useState('')
   const [errores, setErrores] = useState([])
   const [msg, setMsg] = useState('')
   const [guardando, setGuardando] = useState(false)
   const fileRef = useRef(null)
+
+  const abrirNueva = () => setEditandoPregunta({ indice: null, pregunta: null })
+  const abrirExisting = (i) => setEditandoPregunta({ indice: i, pregunta: preguntas[i] })
+
+  const cerrarEditor = (resultado) => {
+    if (resultado) {
+      setPreguntas(prev => {
+        if (editandoPregunta.indice == null) return [...prev, resultado]
+        return prev.map((q, i) => (i === editandoPregunta.indice ? resultado : q))
+      })
+    }
+    setEditandoPregunta(null)
+  }
+
+  const mover = (i, delta) =>
+    setPreguntas(prev => {
+      const j = i + delta
+      if (j < 0 || j >= prev.length) return prev
+      const copia = [...prev]
+      ;[copia[i], copia[j]] = [copia[j], copia[i]]
+      return copia
+    })
 
   const convert = () => {
     const filas = parseTabla(pegado)
@@ -62,6 +87,7 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
       umbral_aprobacion: Math.max(0, Math.min(100, parseInt(umbral, 10) || 0)),
+      max_intentos: Math.max(0, parseInt(maxIntentos, 10) || 0),
       activo,
       preguntas,
       [destino.tipo === 'modulo' ? 'modulo_id' : 'curso_id']: destino.id,
@@ -121,6 +147,14 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
           <input type="number" min="0" max="100" value={umbral}
                  onChange={e => setUmbral(e.target.value)} />
           <p className="nota">Con 70 el alumno aprueba con el 70% de aciertos.</p>
+
+          <label>Intentos permitidos por alumno</label>
+          <input type="number" min="0" max="20" value={maxIntentos}
+                 onChange={e => setMaxIntentos(e.target.value)} />
+          <p className="nota">
+            Al agotarlos se muestra <strong>solo la mejor calificación</strong>.
+            Escribe <strong>0</strong> para dejar intentos ilimitados.
+          </p>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />
@@ -187,6 +221,22 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
 
           {/* ---------- PREGUNTAS ---------- */}
           <h4>Preguntas ({preguntas.length})</h4>
+
+          <div className="examen-import-botones">
+            <button type="button" className="button primary" onClick={abrirNueva}>
+              ✍️ Escribir pregunta a mano
+            </button>
+          </div>
+
+          {editandoPregunta && (
+            <EditorPregunta
+              inicial={editandoPregunta.pregunta}
+              indice={editandoPregunta.indice}
+              onGuardar={cerrarEditor}
+              onCancelar={cerrarEditor}
+            />
+          )}
+
           {preguntas.length === 0 ? (
             <p className="sutil">Todavía no hay preguntas. Pega una tabla arriba y presiona "Convertir y agregar".</p>
           ) : (
@@ -195,10 +245,18 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
                 <li key={p.id || i}>
                   <div className="examen-lista-cab">
                     <span className="badge">{ETIQUETA_TIPO[tipoDe(p)] || tipoDe(p)}</span>
-                    <button type="button" className="button texto"
-                            onClick={() => setPreguntas(prev => prev.filter((_, j) => j !== i))}>
-                      🗑️ Quitar
-                    </button>
+                    <span className="examen-lista-acciones">
+                      <button type="button" className="button texto" title="Subir"
+                              onClick={() => mover(i, -1)} disabled={i === 0}>↑</button>
+                      <button type="button" className="button texto" title="Bajar"
+                              onClick={() => mover(i, 1)} disabled={i === preguntas.length - 1}>↓</button>
+                      <button type="button" className="button texto"
+                              onClick={() => abrirExisting(i)}>✏️ Editar</button>
+                      <button type="button" className="button texto"
+                              onClick={() => setPreguntas(prev => prev.filter((_, j) => j !== i))}>
+                        🗑️ Quitar
+                      </button>
+                    </span>
                   </div>
                   <p className="examen-pregunta">{p.pregunta}</p>
                   {tipoDe(p) === 'opcion' && (

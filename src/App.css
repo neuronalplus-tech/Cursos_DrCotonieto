@@ -2190,3 +2190,73 @@ a { color: var(--primary); }
   color: var(--texto-suave, #6b6b6b);
 }
 
+.examen-lista-acciones {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Formulario de captura manual de una pregunta */
+.pregunta-editor {
+  margin: 14px 0;
+  padding: 16px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  background: #fff;
+}
+.pregunta-editor h4 { margin: 0 0 4px; font-size: 15px; color: var(--primary); }
+.pregunta-editor label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  margin: 14px 0 6px;
+  color: var(--primary);
+}
+.pregunta-editor textarea,
+.pregunta-editor input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-family: var(--texto);
+  font-size: 14.5px;
+  resize: vertical;
+}
+.pregunta-editor textarea:focus,
+.pregunta-editor input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193,122,94,.15);
+}
+
+.pregunta-tipos { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.pregunta-opciones, .pregunta-pares { display: flex; flex-direction: column; gap: 8px; }
+
+.pregunta-opcion-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pregunta-opcion-fila input[type="text"] { flex: 1 1 auto; }
+.pregunta-letra {
+  flex: 0 0 20px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 13px;
+}
+
+.pregunta-par-fila { display: flex; align-items: center; gap: 8px; }
+.pregunta-par-fila input[type="text"] { flex: 1 1 0; min-width: 0; }
+.pregunta-flecha { flex: 0 0 auto; color: var(--primary); font-weight: 700; }
+
+.pregunta-editor .nota { margin-top: 6px; }
+.pregunta-editor .nota code {
+  background: var(--bg-card);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+}
+
