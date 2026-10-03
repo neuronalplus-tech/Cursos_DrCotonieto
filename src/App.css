@@ -2052,6 +2052,42 @@ a { color: var(--primary); }
   margin: 14px 0 6px;
   color: var(--primary);
 }
+/* ---------- OPCIÓN "notificar a los inscritos al publicar" ----------
+   Sobrevive a .modal-recurso label (display:block), por eso el flex explícito. */
+.notificar-check {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: #fbf8f6;
+}
+.notificar-check .check-fila {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--texto);
+  cursor: pointer;
+}
+.notificar-check .check-fila input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin: 1px 0 0;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.notificar-check .nota {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+  color: var(--gris);
+}
 .modal-recurso input[type="text"],
 .modal-recurso input[type="url"],
 .modal-recurso input[type="number"],

@@ -4,7 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
 import { tipoDe, puedeIntentar, resumenIntentos } from './lib/examenes'
-import { enviarCorreo } from './lib/correo'
+import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from './lib/correo'
 import {
   esContenedorTalleres, esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
   emiteConstancia, cursoEspecial, esCursoProblemasContemporaneos,
@@ -2283,7 +2283,7 @@ function Autoevaluacion({ url, recursoId, userId, onComplete }) {
 /* ============================================================
    MODAL: EDITAR / CREAR RECURSO (solo admin)
    ============================================================ */
-function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
+function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, onGuardado }) {
   const esNuevo = !recurso?.id
   const [form, setForm] = useState({
     tipo:        recurso?.tipo        || 'enlace',
@@ -2296,6 +2296,8 @@ function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
+  // Opt-in: nada se envía solo. Si marcas, avisar es parte del guardado.
+  const [notificar, setNotificar] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const guardar = async () => {
@@ -2316,6 +2318,21 @@ function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
         const { data, error } = await supabase.from('recursos').insert(payload).select().single()
         if (error) throw error
         onGuardado(data, 'creado')
+
+        // Aviso opcional a los inscritos, ya con el recurso guardado en la BD.
+        if (notificar) {
+          const link = `${window.location.origin}/modulo/${moduloId}#r-${data.id}`
+          const r = await notificarInscritos(curso?.id, {
+            tipo: 'recurso-nuevo',
+            curso: { titulo: curso?.titulo || modulo?.titulo, url: link },
+            recurso: { titulo: data.titulo, descripcion: data.descripcion || '' },
+          })
+          // El recurso YA quedó guardado: si el aviso falla solo se pierde el correo.
+          setMsg(r.ok
+            ? `✓ Recurso creado y notificado a ${r.enviados} inscrito(s).`
+            : `⚠️ Recurso creado, pero el aviso NO salió: ${r.motivo || 'error desconocido'}`)
+          return // deja el modal abierto para que leas el resultado
+        }
       } else {
         const { data, error } = await supabase.from('recursos').update(payload).eq('id', recurso.id).select().single()
         if (error) throw error
@@ -2395,7 +2412,25 @@ function ModalEditarRecurso({ recurso, moduloId, onClose, onGuardado }) {
         <label>Orden</label>
         <input type="number" value={form.orden} onChange={e => set('orden', e.target.value)} />
 
-        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+        {esNuevo && (
+          <div className="notificar-check">
+            <label className="check-fila">
+              <input type="checkbox" checked={notificar} onChange={e => setNotificar(e.target.checked)} />
+              <span>
+                <strong>📧 Notificar a los inscritos</strong><br />
+                <span className="nota">
+                  Al crear el recurso, manda el correo a todos los inscritos del curso
+                  {curso?.titulo ? ` (${curso.titulo})` : ''}. Si lo dejas sin marcar, no se envía nada.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
+
+        {msg && (
+          <p className={msg.startsWith('⚠️') || msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}
+             style={{ marginTop: 12 }}>{msg}</p>
+        )}
 
         <div className="modal-botones" style={{ marginTop: 18 }}>
           {!esNuevo && (
@@ -2640,11 +2675,7 @@ function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
     if (!curso?.id) { setMsg('Este recurso no pertenece a un curso con inscritos.'); return }
     setCargandoAlumnos(true); setMsg('')
     try {
-      const { data, error } = await supabase
-        .from('vista_admin_inscripciones').select('email, curso_id')
-      if (error) throw error
-      const delCurso = (data || []).filter(f => String(f.curso_id) === String(curso.id))
-      const lista = [...new Set(delCurso.map(f => (f.email || '').trim().toLowerCase()).filter(Boolean))]
+      const lista = await obtenerEmailsInscritos(curso?.id)
       if (!lista.length) { setMsg('No hay alumnos inscritos en este curso.'); return }
       const yaPegados = emails.split(/[,;\n\t ]+/).map(e => e.trim()).filter(Boolean)
       setEmails([...new Set(yaPegados.concat(lista))].join(', '))
@@ -3988,6 +4019,8 @@ function ModuloView({ user, esAdmin }) {
         <ModalEditarRecurso
           recurso={editandoRecurso}
           moduloId={parseInt(id, 10)}
+          curso={curso}
+          modulo={modulo}
           onClose={() => setEditandoRecurso(null)}
           onGuardado={onGuardadoRecurso}
         />

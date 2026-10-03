@@ -15,8 +15,48 @@
    ============================================================ */
 
 import { APPS_SCRIPT_URL } from '../config'
+import { supabase } from './supabase'
 
 const TIMEOUT_MS = 20000
+
+/**
+ * Devuelve los correos de los inscritos activos del curso, sin repetir.
+ * Se apoya en la vista de administración, que ya respeta RLS de es_admin().
+ */
+export async function obtenerEmailsInscritos(cursoId) {
+  if (!cursoId) return []
+  const { data, error } = await supabase
+    .from('vista_admin_inscripciones').select('email, curso_id')
+  if (error) throw error
+  const delCurso = (data || []).filter(f => String(f.curso_id) === String(cursoId))
+  return [...new Set(delCurso.map(f => (f.email || '').trim().toLowerCase()).filter(Boolean))]
+}
+
+/**
+ * Atajo de un solo paso: busca a los inscritos y les manda la notificación.
+ * Se usa desde el checkbox de "crear recurso" y de "crear módulo", para que
+ * publicar y avisar sea una sola operación en vez de dos.
+ *
+ * @returns {Promise<{ok:boolean, enviados:number, motivo?:string}>}
+ */
+export async function notificarInscritos(cursoId, { tipo, curso, modulo, recurso }) {
+  try {
+    const emails = await obtenerEmailsInscritos(cursoId)
+    if (!emails.length) return { ok: false, enviados: 0, motivo: 'No hay inscritos en este curso.' }
+    const res = await enviarCorreo({
+      tipo,
+      curso,
+      modulo,
+      recurso,
+      alumnos: emails.map(email => ({ email, nombre_completo: '' })),
+    })
+    return res.ok
+      ? { ok: true, enviados: emails.length }
+      : { ok: false, enviados: emails.length, motivo: res.motivo }
+  } catch (e) {
+    return { ok: false, enviados: 0, motivo: e.message }
+  }
+}
 
 /**
  * Envía un payload al Apps Script y ESPERA CONFIRMACIÓN REAL.
