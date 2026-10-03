@@ -5363,6 +5363,7 @@ function ModuloView({ user, esAdmin }) {
   const mostrarConstancia = emiteConstancia(curso)
   const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
   const mostrarEntregables = curso && esCursoProblemasContemporaneos(curso)
+  const mostrarJuegoS4 = mostrarEntregables && /sesi[oó]n\s*4/i.test(modulo.titulo || '')
 
   return (
     <div className="contenedor">
@@ -5437,6 +5438,13 @@ function ModuloView({ user, esAdmin }) {
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
             {user && recursos.length > 0 && (
               <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
+            )}
+            {mostrarJuegoS4 && (
+              <div className="modulo-botones-extra">
+                <a className="button primary" href="/juegos/juego-s4.html" target="_blank" rel="noopener noreferrer">
+                  🎮 Abrir juego de la sesión 4
+                </a>
+              </div>
             )}
             {(modulo.botones_extra || []).length > 0 && (
               <div className="modulo-botones-extra">

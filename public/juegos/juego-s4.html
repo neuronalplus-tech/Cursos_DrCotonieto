@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reto EGEL · Problemas Contemporáneos en Educación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#1B3A4B; --primary-claro:#2C556B;
+  --accent:#C17A5E; --accent-claro:#E0A88C;
+  --body:#33414A; --gris:#7A8891;
+  --bg:#FAFAF8; --bg-card:#F2EEE9; --bg-info:#EEF2F4;
+  --bg-alert:#FBEDEA; --alert:#9B2C20;
+  --ok-bg:#DFF3E4; --ok:#1F6B3B;
+  --borde:#E5DED6; --blanco:#fff;
+  --titulo:"Fraunces",Georgia,serif;
+  --texto:"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--texto); font-size:16px; line-height:1.65; color:var(--body);
+  background:linear-gradient(160deg,#1B3A4B 0%,#0F1E27 100%);
+  min-height:100vh; -webkit-font-smoothing:antialiased; padding-bottom:30px;
+}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;font-weight:700;transition:transform .07s,filter .15s,background .2s}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 20px}
+.hide{display:none !important}
+
+header.top{display:flex;align-items:center;gap:14px;padding:6px 2px 16px;color:#fff}
+header.top .logo{width:52px;height:52px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--titulo);font-size:24px;font-weight:800;color:#fff}
+header.top .ttl h1{font-family:var(--titulo);font-size:22px;line-height:1.15;font-weight:800}
+header.top .ttl p{font-size:12px;color:var(--accent-claro);margin-top:3px}
+
+.card{background:var(--blanco);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:28px 32px}
+h2.sec{font-family:var(--titulo);color:var(--primary);font-size:24px;margin-bottom:8px;padding-bottom:10px;border-bottom:3px solid var(--accent)}
+p.lead{color:var(--gris);font-size:14.5px;line-height:1.65;margin-bottom:12px}
+label.lb{display:block;font-size:12.5px;font-weight:700;color:var(--primary);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=number]{padding:11px 13px;font-size:15px;border:1.5px solid var(--borde);border-radius:9px;font-family:inherit;background:#fff;color:var(--body);width:100%}
+input:focus{outline:none;border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+
+.team-rows{display:grid;grid-template-columns:1fr;gap:10px}
+.eqrow{display:grid;grid-template-columns:22px 1fr 40px;gap:10px;align-items:center}
+.eqrow .dot{width:18px;height:18px;border-radius:50%}
+.eqrow .rmbtn{width:36px;height:36px;border-radius:8px;background:var(--bg-alert);color:var(--alert);font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+.eqrow .rmbtn:hover:not(:disabled){background:var(--alert);color:#fff}
+.team-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.team-actions .addbtn{background:var(--primary);color:#fff;font-size:13.5px;padding:10px 16px;display:flex;align-items:center;gap:6px}
+.team-actions .addbtn:hover{filter:brightness(1.1)}
+.team-actions .info{color:var(--gris);font-size:12.5px;align-self:center}
+
+.rules{background:var(--bg-card);border-left:5px solid var(--accent);border-radius:10px;padding:16px 20px;margin:16px 0;font-size:13.5px;line-height:1.65}
+.rules b{color:var(--primary)}
+.rules ol{margin:8px 0 0 20px}.rules li{margin-bottom:6px}
+.btn-big{background:var(--accent);color:#fff;font-size:17px;padding:15px 30px;width:100%;margin-top:10px;box-shadow:0 6px 16px rgba(193,122,94,.4);letter-spacing:.3px}
+.btn-big:hover{filter:brightness(1.05)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gris);margin-top:10px;font-weight:600}
+
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.pill{background:rgba(255,255,255,.14);color:#fff;padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:700}
+.pill b{color:var(--accent-claro)}
+.mini-scores{display:flex;gap:6px;flex:1;justify-content:flex-end;flex-wrap:wrap}
+.mini{display:flex;align-items:center;gap:6px;background:#fff;border-radius:20px;padding:5px 12px 5px 8px;box-shadow:0 3px 10px rgba(0,0,0,.2);border-left:4px solid #ccc}
+.mini .md{width:10px;height:10px;border-radius:50%;flex:none}
+.mini .mn{font-size:12px;font-weight:700;color:var(--body);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini .mp{font-size:15px;font-weight:800}
+.mini.lead{outline:2px solid var(--accent-claro)}
+
+.casebox{background:var(--primary);color:#fff;border-radius:16px;padding:20px 22px;margin-bottom:14px;box-shadow:0 8px 22px rgba(0,0,0,.25);transition:padding .2s}
+.casehead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.casehead .u{font-size:11.5px;color:var(--accent-claro);font-weight:800;letter-spacing:.6px;text-transform:uppercase}
+.casehead .btn-group{margin-left:auto;display:flex;gap:6px}
+.casehead .btn-group button{background:rgba(255,255,255,.15);color:#fff;width:34px;height:34px;border-radius:8px;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0}
+.casehead .btn-group button:hover{background:rgba(255,255,255,.3)}
+.casebody{margin-top:12px}
+.casebody .ct{font-size:15.5px;line-height:1.65;color:#F5EDE7}
+.casebody .q{font-size:19px;font-weight:800;line-height:1.35;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);font-family:var(--titulo)}
+.casebox.collapsed .casebody{display:none}
+.casebox.collapsed{padding:14px 22px}
+
+.timerrow{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.timerbox{background:#fff;border-radius:12px;padding:8px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 5px 14px rgba(0,0,0,.18);flex:none}
+.timerbox .tnum{font-size:32px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--primary)}
+.timerbox.run .tnum{color:var(--ok)}
+.timerbox.warn .tnum{color:var(--accent)}
+.timerbox.crit .tnum{color:var(--alert);animation:pulse .55s infinite}
+.timerbox.done{background:var(--alert)}
+.timerbox.done .tnum{color:#fff}
+@keyframes pulse{50%{transform:scale(1.08)}}
+.tctrl{display:flex;gap:5px}
+.tctrl button{font-size:12px;padding:7px 11px;background:var(--bg-card);color:var(--primary);border:1px solid var(--borde);font-weight:800}
+.tctrl button.play{background:var(--ok);color:#fff;border-color:transparent}
+.tctrl button.pause{background:var(--accent);color:#fff;border-color:transparent}
+
+.options{display:flex;flex-direction:column;gap:11px}
+.opt{background:#fff;border-radius:14px;border:2px solid var(--borde);overflow:hidden;transition:border-color .25s,box-shadow .25s,opacity .3s}
+.opt .head{display:flex;align-items:flex-start;gap:14px;padding:16px 20px 12px}
+.opt .letter{flex:none;width:36px;height:36px;border-radius:10px;background:var(--bg-info);color:var(--primary);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;font-family:var(--titulo)}
+.opt .txt{font-size:15px;line-height:1.55;color:var(--body);flex:1}
+.opt .head .tag{flex:none;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;color:var(--gris);background:var(--bg-card);display:none}
+.opt .optbtns{display:flex;gap:5px;margin-left:auto;flex:none}
+.opt .optbtns button{background:var(--bg-card);color:var(--primary);width:30px;height:30px;border-radius:7px;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--borde)}
+.opt .optbtns button:hover{background:var(--primary);color:#fff}
+.opt.correct{border-color:var(--ok);box-shadow:0 0 0 3px rgba(31,107,59,.15)}
+.opt.correct .letter{background:var(--ok);color:#fff}
+.opt.correct .head .tag{display:block;background:var(--ok-bg);color:var(--ok)}
+.opt.wrong{border-color:#E5DED6;opacity:.6}
+.opt.wrong .head .tag{display:block;background:var(--bg-alert);color:var(--alert)}
+.opt.dimmed{opacity:.5}
+.opt.collapsed .txt{display:none}
+.opt .teams{padding:10px 20px 14px 70px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--borde)}
+.opt .teams .lbl{font-size:11px;color:var(--gris);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-right:4px;width:100%;margin-bottom:4px}
+.tchip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:2px solid var(--c,#ccc);color:var(--c,#888);border-radius:20px;padding:4px 12px 4px 7px;font-size:12.5px;font-weight:800;transition:all .15s}
+.tchip .md{width:11px;height:11px;border-radius:50%;background:var(--c)}
+.tchip.on{background:var(--c);color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.15)}
+.tchip.on .md{background:#fff}
+.tchip:not(:disabled):hover{transform:translateY(-1px)}
+
+.controls{display:flex;gap:10px;justify-content:space-between;margin-top:18px;flex-wrap:wrap}
+.controls .grp{display:flex;gap:10px;flex-wrap:wrap}
+.ctl{padding:12px 20px;font-size:14.5px;font-weight:800;letter-spacing:.2px}
+.ctl.undo{background:#6b4a2a;color:#fff}
+.ctl.adj{background:#fff;color:var(--primary);border:1.5px solid var(--borde)}
+.ctl.rev{background:var(--primary);color:#fff}
+.ctl.rev.ready{background:var(--accent);animation:gentle 1.6s ease-in-out infinite}
+@keyframes gentle{50%{box-shadow:0 0 0 6px rgba(193,122,94,.25)}}
+.ctl.next{background:var(--accent);color:#fff;font-size:15px}
+.ctl.fin{background:#4a2a2a;color:#fff;border:1px solid rgba(255,255,255,.25)}
+.hintline{color:#cddae2;margin-top:14px;text-align:center;font-size:13px;opacity:.85}
+
+.explain{background:var(--bg-info);border-left:5px solid var(--primary);border-radius:10px;padding:16px 20px;margin-top:16px;font-size:14.5px;line-height:1.65;color:var(--body);animation:slideIn .4s ease-out}
+.explain b{color:var(--primary);text-transform:uppercase;font-size:11.5px;letter-spacing:1px;display:block;margin-bottom:5px}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+.rankwrap{display:flex;gap:28px;justify-content:center;align-items:flex-end;flex-wrap:wrap;max-width:1100px;margin:20px auto 0}
+.minipod{display:flex;align-items:flex-end;gap:14px;flex:none}
+.mpcol{display:flex;flex-direction:column;align-items:center;width:130px}
+.mpcol .mpg{display:flex;justify-content:center;width:100%;animation:popin .6s cubic-bezier(.2,1.3,.4,1) both}
+.mpcol .mpg svg{width:96px;height:auto}
+.mpcol .mpn{color:#fff;font-weight:800;font-size:13.5px;margin:6px 0 5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.mpcol .mpbar{width:100%;border-radius:10px 10px 0 0;color:#fff;text-align:center;padding-top:8px;box-shadow:0 -3px 12px rgba(0,0,0,.25)}
+.mpbar .plc{font-size:24px;font-weight:800;line-height:1.1;font-family:var(--titulo)}
+.mpbar .ppt{font-size:13px;font-weight:700}
+@keyframes popin{0%{transform:translateY(30px) scale(.5);opacity:0}100%{transform:none;opacity:1}}
+
+.rankscreen{padding:8px 4px}
+.rankscreen h2{color:#fff;font-size:26px;text-align:center;margin-bottom:4px;font-family:var(--titulo)}
+.rankscreen .sub{color:var(--accent-claro);text-align:center;font-size:14px;margin-bottom:20px}
+.rbars{max-width:760px;margin:0 auto;flex:1;min-width:340px}
+.rbar{display:flex;align-items:center;gap:12px;margin-bottom:11px;height:52px}
+.rbar .pos{color:#fff;font-size:22px;font-weight:800;width:34px;text-align:center;flex:none;font-family:var(--titulo)}
+.rbar .fill{height:100%;border-radius:11px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;min-width:150px;box-shadow:0 5px 14px rgba(0,0,0,.28);transition:width 1s cubic-bezier(.2,.8,.2,1);overflow:hidden}
+.rbar .fill .nm{color:#fff;font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbar .fill .pt{color:#fff;font-weight:800;font-size:19px}
+.rank-actions{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+
+.final{background:#fff;border-radius:16px;padding:30px;text-align:center}
+.final h2{font-family:var(--titulo);color:var(--primary);font-size:28px;margin-bottom:4px}
+.final .fsub{color:var(--gris);font-size:14px;margin-bottom:8px}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:16px;margin:22px 0 12px;min-height:340px}
+.pcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:180px}
+.pcol .pfig{display:flex;justify-content:center;margin-bottom:-6px}
+.pcol .pfig svg{width:120px}
+.pcol .pnm{font-weight:800;font-size:16px;margin-bottom:6px;color:var(--body);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcol .bar{width:100%;border-radius:12px 12px 0 0;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:12px;box-shadow:0 -4px 14px rgba(0,0,0,.15)}
+.pcol .bar .plc{font-size:32px;font-weight:800;font-family:var(--titulo)}
+.pcol .bar .ppt{font-size:15px;font-weight:700;margin-top:2px}
+.restrank{list-style:none;max-width:440px;margin:14px auto 0}
+.restrank li{display:flex;justify-content:space-between;padding:10px 16px;border-radius:9px;margin-bottom:7px;font-size:15px;font-weight:700;color:#fff}
+
+.ov{position:fixed;inset:0;background:rgba(15,30,39,.75);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
+.ov .box{background:#fff;border-radius:16px;padding:24px 26px;max-width:660px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.4);max-height:88vh;overflow:auto}
+.ov h3{font-family:var(--titulo);color:var(--primary);font-size:20px;margin-bottom:6px}
+.ov p.sub{color:var(--gris);font-size:13.5px;margin-bottom:14px}
+.adjrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bg-card)}
+.adjrow .md{width:16px;height:16px;border-radius:50%;flex:none}
+.adjrow .an{flex:1;font-weight:700;font-size:15px}
+.adjrow .ap{font-weight:800;font-size:19px;width:54px;text-align:center;color:var(--primary)}
+.adjrow button{width:38px;height:38px;font-size:18px;background:var(--bg-card);color:var(--primary);border:1px solid var(--borde)}
+.ov .close{background:var(--accent);color:#fff;width:100%;padding:13px;font-size:16px;margin-top:16px}
+.ov .addbtn{background:var(--primary);color:#fff;padding:11px 16px;font-size:14px;margin-top:12px;display:inline-flex;align-items:center;gap:6px}
+.confirm-row{display:flex;gap:10px;margin-top:18px}
+.confirm-row button{flex:1;padding:13px;font-size:15px}
+.ov .no{background:var(--bg-card);color:var(--primary);border:1px solid var(--borde)}
+.ov .yes{background:var(--accent);color:#fff}
+
+#fullov{position:fixed;inset:0;background:rgba(10,20,28,.96);z-index:90;display:flex;align-items:center;justify-content:center;padding:28px;animation:fadeIn .18s ease-out}
+#fullov .fullbox{background:#fff;border-radius:22px;width:min(96vw,1600px);max-height:94vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative;padding:50px 60px}
+#fullov .fullclose{position:absolute;top:16px;right:20px;background:var(--primary);color:#fff;padding:10px 18px;font-size:14px;border-radius:10px;font-weight:800;letter-spacing:.4px}
+#fullov .fullclose:hover{background:var(--accent)}
+#fullov .fulltype{font-size:13px;color:var(--gris);letter-spacing:2px;text-transform:uppercase;font-weight:800;margin-bottom:14px}
+#fullov .fulltype b{color:var(--accent)}
+#fullov .fullcase{background:var(--primary);color:#fff;border-radius:18px;padding:34px 40px;margin-bottom:26px}
+#fullov .fullcase .u{font-size:14px;color:var(--accent-claro);font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin-bottom:14px}
+#fullov .fullcase .ct{font-size:28px;line-height:1.5;color:#F5EDE7;margin-bottom:22px}
+#fullov .fullcase .q{font-size:34px;font-weight:800;line-height:1.3;padding-top:22px;border-top:1px solid rgba(255,255,255,.15);font-family:var(--titulo);color:#fff}
+#fullov .fullopt{font-size:46px;line-height:1.35;color:var(--body);font-weight:600;padding:20px 10px}
+#fullov .fullopt .ltr{display:inline-block;background:var(--primary);color:#fff;font-family:var(--titulo);font-weight:800;border-radius:14px;padding:10px 24px;margin-right:22px;vertical-align:top;font-size:46px;line-height:1.1}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:75}
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:#2a3a44;color:#fff;padding:12px 22px;border-radius:12px;font-weight:700;font-size:15px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#timeup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:56}
+#timeup .m{background:var(--alert);color:#fff;font-size:58px;font-weight:800;padding:28px 66px;border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.5);transform:scale(.5);opacity:0;transition:transform .3s,opacity .3s;font-family:var(--titulo)}
+#timeup.show .m{transform:scale(1);opacity:1}
+
+#mascotafx{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:80}
+#mascotafx .wrap2{display:flex;flex-direction:column;align-items:center;transform:translateY(40px) scale(.6);opacity:0;transition:transform .4s cubic-bezier(.2,1.3,.4,1),opacity .3s}
+#mascotafx.show .wrap2{transform:translateY(0) scale(1);opacity:1}
+#mascotafx .msg{color:#fff;font-size:40px;font-weight:800;text-shadow:0 3px 12px rgba(0,0,0,.5);margin-top:6px;text-align:center;font-family:var(--titulo);max-width:90vw}
+#mascotafx .msg small{display:block;font-size:18px;font-weight:700;color:#F5EDE7;margin-top:4px;font-family:var(--texto)}
+#mascotafx .duo{display:flex;gap:14px;align-items:flex-end}
+#mascotafx .duo svg{width:120px;height:auto;filter:drop-shadow(0 8px 18px rgba(0,0,0,.4));animation:bob 1.2s ease-in-out infinite}
+#mascotafx .duo svg:nth-child(2){animation-delay:.3s}
+@keyframes bob{50%{transform:translateY(-8px)}}
+
+@media(max-width:900px){
+  .mini-scores{justify-content:flex-start}
+  .rankwrap{flex-direction:column;align-items:center}
+  .rbars{width:100%}
+  .casebody .q{font-size:17px}
+  .controls{flex-direction:column}
+  .controls .grp{width:100%;justify-content:center}
+  #fullov .fullbox{padding:40px 24px}
+  #fullov .fullcase{padding:24px 22px}
+  #fullov .fullcase .ct{font-size:20px}
+  #fullov .fullcase .q{font-size:24px}
+  #fullov .fullopt{font-size:28px}
+  #fullov .fullopt .ltr{font-size:28px;padding:8px 16px;margin-right:14px}
+}
+@media(max-width:600px){
+  .grid2{grid-template-columns:1fr}
+  .wrap{padding:12px 14px}
+  .card{padding:20px 18px}
+  .opt .teams{padding-left:16px}
+  .opt .head{padding:14px 14px 12px;flex-wrap:wrap}
+  .opt .optbtns{margin-left:0}
+  header.top .ttl h1{font-size:18px}
+  .podium{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<canvas id="confetti"></canvas>
+<div id="toast"></div>
+<div id="timeup"><div class="m">¡TIEMPO!</div></div>
+<div id="mascotafx"><div class="wrap2"><div class="duo" id="mascotduo"></div><div class="msg" id="mascotmsg"></div></div></div>
+
+<div id="fullov" class="hide">
+  <div class="fullbox">
+    <button class="fullclose" onclick="closeFull()">✕ Cerrar (Esc)</button>
+    <div id="fullContent"></div>
+  </div>
+</div>
+
+<div id="adjov" class="ov hide"><div class="box">
+  <h3>Ajustar puntos manualmente</h3>
+  <p class="sub">Suma o resta ±5 puntos por equipo para compensar incidencias.</p>
+  <div id="adjrows"></div>
+  <button class="close" onclick="closeAdj()">Listo</button>
+</div></div>
+
+<div id="teamov" class="ov hide"><div class="box">
+  <h3>Gestionar equipos</h3>
+  <p class="sub">Agrega o quita equipos en cualquier momento. Los nuevos entran con 0 puntos. Mínimo 2, máximo 12 equipos.</p>
+  <div id="teamRowsModal"></div>
+  <button class="addbtn" onclick="addTeamModal()">+ Agregar equipo</button>
+  <button class="close" onclick="closeTeamsModal()">Listo</button>
+</div></div>
+
+<div id="finov" class="ov hide"><div class="box">
+  <h3>¿Finalizar el concurso aquí?</h3>
+  <p class="sub">Se mostrará el podio con la puntuación acumulada hasta este momento, aunque falten tableros por jugar.</p>
+  <div class="confirm-row">
+    <button class="no" onclick="document.getElementById('finov').classList.add('hide')">Seguir jugando</button>
+    <button class="yes" onclick="finishNow()">Sí, finalizar y ver podio 🏆</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="logo">E</div>
+    <div class="ttl">
+      <h1>Reto S4 · Problemas Contemporáneos en Educación</h1>
+      <p>Evaluación formativa lúdica · 10 casos de procesos, conceptos y estrategias · Sesiones 1 a 3</p>
+    </div>
+  </header>
+
+  <section id="setup" class="card">
+    <h2 class="sec">Preparen el concurso</h2>
+    <p class="lead">Se proyecta un caso breve y cuatro opciones plausibles; cada equipo discute y elige una. Mientras corre el reloj, tú marcas en pantalla qué eligió cada equipo. Al revelar, solo quien acertó suma los puntos del tablero. Puedes ampliar el contexto o cualquier opción con el botón <b>⛶</b> para leerla desde los asientos, y minimizar con <b>−</b>.</p>
+
+    <label class="lb">Nombres de los equipos</label>
+    <div id="teamRows" class="team-rows"></div>
+    <div class="team-actions">
+      <button type="button" class="addbtn" onclick="addTeamSetup()">+ Agregar equipo</button>
+      <span class="info" id="teamCount"></span>
+    </div>
+
+    <div class="rules">
+      <b>Cómo se juega</b>
+      <ol>
+        <li>Se proyecta el <b>caso</b> con su pregunta y las <b>cuatro opciones</b>. Arranca el reloj.</li>
+        <li>El botón <b>⛶</b> del contexto o de cualquier opción la amplía a pantalla completa, ideal para leerla desde los asientos. El botón <b>−</b> la minimiza.</li>
+        <li>Cada equipo discute y <b>elige una sola opción</b>. Antes de revelar, marca aquí <b>qué equipo eligió cada opción</b> (un clic por equipo; si toca otra, se mueve).</li>
+        <li>Pulsa <b>«Revelar respuesta»</b>: se ilumina la opción correcta y solo quien la eligió <b>suma los puntos</b>.</li>
+        <li>Lee la <b>explicación</b> en voz alta; es la retroalimentación formativa del caso.</li>
+        <li>Entre tableros se muestran las <b>posiciones</b>. Puedes <b>finalizar cuando quieras</b> y ver el podio.</li>
+      </ol>
+    </div>
+
+    <label class="lb">Puntos por caso <small style="color:var(--gris);font-weight:400;text-transform:none;">(se aplican a todos los tableros)</small></label>
+    <div class="grid2">
+      <div><label class="lb" style="margin-top:2px">Acierto</label><input type="number" id="ptsWin" value="20" min="5" max="100" step="5"></div>
+      <div><label class="lb" style="margin-top:2px">Sin aciertos (nadie suma)</label><input type="number" id="ptsNone" value="0" min="0" max="20" step="5"></div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="sound" checked style="width:auto"> Sonido activado (tic-tac, clics, logros)</label>
+    <button class="btn-big" onclick="startGame()">Empezar el concurso</button>
+  </section>
+
+  <section id="game" class="hide">
+    <div class="topbar">
+      <span class="pill">Tablero <b id="rIdx">1</b>/<b id="rTot">10</b></span>
+      <span class="pill" id="uniPill">Sesión 1</span>
+      <button class="ctl adj" style="padding:7px 14px;font-size:12.5px" onclick="openTeamsModal()">± Equipos</button>
+      <div class="mini-scores" id="miniScores"></div>
+    </div>
+
+    <div class="casebox" id="casebox">
+      <div class="casehead">
+        <div class="u" id="caseUni">—</div>
+        <div class="btn-group">
+          <button title="Minimizar contexto" onclick="toggleCaseCollapse()" id="caseToggleBtn">−</button>
+          <button title="Ampliar contexto a pantalla completa" onclick="openFullContext()">⛶</button>
+        </div>
+      </div>
+      <div class="casebody" id="casebody">
+        <div class="ct" id="caseText">—</div>
+        <div class="q" id="caseQ">—</div>
+      </div>
+    </div>
+
+    <div class="timerrow">
+      <div class="timerbox" id="timerbox">
+        <div class="tnum" id="tnum">1:00</div>
+        <div class="tctrl">
+          <button class="play" id="btnPlay" onclick="toggleTimer()">▶</button>
+          <button onclick="addTime(15)">+15</button>
+          <button onclick="addTime(-15)">−15</button>
+          <button onclick="resetTimer()">↺</button>
+        </div>
+      </div>
+      <p class="hintline" style="margin:0;text-align:left;flex:1">Mientras corre el reloj, cada equipo elige <b style="color:#fff">una</b> opción. Usa <b style="color:#fff">⛶</b> para ampliar la lectura.</p>
+    </div>
+
+    <div class="options" id="options"></div>
+
+    <div id="explainBox"></div>
+
+    <div class="controls">
+      <div class="grp">
+        <button class="ctl adj" id="btnPrev" onclick="prevRound()" disabled>◀ Tablero anterior</button>
+        <button class="ctl undo" id="btnUndo" onclick="undo()" disabled>↶ Deshacer</button>
+        <button class="ctl adj" onclick="openAdj()">± Ajustar puntos</button>
+        <button class="ctl fin" onclick="document.getElementById('finov').classList.remove('hide')">■ Finalizar aquí</button>
+      </div>
+      <div class="grp">
+        <button class="ctl rev" id="btnRev" onclick="revealAnswer()">Revelar respuesta</button>
+        <button class="ctl next" onclick="goRanking()">Ver posiciones ▶</button>
+      </div>
+    </div>
+    <p class="hintline">Toca una ficha de equipo para asignarla a esa opción (si tocas otra, se mueve). Una vez revelada, solo la correcta suma.</p>
+  </section>
+
+  <section id="ranking" class="hide rankscreen">
+    <h2 id="rankTitle">Posiciones</h2>
+    <div class="sub" id="rankSub">—</div>
+    <div class="rankwrap"><div class="minipod" id="minipod"></div><div class="rbars" id="rbars"></div></div>
+    <div class="rank-actions">
+      <button class="ctl adj" onclick="backToBoard()">◀ Volver al tablero</button>
+      <button class="ctl adj" onclick="openAdj()">± Ajustar puntos</button>
+      <button class="ctl adj" onclick="openTeamsModal()">± Equipos</button>
+      <button class="ctl fin" onclick="document.getElementById('finov').classList.remove('hide')">■ Finalizar aquí</button>
+      <button class="ctl next" id="btnCont" onclick="continueGame()">Siguiente tablero ▶</button>
+    </div>
+  </section>
+
+  <section id="end" class="hide">
+    <div class="final">
+      <h2>🏆 Resultado final</h2>
+      <div class="fsub" id="fsub"></div>
+      <div class="podium" id="podium"></div>
+      <ul class="restrank" id="restrank"></ul>
+      <button class="btn-big" style="max-width:320px;margin:20px auto 0" onclick="location.reload()">Jugar otra vez</button>
+    </div>
+  </section>
+
+  <p style="text-align:center;color:#cddae2;font-size:11.5px;margin-top:20px;opacity:.8">
+    Material formativo · Problemas Contemporáneos en Educación · Sesiones 1–3
+  </p>
+</div>
+
+<script>
+/* ================= MASCOTAS: dos educadores ================= */
+function EDU_F(color){
+  color = color || '#C17A5E';
+  return `<svg viewBox="0 0 160 210" xmlns="http://www.w3.org/2000/svg">
+    <path d="M42 128 Q42 96 80 96 Q118 96 118 128 L124 200 L36 200 Z" fill="${color}"/>
+    <path d="M66 96 L80 112 L94 96" fill="none" stroke="#fff" stroke-width="3"/>
+    <rect x="72" y="78" width="16" height="24" fill="#F1C9A5"/>
+    <circle cx="80" cy="54" r="30" fill="#F5D5BD"/>
+    <path d="M50 54 Q50 20 80 20 Q110 20 110 54 Q110 40 80 38 Q50 40 50 54 Z" fill="#3D2A1F"/>
+    <circle cx="80" cy="16" r="10" fill="#3D2A1F"/>
+    <circle cx="67" cy="54" r="8.5" fill="none" stroke="#1B3A4B" stroke-width="2.4"/>
+    <circle cx="93" cy="54" r="8.5" fill="none" stroke="#1B3A4B" stroke-width="2.4"/>
+    <line x1="75.5" y1="54" x2="84.5" y2="54" stroke="#1B3A4B" stroke-width="2.4"/>
+    <circle cx="67" cy="54" r="2.2" fill="#1B3A4B"/>
+    <circle cx="93" cy="54" r="2.2" fill="#1B3A4B"/>
+    <path d="M70 70 Q80 78 90 70" stroke="#9B2C20" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M116 130 Q140 118 148 96" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"/>
+    <line x1="146" y1="98" x2="156" y2="82" stroke="#1B3A4B" stroke-width="4" stroke-linecap="round"/>
+    <rect x="24" y="140" width="34" height="46" rx="3" fill="#1B3A4B"/>
+    <rect x="24" y="140" width="34" height="10" fill="#E0A88C"/>
+    <line x1="41" y1="150" x2="41" y2="186" stroke="#E0A88C" stroke-width="2"/>
+  </svg>`;
+}
+function EDU_M(color){
+  color = color || '#1B3A4B';
+  return `<svg viewBox="0 0 160 210" xmlns="http://www.w3.org/2000/svg">
+    <path d="M40 128 Q40 96 80 96 Q120 96 120 128 L124 200 L36 200 Z" fill="${color}"/>
+    <path d="M70 96 L80 108 L90 96 L90 200 L70 200 Z" fill="#fff"/>
+    <path d="M78 108 L82 108 L86 130 L80 150 L74 130 Z" fill="#9B2C20"/>
+    <rect x="72" y="78" width="16" height="24" fill="#E8B48A"/>
+    <circle cx="80" cy="54" r="30" fill="#EFC7A2"/>
+    <path d="M50 50 Q52 22 80 22 Q108 22 110 50 Q106 34 80 32 Q54 34 50 50 Z" fill="#241A12"/>
+    <circle cx="67" cy="54" r="8.5" fill="none" stroke="#1B3A4B" stroke-width="2.4"/>
+    <circle cx="93" cy="54" r="8.5" fill="none" stroke="#1B3A4B" stroke-width="2.4"/>
+    <line x1="75.5" y1="54" x2="84.5" y2="54" stroke="#1B3A4B" stroke-width="2.4"/>
+    <circle cx="67" cy="54" r="2.2" fill="#1B3A4B"/>
+    <circle cx="93" cy="54" r="2.2" fill="#1B3A4B"/>
+    <path d="M70 70 Q80 78 90 70" stroke="#9B2C20" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M44 130 Q18 120 10 96" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="8" cy="92" r="6" fill="#EFC7A2"/>
+    <rect x="102" y="140" width="34" height="46" rx="3" fill="#C17A5E"/>
+    <rect x="102" y="140" width="34" height="10" fill="#1B3A4B"/>
+    <line x1="119" y1="150" x2="119" y2="186" stroke="#1B3A4B" stroke-width="2"/>
+  </svg>`;
+}
+
+/* ================= BANCO DE 10 TABLEROS =================
+   Cada caso evalúa conceptos, procesos, estrategias o análisis.
+   No se usan datos estadísticos, nombres de lugares ni zonas. */
+const RONDAS = [
+{
+  unidad:"Sesión 1 · Modelo ecológico-social",
+  caso:"Una reforma nacional cambia las reglas para asignar el presupuesto educativo a las escuelas y redefine cuántas plazas docentes recibe cada plantel. Los estudiantes no participan en esa decisión, pero notan que algunos grupos aumentan de tamaño y que dos maestros se marchan a otros planteles.",
+  pregunta:"¿En qué nivel del modelo ecológico-social se ubica la decisión que cambió la experiencia del estudiante?",
+  opciones:[
+    {t:"Macro: economía, política nacional, cultura y leyes.", ok:false, why:"El macro es el nivel más amplio y estructural. Aquí se trata de una decisión concreta sobre política y presupuesto educativo, no del marco nacional de fondo."},
+    {t:"Exo: políticas y presupuesto educativo que afectan al alumno aunque él no participe en la decisión.", ok:true, why:"El nivel exo son precisamente las políticas y el presupuesto educativo (SEP, secretarías, asignación de plazas): afectan al alumno sin que él intervenga. La decisión descrita en el caso corresponde a este nivel."},
+    {t:"Meso: las relaciones entre escuela, familia, comunidad y trabajo.", ok:false, why:"El meso es el entretejido de relaciones cotidianas entre esos actores. La decisión del caso no es una relación, es una política que cambia las reglas del juego."},
+    {t:"Micro: el día a día del alumno, su aula, su escuela y su hogar.", ok:false, why:"El micro es el ámbito inmediato del alumno. Aunque el efecto llega al micro (grupos más grandes), la decisión se tomó en el nivel exo."}
+  ]
+},
+{
+  unidad:"Sesión 1 · Factores del contexto",
+  caso:"Un joven de 16 años cursa el primer año de bachillerato. En su colonia, un taller ofrece trabajo de medio turno con pago en efectivo desde la primera semana y sin exigir estudios. En su casa, ese ingreso formaría parte del gasto semanal. El joven decide dejar la escuela y entrar a trabajar.",
+  pregunta:"¿Qué concepto explica mejor la decisión del joven?",
+  opciones:[
+    {t:"Falta de oferta educativa cerca de su colonia.", ok:false, why:"El joven ya estaba inscrito en el bachillerato; el problema no fue la ausencia de lugares. La oferta no es la causa de su decisión."},
+    {t:"Costo de oportunidad: el ingreso que deja de percibir al estudiar.", ok:true, why:"Cuando un joven puede trabajar de inmediato y ese ingreso pesa en la economía familiar, seguir estudiando tiene un costo real (lo que se deja de ganar). Ese es el costo de oportunidad y suele ser causa directa del abandono."},
+    {t:"Baja calidad docente en el bachillerato.", ok:false, why:"Es una hipótesis plausible, pero el caso enfatiza la atracción del empleo inmediato, no el desempeño del plantel."},
+    {t:"Falta de pertinencia del currículo del bachillerato.", ok:false, why:"La pertinencia puede influir en la permanencia, pero el detonante descrito es el ingreso inmediato disponible, no el contenido del plan de estudios."}
+  ]
+},
+{
+  unidad:"Sesión 3 · Glosario de indicadores",
+  caso:"Al cierre del ciclo, egresa una generación de secundaria. En el siguiente ciclo, el primer grado de media superior registra más inscritos que los egresados del año anterior: además de los recién egresados, se incorporan algunos jóvenes que habían abandonado y regresan a estudiar.",
+  pregunta:"¿Qué indicador describe mejor este fenómeno?",
+  opciones:[
+    {t:"Cobertura en media superior.", ok:false, why:"La cobertura relaciona la matrícula con la población en edad del nivel. No se calcula a partir de los egresados del nivel previo, así que no es el indicador que describe el caso."},
+    {t:"Absorción a media superior.", ok:true, why:"La absorción mide cuántos egresados de un nivel ingresan al siguiente. Puede superar el 100% si se incorporan egresados de ciclos anteriores, justo como ocurre en el caso. Es el indicador que describe este fenómeno."},
+    {t:"Eficiencia terminal en media superior.", ok:false, why:"La eficiencia terminal mide cuántos de los que entran concluyen el nivel en el tiempo previsto. El caso describe el ingreso, no el egreso."},
+    {t:"Deserción en media superior.", ok:false, why:"La deserción mide a quienes dejan el nivel antes de concluirlo. El caso describe lo contrario: jóvenes que se incorporan o regresan."}
+  ]
+},
+{
+  unidad:"Sesión 3 · Árbol de problemas",
+  caso:"Un equipo de planeación dibuja el árbol de problemas. En la parte alta coloca las consecuencias que se ven hacia afuera: menos escolaridad, inserción laboral precaria y migración. En el centro escribe una sola situación negativa con su indicador. En la parte baja anota las razones por las que ocurre esa situación.",
+  pregunta:"¿Qué representa el centro del árbol de problemas?",
+  opciones:[
+    {t:"El efecto más visible del diagnóstico.", ok:false, why:"Los efectos se colocan en la parte alta (copa). El centro no representa un efecto, sino la situación negativa que articula todo el árbol."},
+    {t:"El problema central, con su indicador.", ok:true, why:"En el árbol de problemas, el tronco (centro) es el problema central: la situación negativa que se va a atender, expresada con un indicador. Las causas van en las raíces y los efectos, en la copa."},
+    {t:"La causa principal, ordenada por nivel ecológico.", ok:false, why:"Las causas van en las raíces, no en el centro. El centro es el problema que esas causas explican."},
+    {t:"El fin que se quiere alcanzar con la política.", ok:false, why:"El fin es una formulación positiva del árbol de objetivos, no del árbol de problemas. En el árbol de problemas no hay fines."}
+  ]
+},
+{
+  unidad:"Sesión 3 · Árbol de objetivos",
+  caso:"Un equipo termina su árbol de problemas y ahora lo 'voltea' para construir el árbol de objetivos. Sabe que cada elemento cambia de lugar y de sentido: lo negativo se convierte en positivo y las causas se convierten en medios para lograrlo.",
+  pregunta:"Al voltear el árbol, ¿en qué se convierten los efectos del problema?",
+  opciones:[
+    {t:"Medios (raíces).", ok:false, why:"Los medios provienen de las causas, no de los efectos. En el árbol de objetivos, cada causa se convierte en un medio."},
+    {t:"Fines (ramas).", ok:true, why:"En el árbol de objetivos, cada efecto negativo se convierte en un fin positivo, algo que se espera lograr en el mediano o largo plazo. Las causas se vuelven medios y el problema central, el propósito."},
+    {t:"El propósito (tronco).", ok:false, why:"El propósito proviene del problema central, no de los efectos. El propósito es el problema central ya resuelto, expresado en positivo."},
+    {t:"Los indicadores del proyecto.", ok:false, why:"Los indicadores acompañan a cada nivel del marco lógico, pero no son el resultado de 'voltear' los efectos del árbol. Los indicadores se construyen después."}
+  ]
+},
+{
+  unidad:"Sesión 4 · Marco lógico (niveles)",
+  caso:"La matriz de marco lógico organiza un proyecto educativo en cuatro niveles: fin, propósito, componentes y actividades. Cada nivel tiene su propio indicador, sus medios de verificación y sus supuestos.",
+  pregunta:"¿Qué nivel de la matriz representa el problema central ya resuelto?",
+  opciones:[
+    {t:"El fin.", ok:false, why:"El fin es el nivel más alto: el impacto de largo plazo al que contribuye el proyecto, no el problema central resuelto en el mediano plazo."},
+    {t:"El propósito.", ok:true, why:"El propósito es el problema central ya resuelto: el cambio concreto que el proyecto logra en la población objetivo. Corresponde al tronco del árbol de objetivos."},
+    {t:"Los componentes.", ok:false, why:"Los componentes son los productos o servicios que entrega el proyecto (por ejemplo, becas otorgadas, planteles equipados). Son medios, no el problema resuelto."},
+    {t:"Las actividades.", ok:false, why:"Las actividades son las tareas necesarias para producir los componentes. Están en el nivel más bajo de la matriz."}
+  ]
+},
+{
+  unidad:"Sesión 3 · Análisis de involucrados",
+  caso:"Antes de diseñar la política, el equipo hace un análisis de involucrados: identifica a los actores, sus intereses, su postura frente al problema y el poder que tienen para impulsar o bloquear la solución. Con esa información ajusta la estrategia.",
+  pregunta:"¿Cuál es el propósito principal de este análisis?",
+  opciones:[
+    {t:"Calcular el costo total del proyecto.", ok:false, why:"El costo se calcula en el presupuesto y en la matriz de marco lógico, no en el análisis de involucrados."},
+    {t:"Definir la meta cuantitativa del programa.", ok:false, why:"Las metas se definen con los indicadores y las líneas base, no con el análisis de involucrados."},
+    {t:"Identificar a quiénes pueden impulsar o bloquear la política, y con qué poder.", ok:true, why:"El análisis de involucrados permite ver el mapa de intereses y poderes: quién apoya, quién se opone, quién tiene capacidad de decisión. Es insumo para diseñar una estrategia viable."},
+    {t:"Elegir el indicador principal del marco lógico.", ok:false, why:"El indicador principal depende del propósito y de su línea base, no del análisis de involucrados."}
+  ]
+},
+{
+  unidad:"Sesión 3 · Estrategia y equidad",
+  caso:"Un sistema educativo tiene un promedio aceptable, pero al mirar por dentro encuentra dos realidades: unas zonas con servicios completos y otras con grupos saturados, aulas sin agua y maestros repartidos entre dos planteles. La brecha interna es mayor que la que existe entre el sistema y otras regiones.",
+  pregunta:"¿Qué criterio de asignación responde mejor a este diagnóstico?",
+  opciones:[
+    {t:"Repartir el presupuesto por igual entre todas las escuelas, sin distinción.", ok:false, why:"Repartir 'parejo' no es lo mismo que repartir con equidad. Aplicado a un diagnóstico desigual, el criterio homogéneo amplía la brecha en lugar de cerrarla."},
+    {t:"Concentrar el gasto en las zonas con mejores resultados para elevar el promedio.", ok:false, why:"Elevar el promedio sin tocar la cola amplía la desigualdad interna y deja sin atender a quien más lo necesita."},
+    {t:"Focalizar los recursos en las zonas con mayor rezago, con programas compensatorios.", ok:true, why:"Cuando la desigualdad se concentra en el territorio, la respuesta típica es focalizar en las zonas con mayor rezago y compensar con programas específicos. Es la vía que busca cerrar la brecha."},
+    {t:"Suspender la inversión hasta reducir la matrícula.", ok:false, why:"Suspender la inversión no responde al diagnóstico; profundiza el problema en las zonas que ya están en desventaja."}
+  ]
+},
+{
+  unidad:"Sesión 3 · Estrategias y modalidades",
+  caso:"Una comunidad pequeña y dispersa tiene su bachillerato más cercano a dos horas por caminos de terracería; el transporte público pasa solo tres días por semana. La economía local es familiar y de temporada. Se busca una modalidad que permita a los jóvenes continuar sus estudios sin salir de la comunidad.",
+  pregunta:"¿Qué estrategia de política responde mejor a este contexto?",
+  opciones:[
+    {t:"Ampliar la preparatoria de la cabecera municipal para recibir a más alumnos.", ok:false, why:"Ampliar la cabecera no resuelve el fondo: los jóvenes de comunidades dispersas no pueden trasladarse diario. La oferta debe llegar a la comunidad, no esperar a que la comunidad llegue."},
+    {t:"Instalar un bachillerato tecnológico industrial vinculado a empresas de la región.", ok:false, why:"No hay un tejido industrial local que sostenga ese vínculo. Formar técnicos para empresas que no existen en la zona deja sin sentido al egresado."},
+    {t:"Abrir un telebachillerato comunitario con materiales bilingües y pertinencia intercultural.", ok:true, why:"Cuando la población es dispersa, con lengua originaria y economía familiar, la respuesta adecuada es acercar la media superior a la comunidad con una modalidad flexible y contextualizada. El telebachillerato comunitario y la educación indígena responden a ese perfil."},
+    {t:"Crear un programa de formación dual alternando aula y empresa local.", ok:false, why:"La formación dual requiere empresas cercanas dispuestas a recibir alumnos. En una zona sin ese tejido productivo, la modalidad no es viable."}
+  ]
+},
+{
+  unidad:"Síntesis · Del problema a la política",
+  caso:"Un equipo de planeación quiere ordenar el trabajo del proyecto para no confundir pasos. Antes de redactar la matriz de marco lógico, necesita tener claridad sobre los problemas, sus causas, los efectos y los actores involucrados.",
+  pregunta:"¿Cuál es el orden correcto del proceso de análisis a la política?",
+  opciones:[
+    {t:"Matriz de marco lógico → árbol de problemas → árbol de objetivos → análisis de involucrados.", ok:false, why:"La matriz se construye al final, cuando ya están claros el problema, sus causas, los objetivos y los actores. Empezar por la matriz invierte el proceso."},
+    {t:"Análisis de involucrados → árbol de problemas → árbol de objetivos → matriz de marco lógico.", ok:true, why:"Primero se identifican los actores; luego se ordenan las causas, el problema y los efectos en el árbol de problemas; después se 'voltea' en árbol de objetivos; y finalmente se construye la matriz de marco lógico con sus indicadores y supuestos."},
+    {t:"Árbol de objetivos → matriz de marco lógico → árbol de problemas → análisis de involucrados.", ok:false, why:"El árbol de objetivos se obtiene de 'voltear' el árbol de problemas; no puede ir antes que él. Y la matriz se construye al final."},
+    {t:"Árbol de problemas → matriz de marco lógico → análisis de involucrados → árbol de objetivos.", ok:false, why:"El árbol de objetivos se construye antes de la matriz, no después; y el análisis de involucrados alimenta el diseño, pero no sustituye al árbol de objetivos."}
+  ]
+}
+];
+
+/* ================= PALETA ================= */
+const BASE_HEX = ['#1B3A4B','#C17A5E','#1F6B3B','#9B2C20','#7A3B8F','#0F7B8A','#B8860B','#5F4B8B','#0B6E4F','#A03B00','#2E86AB','#8B1A4A'];
+function teamHex(i){ return BASE_HEX[i % BASE_HEX.length]; }
+
+/* ================= ESTADO ================= */
+let teams = ['Equipo 1','Equipo 2','Equipo 3','Equipo 4','Equipo 5','Equipo 6'];
+let rounds = [], ri = 0;
+let ptsWin = 20, ptsNone = 0, soundOn = true;
+let manual = [], history = [];
+let revealed = false;
+let collapsedOptions = new Set();
+let caseCollapsed = false;
+const MAX_TEAMS = 12, MIN_TEAMS = 2;
+
+/* ================= AUDIO ================= */
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(freq,dur,type,vol,when){
+  if(!soundOn) return; const a=ac(); if(!a) return;
+  const t0=a.currentTime+(when||0);
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type||'sine'; o.frequency.value=freq; o.connect(g); g.connect(a.destination);
+  g.gain.setValueAtTime((vol||.14),t0);
+  g.gain.exponentialRampToValueAtTime(.0008,t0+dur);
+  o.start(t0); o.stop(t0+dur);
+}
+function sClick(){ tone(1200,.05,'square',.10); }
+function sTickNormal(){ tone(560,.05,'sine',.07); }
+function sTickUrgent(){ tone(1000,.07,'square',.13); }
+function sTimeUp(){ tone(220,.6,'sawtooth',.18); tone(180,.7,'sawtooth',.14,.05); }
+function sAchieve(){ [[523,0],[659,.10],[784,.20],[1047,.32]].forEach(([f,w])=>tone(f,.22,'triangle',.16,w)); tone(1568,.4,'triangle',.12,.44); }
+function sPoint(){ tone(660,.12,'triangle',.16); tone(990,.18,'triangle',.15,.11); }
+
+/* ================= CONFETI ================= */
+const cvs=document.getElementById('confetti'); let ctx=cvs.getContext('2d');
+let confParts=[], confRAF=null, confUntil=0;
+function sizeCanvas(){ cvs.width=innerWidth; cvs.height=innerHeight; }
+addEventListener('resize', sizeCanvas); sizeCanvas();
+function confetti(ms, burst){
+  sizeCanvas(); const n=burst||120;
+  for(let i=0;i<n;i++){
+    confParts.push({
+      x:Math.random()*cvs.width, y:-20-Math.random()*cvs.height*0.3,
+      vx:(Math.random()-.5)*3, vy:2+Math.random()*4, g:0.06+Math.random()*0.05,
+      s:6+Math.random()*7, rot:Math.random()*6, vr:(Math.random()-.5)*.3,
+      c:BASE_HEX[(Math.random()*BASE_HEX.length)|0]
+    });
+  }
+  confUntil=Math.max(confUntil, performance.now()+(ms||2200));
+  if(!confRAF) confRAF=requestAnimationFrame(confStep);
+}
+function confStep(){
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  confParts.forEach(p=>{ p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.c;
+    ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); ctx.restore();
+  });
+  confParts=confParts.filter(p=>p.y<cvs.height+30);
+  if(performance.now()<confUntil || confParts.length){ confRAF=requestAnimationFrame(confStep); }
+  else { confRAF=null; ctx.clearRect(0,0,cvs.width,cvs.height); }
+}
+
+/* ================= MASCOTA FX ================= */
+function mascotFx(txt, sub){
+  document.getElementById('mascotduo').innerHTML = EDU_F('#C17A5E') + EDU_M('#1B3A4B');
+  document.getElementById('mascotmsg').innerHTML = txt + (sub?`<small>${sub}</small>`:'');
+  const g=document.getElementById('mascotafx'); g.classList.add('show');
+  setTimeout(()=>g.classList.remove('show'),1900);
+}
+
+/* ================= UTIL ================= */
+function toast(t){
+  const e=document.getElementById('toast'); e.textContent=t; e.classList.add('show');
+  clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),2200);
+}
+function escapeAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function calcScores(){
+  return teams.map((_,t)=>{
+    let s = manual[t]||0;
+    for(let r=0;r<rounds.length;r++){
+      const R=rounds[r];
+      if(!R.revealed) continue;
+      const okIdx = R.opciones.findIndex(o=>o.ok);
+      if(okIdx>=0 && R.picks[okIdx].includes(t)) s += R.puntos;
+    }
+    return s;
+  });
+}
+function orderFrom(sc){ return sc.map((pts,i)=>({i,pts})).sort((a,b)=>b.pts-a.pts||a.i-b.i); }
+function ranksOf(order){ const r=[]; order.forEach((o,k)=>{ r.push(k>0 && o.pts===order[k-1].pts ? r[k-1] : k+1); }); return r; }
+function namesList(ts){ return ts.map(t=>teams[t]).join(' · '); }
+
+/* ================= FULLSCREEN ================= */
+function openFullContext(){
+  sClick();
+  const R = rounds[ri];
+  document.getElementById('fullContent').innerHTML = `
+    <div class="fulltype">Contexto · <b>${R.unidad}</b></div>
+    <div class="fullcase">
+      <div class="u">${R.unidad}</div>
+      <div class="ct">${R.caso}</div>
+      <div class="q">${R.pregunta}</div>
+    </div>`;
+  document.getElementById('fullov').classList.remove('hide');
+}
+function openFullOption(i){
+  sClick();
+  const R = rounds[ri];
+  const letters=['A','B','C','D','E','F'];
+  document.getElementById('fullContent').innerHTML = `
+    <div class="fulltype">Opción <b>${letters[i]}</b> · <b>${R.unidad}</b></div>
+    <div class="fullopt"><span class="ltr">${letters[i]}</span>${R.opciones[i].t}</div>`;
+  document.getElementById('fullov').classList.remove('hide');
+}
+function closeFull(){ sClick(); document.getElementById('fullov').classList.add('hide'); }
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){
+    if(!document.getElementById('fullov').classList.contains('hide')) closeFull();
+  }
+});
+
+/* ================= COLLAPSE ================= */
+function toggleCaseCollapse(){
+  sClick();
+  caseCollapsed = !caseCollapsed;
+  document.getElementById('casebox').classList.toggle('collapsed', caseCollapsed);
+  document.getElementById('caseToggleBtn').textContent = caseCollapsed ? '+' : '−';
+}
+function toggleOptCollapse(i){
+  sClick();
+  if(collapsedOptions.has(i)) collapsedOptions.delete(i); else collapsedOptions.add(i);
+  renderOptions();
+}
+
+/* ================= EQUIPOS ================= */
+function addTeam(name){
+  if(teams.length >= MAX_TEAMS){ toast('Máximo '+MAX_TEAMS+' equipos'); return false; }
+  teams.push(name || ('Equipo '+(teams.length+1)));
+  manual.push(0);
+  return true;
+}
+function removeTeam(idx){
+  if(teams.length <= MIN_TEAMS){ toast('Mínimo '+MIN_TEAMS+' equipos'); return false; }
+  teams.splice(idx,1);
+  manual.splice(idx,1);
+  rounds.forEach(R=>{
+    R.picks = R.picks.map(arr =>
+      arr.filter(x => x !== idx).map(x => x > idx ? x-1 : x)
+    );
+  });
+  history = [];
+  collapsedOptions = new Set();
+  return true;
+}
+function setTeamName(i,v){ teams[i] = v; }
+
+/* ================= SETUP ================= */
+function renderSetupTeams(){
+  const c = document.getElementById('teamRows');
+  c.innerHTML = teams.map((t,i)=>`
+    <div class="eqrow">
+      <span class="dot" style="background:${teamHex(i)}"></span>
+      <input type="text" value="${escapeAttr(t)}" maxlength="24"
+             oninput="setTeamName(${i},this.value)" placeholder="Nombre del equipo">
+      <button type="button" class="rmbtn" title="Quitar equipo"
+              onclick="removeTeamSetup(${i})" ${teams.length<=MIN_TEAMS?'disabled':''}>×</button>
+    </div>`).join('');
+  document.getElementById('teamCount').textContent = teams.length + ' de ' + MAX_TEAMS + ' equipos';
+}
+function addTeamSetup(){ sClick(); if(addTeam('Equipo '+(teams.length+1))) renderSetupTeams(); }
+function removeTeamSetup(i){ sClick(); if(removeTeam(i)) renderSetupTeams(); }
+
+/* ================= MODAL EQUIPOS ================= */
+function openTeamsModal(){ sClick(); renderTeamRowsModal(); document.getElementById('teamov').classList.remove('hide'); }
+function renderTeamRowsModal(){
+  const c = document.getElementById('teamRowsModal'); if(!c) return;
+  c.innerHTML = teams.map((t,i)=>`
+    <div class="eqrow">
+      <span class="dot" style="background:${teamHex(i)}"></span>
+      <input type="text" value="${escapeAttr(t)}" maxlength="24"
+             oninput="setTeamName(${i},this.value);refreshAllViews()">
+      <button type="button" class="rmbtn" title="Quitar equipo"
+              onclick="removeTeamModal(${i})" ${teams.length<=MIN_TEAMS?'disabled':''}>×</button>
+    </div>`).join('');
+}
+function addTeamModal(){ sClick(); if(addTeam('Equipo '+(teams.length+1))){ renderTeamRowsModal(); refreshAllViews(); } }
+function removeTeamModal(i){ sClick(); if(removeTeam(i)){ renderTeamRowsModal(); refreshAllViews(); } }
+function closeTeamsModal(){ sClick(); document.getElementById('teamov').classList.add('hide'); refreshAllViews(); }
+
+/* ================= START ================= */
+function startGame(){
+  teams = teams.map(t => (t||'').trim() || 'Equipo');
+  ptsWin = parseInt(document.getElementById('ptsWin').value)||20;
+  ptsNone = parseInt(document.getElementById('ptsNone').value)||0;
+  soundOn = document.getElementById('sound').checked;
+  ac();
+  rounds = RONDAS.map(r=>({...r, revealed:false, picks:r.opciones.map(()=>[]), puntos:ptsWin}));
+  manual = new Array(teams.length).fill(0); history=[];
+  ri=0;
+  document.getElementById('setup').classList.add('hide');
+  document.getElementById('game').classList.remove('hide');
+  document.getElementById('rTot').textContent = rounds.length;
+  loadRound();
+}
+
+/* ================= RELOJ ================= */
+let tRemain=0, tTotal=60, tInt=null, tRunning=false;
+function fmt(s){ const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0'); }
+function paintTimer(){
+  document.getElementById('tnum').textContent = fmt(Math.max(0,tRemain));
+  const tb=document.getElementById('timerbox'); tb.className='timerbox';
+  if(tRemain<=0) tb.classList.add('done');
+  else if(tRemain<=10) tb.classList.add('crit');
+  else if(tRemain<=tTotal*0.4) tb.classList.add('warn');
+  else if(tRunning) tb.classList.add('run');
+}
+function tickTimer(){
+  tRemain--;
+  if(tRemain>0){ (tRemain<=10?sTickUrgent():sTickNormal()); }
+  if(tRemain<=0){ stopTimer(); sTimeUp(); showTimeUp(); }
+  paintTimer();
+}
+function toggleTimer(){ sClick(); tRunning?stopTimer():playTimer(); }
+function playTimer(){
+  if(tRemain<=0) return; tRunning=true;
+  const b=document.getElementById('btnPlay'); b.textContent='⏸'; b.className='pause';
+  tInt=setInterval(tickTimer,1000); paintTimer();
+}
+function stopTimer(){ tRunning=false; clearInterval(tInt);
+  const b=document.getElementById('btnPlay'); b.textContent='▶'; b.className='play'; paintTimer(); }
+function resetTimer(){ sClick(); stopTimer(); tRemain=tTotal; paintTimer(); }
+function addTime(s){ sClick(); tRemain=Math.max(0,tRemain+s); if(tRemain>tTotal) tTotal=tRemain; paintTimer(); }
+function showTimeUp(){ const t=document.getElementById('timeup'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1500); }
+
+/* ================= TABLERO ================= */
+function loadRound(){
+  const R = rounds[ri];
+  document.getElementById('rIdx').textContent = ri+1;
+  document.getElementById('uniPill').textContent = R.unidad.split('·')[0].trim();
+  document.getElementById('caseUni').textContent = R.unidad;
+  document.getElementById('caseText').textContent = R.caso;
+  document.getElementById('caseQ').textContent = R.pregunta;
+  document.getElementById('casebox').classList.toggle('collapsed', caseCollapsed);
+  document.getElementById('caseToggleBtn').textContent = caseCollapsed ? '+' : '−';
+  document.getElementById('btnPrev').disabled = (ri===0);
+  document.getElementById('explainBox').innerHTML = '';
+  const rev = document.getElementById('btnRev');
+  rev.textContent = 'Revelar respuesta';
+  rev.classList.add('ready');
+  rev.disabled = false;
+  revealed = R.revealed;
+  if(revealed){
+    rev.textContent = '✓ Respuesta revelada';
+    rev.classList.remove('ready');
+    rev.disabled = true;
+    const okIdx = R.opciones.findIndex(o=>o.ok);
+    document.getElementById('explainBox').innerHTML =
+      `<div class="explain"><b>Por qué</b>${R.opciones[okIdx].why}</div>`;
+  }
+  collapsedOptions = new Set();
+  stopTimer(); tTotal=60; tRemain=60; paintTimer();
+  renderMini(); renderOptions();
+  document.getElementById('btnUndo').disabled = history.length===0;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderMini(){
+  const mc=document.getElementById('miniScores'); mc.innerHTML='';
+  const sc=calcScores(); const max=Math.max(...sc,0);
+  teams.forEach((nm,i)=>{
+    const d=document.createElement('div'); d.className='mini'+(sc[i]===max&&max>0?' lead':'');
+    d.style.borderLeftColor=teamHex(i);
+    d.innerHTML=`<span class="md" style="background:${teamHex(i)}"></span><span class="mn">${nm}</span><span class="mp" style="color:${teamHex(i)}">${sc[i]}</span>`;
+    mc.appendChild(d);
+  });
+}
+function chipHTML(optIdx,t){
+  const on = rounds[ri].picks[optIdx].includes(t);
+  return `<button class="tchip${on?' on':''}" style="--c:${teamHex(t)}" ${revealed?'disabled':''} onclick="toggleTeam(${optIdx},${t})"><span class="md"></span>${teams[t]}</button>`;
+}
+function renderOptions(){
+  const R = rounds[ri];
+  const cont = document.getElementById('options'); cont.innerHTML='';
+  const letters=['A','B','C','D','E','F'];
+  R.opciones.forEach((o,i)=>{
+    const el=document.createElement('div');
+    el.className='opt';
+    if(collapsedOptions.has(i)) el.classList.add('collapsed');
+    if(revealed){
+      if(o.ok) el.classList.add('correct');
+      else if(R.picks[i].length) el.classList.add('wrong');
+      else el.classList.add('dimmed');
+    }
+    let tag='';
+    if(revealed){
+      tag = o.ok ? '<span class="tag">Correcta</span>' : '<span class="tag">Incorrecta</span>';
+    }
+    el.innerHTML = `
+      <div class="head">
+        <div class="letter">${letters[i]}</div>
+        <div class="txt">${o.t}</div>
+        ${tag}
+        <div class="optbtns">
+          <button title="Minimizar / expandir opción" onclick="event.stopPropagation();toggleOptCollapse(${i})">${collapsedOptions.has(i)?'+':'−'}</button>
+          <button title="Ver en pantalla completa" onclick="event.stopPropagation();openFullOption(${i})">⛶</button>
+        </div>
+      </div>
+      <div class="teams">
+        <span class="lbl">Equipos que eligieron esta opción</span>
+        ${teams.map((_,t)=>chipHTML(i,t)).join('')}
+      </div>`;
+    cont.appendChild(el);
+  });
+}
+function toggleTeam(optIdx,t){
+  if(revealed) return;
+  sClick();
+  const picks = rounds[ri].picks;
+  picks.forEach(arr=>{ const k=arr.indexOf(t); if(k>=0) arr.splice(k,1); });
+  picks[optIdx].push(t);
+  renderOptions();
+}
+function revealAnswer(){
+  const R=rounds[ri];
+  if(R.revealed) return;
+  sClick();
+  R.revealed=true; revealed=true;
+  stopTimer();
+  const okIdx = R.opciones.findIndex(o=>o.ok);
+  const winners = R.picks[okIdx];
+  R.puntos = winners.length>0 ? ptsWin : ptsNone;
+  history.push({ri, snapshot: R.picks.map(a=>a.slice())});
+  document.getElementById('btnRev').disabled = true;
+  document.getElementById('btnRev').classList.remove('ready');
+  document.getElementById('btnRev').textContent = '✓ Respuesta revelada';
+  document.getElementById('btnUndo').disabled = false;
+  const ex = document.getElementById('explainBox');
+  ex.innerHTML = `<div class="explain"><b>Por qué</b>${R.opciones[okIdx].why}</div>`;
+  renderOptions(); renderMini();
+  if(winners.length){
+    sPoint(); confetti(1800,70+winners.length*30);
+    mascotFx(`¡+${R.puntos} para ${namesList(winners)}!`, '¡Acertaron el caso!');
+  } else {
+    tone(220,.4,'sine',.14); tone(180,.5,'sine',.12,.08);
+    mascotFx('Nadie acertó', 'Repasen el porqué de la opción correcta');
+  }
+}
+function undo(){
+  if(!history.length) return;
+  const h = history.pop();
+  if(h.ri!==ri){
+    rounds[ri].revealed = false;
+    ri = h.ri;
+    document.getElementById('ranking').classList.add('hide');
+    document.getElementById('game').classList.remove('hide');
+    loadRound();
+  }
+  const R = rounds[h.ri];
+  R.picks = h.snapshot.map(a=>a.slice());
+  R.revealed = false;
+  revealed = false;
+  document.getElementById('explainBox').innerHTML='';
+  const rev = document.getElementById('btnRev');
+  rev.textContent='Revelar respuesta'; rev.classList.add('ready'); rev.disabled=false;
+  document.getElementById('btnUndo').disabled = history.length===0;
+  renderOptions(); renderMini();
+  toast('Deshecho: tablero '+(h.ri+1));
+}
+function prevRound(){
+  if(ri===0) return;
+  sClick(); stopTimer();
+  rounds[ri].revealed = false;
+  ri--; revealed=false;
+  loadRound();
+}
+
+/* ================= AJUSTE MANUAL ================= */
+function openAdj(){
+  sClick(); const rows=document.getElementById('adjrows'); rows.innerHTML='';
+  const sc=calcScores();
+  teams.forEach((nm,i)=>{
+    const d=document.createElement('div'); d.className='adjrow';
+    d.innerHTML=`<span class="md" style="background:${teamHex(i)}"></span><span class="an">${nm}</span>
+      <button onclick="adj(${i},-5)">−</button><span class="ap" id="ap${i}">${sc[i]}</span><button onclick="adj(${i},5)">+</button>`;
+    rows.appendChild(d);
+  });
+  document.getElementById('adjov').classList.remove('hide');
+}
+function adj(i,d){
+  const sc=calcScores(); if(sc[i]+d<0) return;
+  manual[i]+=d; renderMini();
+  document.getElementById('ap'+i).textContent = calcScores()[i];
+}
+function closeAdj(){ sClick(); document.getElementById('adjov').classList.add('hide'); renderMini(); }
+
+/* ================= REFRESH GLOBAL ================= */
+function refreshAllViews(){
+  if(!document.getElementById('setup').classList.contains('hide')) renderSetupTeams();
+  if(!document.getElementById('game').classList.contains('hide')){ renderMini(); renderOptions(); }
+  if(!document.getElementById('ranking').classList.contains('hide')) drawRanking();
+}
+
+/* ================= RANKING ================= */
+function goRanking(){
+  sClick(); stopTimer();
+  document.getElementById('game').classList.add('hide');
+  document.getElementById('ranking').classList.remove('hide');
+  const last = (ri>=rounds.length-1);
+  document.getElementById('rankTitle').textContent = last?'Posiciones finales':('Posiciones tras el tablero '+(ri+1));
+  document.getElementById('rankSub').textContent = last?'Toca «Ver podio» para el resultado final':'Cada equipo suma solo si acertó el caso';
+  document.getElementById('btnCont').textContent = last?'Ver podio 🏆':'Siguiente tablero ▶';
+  sAchieve(); confetti(2400,140);
+  drawRanking();
+}
+function drawRanking(){
+  const sc = calcScores();
+  const cur = orderFrom(sc);
+  const max = Math.max(1, cur[0].pts);
+  const rk = ranksOf(cur);
+  const mp = document.getElementById('minipod'); mp.innerHTML='';
+  const hts=[150,112,84], crowns=['👑','🥈','🥉'];
+  const seq=[1,0,2];
+  seq.forEach((k,idx)=>{
+    const o=cur[k]; if(!o) return;
+    const c=document.createElement('div'); c.className='mpcol';
+    const masc = (k===0) ? EDU_F('#C17A5E') : EDU_M('#1B3A4B');
+    c.innerHTML = `<div class="mpg" style="animation-delay:${idx*0.15}s">${masc}</div>
+      <div class="mpn">${crowns[rk[k]-1]||''} ${teams[o.i]}</div>
+      <div class="mpbar" style="background:${teamHex(o.i)};height:${hts[k]}px"><div class="plc">${rk[k]}</div><div class="ppt">${o.pts} pts</div></div>`;
+    mp.appendChild(c);
+  });
+  const cont = document.getElementById('rbars'); cont.innerHTML='';
+  const W = cont.clientWidth||520, avail=W-46;
+  cur.forEach((o,pos)=>{
+    const row=document.createElement('div'); row.className='rbar';
+    row.innerHTML=`<div class="pos">${rk[pos]}</div>
+      <div class="fill" style="background:${teamHex(o.i)};width:160px">
+        <span class="nm">${teams[o.i]}</span>
+        <span class="pt">${o.pts}</span>
+      </div>`;
+    cont.appendChild(row);
+    const w=Math.round(160+(o.pts/max)*Math.max(0,avail-160));
+    requestAnimationFrame(()=>{ setTimeout(()=>{ row.querySelector('.fill').style.width=w+'px'; },60+pos*80); });
+  });
+}
+function backToBoard(){
+  sClick();
+  document.getElementById('ranking').classList.add('hide');
+  document.getElementById('game').classList.remove('hide');
+  renderOptions(); renderMini();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function continueGame(){
+  sClick();
+  if(ri>=rounds.length-1){ endGame(); return; }
+  ri++; revealed = rounds[ri].revealed;
+  document.getElementById('ranking').classList.add('hide');
+  document.getElementById('game').classList.remove('hide');
+  loadRound();
+}
+function finishNow(){ document.getElementById('finov').classList.add('hide'); endGame(); }
+
+/* ================= FINAL ================= */
+function endGame(){
+  stopTimer();
+  ['game','ranking'].forEach(id=>document.getElementById(id).classList.add('hide'));
+  document.getElementById('end').classList.remove('hide');
+  const sc = calcScores();
+  const jugados = rounds.filter(r=>r.revealed).length;
+  document.getElementById('fsub').textContent = `Puntuación acumulada · ${jugados} de ${rounds.length} tableros jugados`;
+  const order = orderFrom(sc); const rk = ranksOf(order);
+  const heights=[210,160,125], crowns=['👑','🥈','🥉'], seq=[1,0,2];
+  const pod = document.getElementById('podium'); pod.innerHTML='';
+  seq.forEach(k=>{
+    const o=order[k]; if(!o) return;
+    const c=document.createElement('div'); c.className='pcol';
+    const masc = (k===0) ? EDU_F('#C17A5E') : EDU_M('#1B3A4B');
+    c.innerHTML = `<div class="pfig">${masc}</div>
+      <div class="pnm">${crowns[rk[k]-1]||''} ${teams[o.i]}</div>
+      <div class="bar" style="background:${teamHex(o.i)};height:${heights[k]}px"><div class="plc">${rk[k]}</div><div class="ppt">${o.pts} pts</div></div>`;
+    pod.appendChild(c);
+  });
+  const rest = document.getElementById('restrank'); rest.innerHTML='';
+  order.slice(3).forEach((o,idx)=>{
+    const li=document.createElement('li'); li.style.background=teamHex(o.i);
+    li.innerHTML=`<span>${rk[idx+3]}. ${teams[o.i]}</span><span>${o.pts} pts</span>`;
+    rest.appendChild(li);
+  });
+  sAchieve(); confetti(4000,220);
+  setTimeout(()=>confetti(2500,150),800);
+}
+
+/* ================= INIT ================= */
+renderSetupTeams();
+</script>
+</body>
+</html>
