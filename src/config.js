@@ -19,7 +19,10 @@ export const FOTO_PERFIL = 'https://ohhdnaewtjfqszxemrju.supabase.co/storage/v1/
 
 export const ENLACE_DIAPOSITIVAS_PRESENTAR_CASO = 'https://1drv.ms/p/c/a43668d1cdc6e346/IQABiMuYL5oQQLuzj7m72L_FAR9JRwJCn52xxu9qaRKAENU?e=NA3oRy'
 export const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA'
-export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaFRDWlDPc0iAlfRBk7GecFWq77O2DgNg7tRSd9fUw-vNfTLZwCphLOszDZ7luNhOKTQ/exec'
+// Deployment 2026-10-03. Devuelve JSON (lo lee la web por JSONP en lib/correo.js),
+// por eso los envíos ahora se confirman en lugar de asumir que salieron.
+// Si cambias el deployment, repite el cambio solo aquí.
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbztwDtmmE8ZeyEX-RmekEemaAF39Wfmh5H2UuEnFmIaykpiBv3H3CdbHJWPtdUUZs-sjg/exec'
 
 export const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',

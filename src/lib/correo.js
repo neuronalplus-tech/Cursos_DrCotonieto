@@ -61,12 +61,21 @@ export async function notificarInscritos(cursoId, { tipo, curso, modulo, recurso
 /**
  * Envía un payload al Apps Script y ESPERA CONFIRMACIÓN REAL.
  *
+ * CÓMO SE LEE LA RESPUESTA
+ * Con fetch + CORS es imposible (Google no manda cabeceras CORS) y con
+ * 'no-cors' la respuesta llega opaca. La única vía es inyectar un <script>.
+ *
+ * NO usamos el parámetro `callback` de Google porque, comprobado contra un
+ * deployment real, NO envuelve la salida: la respuesta llegó tal cual. Si
+ * dependiéramos de él, el callback nunca se llamaría y cada envío acabaría
+ * en timeout aunque el correo sí hubiera salido.
+ *
+ * En vez de eso, el script recibe un `reqid` y devuelve él mismo el JavaScript
+ * `window.__appsCorreoRespuesta("<reqid>", {...})`. Es determinista: no depende
+ * de que Google haga nada especial.
+ *
  * @param {object} payload  lo que espera el script (tipo, asunto, alumnos, …)
  * @returns {Promise<{ok:boolean, motivo?:string, data?:any, sinConfirmacion?:boolean}>}
- *
- * ok:true                → el script respondió (confirmado)
- * ok:false               → el script respondió con error, o no respondió
- * sinConfirmacion:true   → no hubo respuesta en el tiempo esperado
  */
 export function enviarCorreo(payload) {
   return new Promise((resolve) => {
@@ -75,59 +84,62 @@ export function enviarCorreo(payload) {
       return
     }
 
-    const nombreCb = '__correoCb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6)
-    let terminado = false
+    const reqid = 'r' + Date.now() + Math.floor(Math.random() * 1e6)
 
-    const limpiar = () => {
-      delete window[nombreCb]
-      if (script && script.parentNode) script.parentNode.removeChild(script)
-      clearTimeout(timer)
+    // Un solo manejador global: el script sabe a qué petición contestar.
+    if (!window.__appsCorreoRespuesta) {
+      window.__appsCorreoRespuesta = function (idRecibido, datos) {
+        const pendiente = pendientes[idRecibido]
+        if (!pendiente) return
+        delete pendientes[idRecibido]
+        pendiente(datos)
+      }
     }
 
     const finalizar = (resultado) => {
-      if (terminado) return
-      terminado = true
-      limpiar()
+      const fn = pendientes[reqid]
+      if (!fn) return
+      delete pendientes[reqid]
+      clearTimeout(timer)
+      if (script && script.parentNode) script.parentNode.removeChild(script)
       resolve(resultado)
     }
 
-    // Si el script responde, llamamos esto.
-    window[nombreCb] = function (respuesta) {
-      // El script puede devolver {ok:true} o {error:"..."} o un objeto simple.
-      const esError = respuesta && (respuesta.ok === false || respuesta.error)
+    pendientes[reqid] = function (datos) {
+      const esError = !datos || datos.ok === false || !!datos.error
       finalizar({
         ok: !esError,
-        data: respuesta,
-        motivo: esError
-          ? (respuesta.error || 'El script devolvió un error.')
-          : undefined,
+        data: datos,
+        motivo: esError ? (datos && (datos.error || datos.mensaje) || 'El script devolvió un error.') : undefined,
       })
     }
 
     const script = document.createElement('script')
     script.src = APPS_SCRIPT_URL +
-      '?callback=' + nombreCb +
+      '?reqid=' + encodeURIComponent(reqid) +
       '&payload=' + encodeURIComponent(JSON.stringify(payload))
 
-    // Si Google devuelve una página de error (script inexistente, sin permiso),
-    // al cargarla como <script> dispara un error de sintaxis → script.onerror.
+    // El script devolvió algo que no es JavaScript válido: casi siempre es que
+    // sigue desplegada la versión antigua, que responde JSON plano.
     script.onerror = () => finalizar({
       ok: false,
-      motivo: 'Google no pudo ejecutar el script. Revisa que esté desplegado como "Web app" ' +
-              'con acceso "Cualquier persona".',
+      motivo: 'El script no devolvió una respuesta utilizable. Suele significar que hay que ' +
+              'volver a desplegar la versión nueva de apps-script/Notificador.gs.',
     })
 
     const timer = setTimeout(() => finalizar({
       ok: false,
       sinConfirmacion: true,
       motivo: 'El script no confirmó en ' + (TIMEOUT_MS / 1000) + ' s. ' +
-              'Puede que sí se haya enviado, o que el script no devuelva nada: ' +
-              'en ese caso no hay forma de verificarlo desde el navegador.',
+              'Puede que sí se haya enviado, o que la versión desplegada sea la antigua.',
     }), TIMEOUT_MS)
 
     document.body.appendChild(script)
   })
 }
+
+/** Peticiones en vuelo, indexadas por reqid. */
+const pendientes = {}
 
 /** Link para abrir el Apps Script en una pestaña y ver su respuesta real. */
 export const LINK_APPS_SCRIPT = APPS_SCRIPT_URL

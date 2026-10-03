@@ -4,18 +4,26 @@
  * ============================================================================
  *
  *  CÓMO USARLO
- *  1. Abre script.google.com → nuevo proyecto → pega este archivo completo.
- *  2. Implementa → Añadir implementación → Aplicación web:
+ *  1. script.google.com → abre ESTE proyecto → sustituye todo Codigo.gs por
+ *     el contenido de este archivo (Ctrl+A, Ctrl+V en el editor).
+ *  2. Implementar → Añadir implementación → Aplicación web:
  *       - Ejecutar como:           Yo (tu cuenta)
  *       - Quién tiene acceso:      Cualquier persona        ← IMPRESCINDIBLE
- *  3. Copia la URL /exec y ponla en src/config.js → APPS_SCRIPT_URL.
+ *  3. Copia la URL /exec a src/config.js → APPS_SCRIPT_URL.
  *
- *  POR QUÉ ESTA VERSIÓN DEVUELVE UNA RESPUESTA
- *  Antes el script no devolvía nada y la web usaba fetch(...,'no-cors'), con lo
- *  cual el navegador recibía una respuesta opaca: IMPOSIBLE saber si el envío
- *  había ocurrido. La web siempre pintaba "✓ enviado". Ahora el script devuelve
- *  un JSON y la web lo lee por JSONP, así que ves la verdad.
- *  App Script envuelve solo la salida en el callback si lo pides con ?callback=.
+ *  CÓMO DEVUELVE EL RESULTADO A LA WEB (leído con un deployment real)
+ *  Desde el navegador no hay CORS, así que la web inyecta esto como <script>
+ *  y solo puede ejecutar JavaScript. Por eso el script devuelve él mismo la
+ *  llamada, usando el `reqid` que le manda la web:
+ *
+ *      window.__appsCorreoRespuesta("r123...", {"ok":true, ...});
+ *
+ *  Se descartó usar el parámetro `callback` de Google porque, comprobado
+ *  contra un deployment real, NO envuelve la salida: la respuesta llegaba
+ *  intacta, el callback nunca se llamaba y todos los envíos terminaban en
+ *  tiempo de espera aunque el correo sí se hubiera enviado.
+ *
+ *  Sin `reqid` (prueba manual en el navegador) devuelve JSON legible.
  * ============================================================================
  */
 
@@ -25,45 +33,49 @@ const CONFIG = {
   linkPortal: 'https://cursos-drcotonieto.neuronal-plus.workers.dev',
 };
 
-/** Punto de entrada único: el front manda POST con ?payload=<json>. */
 function doPost(e) {
   return responder(e);
 }
+
 /** También acepta GET, para poder probar desde el navegador sin la web. */
 function doGet(e) {
   return responder(e);
 }
 
 function responder(e) {
+  var reqid = (e && e.parameter && e.parameter.reqid) || '';
   try {
-    const crudo = (e && e.parameter && e.parameter.payload) || '{}';
-    const datos = JSON.parse(crudo);
-    const tipo = datos.tipo;
+    var crudo = (e && e.parameter && e.parameter.payload) || '{}';
+    var datos = JSON.parse(crudo);
+    var tipo = datos.tipo;
 
     if (tipo === 'ping') {
-      return json({ ok: true, mensaje: 'Conexión OK. El script está desplegado y responde.' });
+      return responderCon(reqid, {
+        ok: true,
+        mensaje: 'Conexión OK. El script está desplegado y responde.'
+      });
     }
 
-    const asunto = asuntoDe(datos);
-    const html = cuerpoHtml(datos);
-    const texto = cuerpoTexto(datos, html);
-    const alumnos = destinatarios(datos);
+    var asunto = asuntoDe(datos);
+    var html = cuerpoHtml(datos);
+    var texto = cuerpoTexto(datos, html);
+    var alumnos = destinatarios(datos);
 
     if (!alumnos.length) {
-      return json({ ok: false, error: 'No hay destinatarios válidos en el payload.' });
+      return responderCon(reqid, { ok: false, error: 'No hay destinatarios válidos en el payload.' });
     }
     if (!asunto) {
-      return json({ ok: false, error: 'El payload no trae "asunto".' });
+      return responderCon(reqid, { ok: false, error: 'El payload no trae "asunto".' });
     }
 
-    const fallos = [];
-    for (let i = 0; i < alumnos.length; i++) {
-      const correo = alumnos[i];
+    var fallos = [];
+    for (var i = 0; i < alumnos.length; i++) {
+      var correo = alumnos[i];
       try {
         GmailApp.sendEmail(correo, asunto, texto, {
           htmlBody: html,
           replyTo: CONFIG.replyTo,
-          from: CONFIG.remitente,
+          from: CONFIG.remitente
         });
       } catch (err) {
         fallos.push(correo + ' → ' + err.message);
@@ -71,51 +83,68 @@ function responder(e) {
     }
 
     if (fallos.length) {
-      return json({
+      return responderCon(reqid, {
         ok: false,
-        error: 'Falló ' + fallos.length + ' de ' + alumnos.length + ': ' + fallos.slice(0, 5).join(' | '),
+        error: 'Falló ' + fallos.length + ' de ' + alumnos.length + ': ' + fallos.slice(0, 5).join(' | ')
       });
     }
 
-    return json({
+    return responderCon(reqid, {
       ok: true,
       enviados: alumnos.length,
       asunto: asunto,
-      mensaje: 'Correo enviado a ' + alumnos.length + ' persona(s).',
+      mensaje: 'Correo enviado a ' + alumnos.length + ' persona(s).'
     });
   } catch (err) {
+    return responderCon(reqid, { ok: false, error: 'Error en el script: ' + err.message });
+  }
+}
+
+/** Con reqid devuelve la llamada JavaScript; sin él, JSON para pruebas. */
+function responderCon(reqid, obj) {
+  if (reqid) {
+    var js = 'window.__appsCorreoRespuesta && window.__appsCorreoRespuesta(' +
+      JSON.stringify(String(reqid)) + ',' + JSON.stringify(obj) + ');';
+    return ContentService.createTextOutput(js).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 /* -----------------------------Armado de texto---------------------------- */
 
 function asuntoDe(d) {
   if (d.asunto) return d.asunto;
-  const c = d.curso && d.curso.titulo ? d.curso.titulo : 'la plataforma';
+  var c = d.curso && d.curso.titulo ? d.curso.titulo : 'la plataforma';
   if (d.tipo === 'recurso-nuevo') return 'Nuevo material en ' + c;
   if (d.tipo === 'modulo-abierto') return 'Nuevo módulo en ' + c;
   return 'Aviso de ' + c;
 }
 
 function destinatarios(d) {
-  let lista = [];
+  var lista = [];
   if (Array.isArray(d.alumnos)) {
-    lista = d.alumnos.map(a => (typeof a === 'string' ? a : a && a.email) || '');
+    lista = d.alumnos.map(function (a) {
+      return (typeof a === 'string' ? a : a && a.email) || '';
+    });
   }
   if (d.email) lista.push(d.email);
-  const vistos = {};
+  var vistos = {};
   return lista
-    .map(e => String(e).trim().toLowerCase())
-    .filter(e => e && e.indexOf('@') > 0 && !vistos[e] && (vistos[e] = true));
+    .map(function (e) { return String(e).trim().toLowerCase(); })
+    .filter(function (e) { return e && e.indexOf('@') > 0 && !vistos[e] && (vistos[e] = true); });
 }
 
 function cuerpoTexto(d, html) {
   if (d.cuerpoTexto) return d.cuerpoTexto;
-  const bruto = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
+  var bruto = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
   return bruto.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
 }
-
 function cuerpoHtml(d) {
   if (d.cuerpoHtml) return envolver(d.cuerpoHtml);
   if (d.tipo === 'recurso-nuevo') {
-    const r = d.recurso || {};
+    var r = d.recurso || {};
     return envolver(
       '<p>Se acaba de publicar un material nuevo:</p>' +
       '<p style="font-size:18px;font-weight:700;margin:16px 0">' + esc(r.titulo || '') + '</p>' +
@@ -124,7 +153,7 @@ function cuerpoHtml(d) {
     );
   }
   if (d.tipo === 'modulo-abierto') {
-    const m = d.modulo || {};
+    var m = d.modulo || {};
     return envolver(
       '<p>Se abrió un módulo nuevo:</p>' +
       '<p style="font-size:18px;font-weight:700;margin:16px 0">' + esc(m.titulo || '') + '</p>' +
@@ -157,14 +186,4 @@ function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-    return json({ ok: false, error: 'Error en el script: ' + err.message });
-  }
-}
-
-/** Envuelve la respuesta como JSON. Apps Script aplica el ?callback= solo. */
-function json(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
 }
