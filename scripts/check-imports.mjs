@@ -85,6 +85,36 @@ const archivos = listar(RAIZ)
 let problemas = 0
 let avisos = 0
 
+/**
+ * Exports reales de un archivo: nombres con `export` y el nombre del default.
+ * Sirve para detectar el caso que el build sí cazó pero este script no:
+ * `import { X }` a un archivo que solo hace `export default X`.
+ */
+function exportsDe(archivo) {
+  const fuente = readFileSync(archivo, 'utf8')
+  const conNombre = new Set()
+  let defaultNombre = null
+
+  for (const m of fuente.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_$]+)/g)) {
+    conNombre.add(m[1])
+  }
+  for (const m of fuente.matchAll(/export\s+(?:const|let|var|class)\s+([A-Za-z0-9_$]+)/g)) {
+    conNombre.add(m[1])
+  }
+  const bloques = fuente.match(/export\s*\{([^}]+)\}/g) || []
+  for (const b of bloques) {
+    for (const crudo of b.replace(/export\s*\{|\}/g, '').split(',')) {
+      const partes = crudo.trim().split(/\s+as\s+/)
+      const nombre = (partes[1] || partes[0] || '').trim()
+      if (nombre) conNombre.add(nombre)
+    }
+  }
+  const dm = fuente.match(/export\s+default\s+(?:async\s+)?function\s+([A-Za-z0-9_$]+)/)
+  if (dm) defaultNombre = dm[1]
+
+  return { conNombre, defaultNombre }
+}
+
 for (const archivo of archivos) {
   const fuente = readFileSync(archivo, 'utf8')
   const decl = declarados(fuente)
@@ -98,6 +128,28 @@ for (const archivo of archivos) {
     problemas += faltan.length
     console.log(`\n❌ ${relative('.', archivo)}`)
     for (const f of faltan) console.log(`     usa <${f}> pero no lo declara ni importa`)
+  }
+
+  // ¿Los nombres importados existen en el archivo de destino?
+  const aqui = process.cwd()
+  for (const m of fuente.matchAll(/import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g)) {
+    const destino = m[2]
+    if (!destino.startsWith('.')) continue
+    const ruta = relative(aqui, join(archivo, '..', destino))
+    const existe = (() => {
+      try { statSync(join(ruta.endsWith('.jsx') || ruta.endsWith('.js') ? ruta : ruta + '.jsx')); return true }
+      catch { return false }
+    })()
+    if (!existe) continue
+    const ext = ruta.endsWith('.jsx') || ruta.endsWith('.js') ? ruta : ruta + '.jsx'
+    const { conNombre } = exportsDe(ext)
+    for (const crudo of m[1].split(',')) {
+      const nombre = crudo.trim().split(/\s+as\s+/)[0].trim()
+      if (!nombre || conNombre.has(nombre)) continue
+      problemas++
+      console.log(`\n❌ ${relative('.', archivo)}`)
+      console.log(`     importa { ${nombre} } de '${destino}', pero ese archivo no lo exporta`)
+    }
   }
 
   // Imports sin usar (solo informativo).

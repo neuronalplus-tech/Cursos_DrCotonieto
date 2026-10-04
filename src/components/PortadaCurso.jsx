@@ -121,7 +121,7 @@ export default function PortadaCurso({ motivo, uid }) {
   )
 }
 
-function motivoDe(curso) {
+export function motivoDe(curso) {
   if (curso.caratula) return curso.caratula
   if (curso.gratuito) return 'arcos'
   if (/supervis/i.test(curso.titulo || '')) return 'red'
