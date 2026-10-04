@@ -182,6 +182,46 @@ function cuentaActual() {
   }
 }
 
+/**
+ * PRUEBA MANUAL (ejecuta ▶ con esta función seleccionada en el editor)
+ *
+ * Manda un correo con lo MÍNIMO: sin `from`, sin `replyTo`, sin nada.
+ * Si esto funciona, tu cuenta puede enviar y el problema está en el
+ * deployment; si falla, el mensaje de error dice exactamente por qué.
+ */
+function testEnviar() {
+  var destino = 'neuronal.plus@gmail.com';
+  var resultado;
+  try {
+    GmailApp.sendEmail(destino, 'Prueba de Apps Script',
+      'Si lees esto, tu cuenta si puede enviar correos.',
+      { htmlBody: '<p>Si lees esto, <b>tu cuenta si puede enviar correos</b>.</p>' });
+    resultado = 'OK: se envio a ' + destino;
+  } catch (e) {
+    resultado = 'ERROR: ' + e.message;
+  }
+  Logger.log(resultado);
+  console.log(resultado);
+  return resultado;
+}
+
+/**
+ * Informa qué implementación está sirviendo realmente este proyecto.
+ * Útil cuando el editor se ve bien pero el deployment parece viejo.
+ */
+function testEstado() {
+  var salida = {
+    version: VERSION,
+    remitente: CONFIG.remitente || '(vacio)',
+    cuenta: cuentaActual(),
+    tieneFallback: (typeof enviarUno === 'function')
+  };
+  var texto = JSON.stringify(salida, null, 2);
+  Logger.log(texto);
+  console.log(texto);
+  return texto;
+}
+
 /* -----------------------------Armado de texto---------------------------- */
 
 function asuntoDe(d) {
