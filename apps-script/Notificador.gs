@@ -30,10 +30,18 @@
 const VERSION = '2026-10-03.v4-fallback-remitente';
 
 const CONFIG = {
-  // Opcional. Solo úsalo si es un ALIAS de la cuenta que ejecuta el script.
-  // Si está mal escrito o no es alias, Gmail responde "Argumento no válido" y
-  // el envío se pierde, así que el script lo detecta y reintenta sin él.
-  remitente: 'Dr. Ernesto Cotonieto <neuronal.plus@gmail.com>',
+  // VACÍO A PROPÓSITO, y no es descuido.
+  //
+  // Sin `from`, Gmail envía desde la cuenta que ejecuta el script, que
+  // siempre es una dirección válida. En cambio, poner aquí un remitente
+  // SOLO funciona si es un alias real de esa misma cuenta: si no lo es,
+  // Gmail responde "Argumento no válido" y el envío se pierde entero.
+  // Un nombre bonito no compensa arriesgar que no salga ningún correo.
+  //
+  // Si algún día lo quieres: crea antes el alias en
+  // Configuración de Gmail → Cuentas → Enviar correo como, y pon aquí
+  // 'Nombre <ese-alias@gmail.com>'.
+  remitente: '',
   replyTo: 'neuronal.plus@gmail.com',
   linkPortal: 'https://cursos-drcotonieto.neuronal-plus.workers.dev',
 };
@@ -59,8 +67,8 @@ function responder(e) {
         ok: true,
         version: VERSION,
         // Esto permite ver qué código está VIVO de verdad, sin adivinar.
-        remitenteEnElScript: CONFIG.remitente,
-        tieneFallbackRemitente: (typeof enviarUno === 'function'),
+        remitenteEnElScript: CONFIG.remitente || '(vacio: envia desde la cuenta del script)',
+        cuentaQueEnvia: cuentaActual(),
         mensaje: 'Conexión OK. El script está desplegado y responde.'
       });
     }
@@ -160,6 +168,18 @@ function remitenteParecenValido(valor) {
 function esErrorDeRemitente(e) {
   var m = String((e && e.message) || '');
   return /Argumento no v|Invalid from|from address|no es un alias|not a valid alias/i.test(m);
+}
+
+/**
+ * Cuenta que realmente ejecuta el script. Sirve para diagnosticar: si esto no
+ * es lo que esperabas, los correos salen desde otro remitente del que crees.
+ */
+function cuentaActual() {
+  try {
+    return Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || 'desconocida';
+  } catch (e) {
+    return 'desconocida';
+  }
 }
 
 /* -----------------------------Armado de texto---------------------------- */
