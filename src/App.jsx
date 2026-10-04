@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
-import { tipoDe, puedeIntentar, resumenIntentos } from './lib/examenes'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from './lib/correo'
 import {
   esContenedorTalleres, esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
@@ -12,16 +11,20 @@ import {
 } from './lib/helpers'
 import {
   BUCKET_PAGO, BUCKET_TALLERES, AVATAR_BUCKET,
-  CONTACTO_EMAIL, WHATSAPP, wa, WA_CONSULTA,
-  LOGO_BLANCO, LOGO_CLARO, FOTO_PERFIL,
-  ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, APPS_SCRIPT_URL,
+  CONTACTO_EMAIL, wa, WA_CONSULTA,
+  LOGO_CLARO, FOTO_PERFIL,
+  ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES,
   MARCA, REDES, SERVICIOS, CASOS, ENFOQUES, LINEA_COPY,
-  ICONO_TIPO, NOMBRE_TIPO, ESTILOS_BOTON, rutaAcceso,
+  ICONO_TIPO, NOMBRE_TIPO, rutaAcceso,
 } from './config'
 import AdminExamenes from './components/AdminExamenes'
 import MensajesInbox, { MensajesPage } from './components/MensajesInbox'
 import ExamenModulo from './components/ExamenModulo'
-import TallerRecursos from './components/TallerRecursos'
+import TallerRecursos, { ModalEditarTaller } from './components/TallerRecursos'
+import Header from './components/Header'
+import {
+  ModalEditarBotonesRuta, ModalNuevoModulo, ModalEditarBotonesModulo,
+} from './components/AdminModales'
 import {
   ModalPortal, Breadcrumb, WhatsAppFlotante, BandaRedes, NavegacionFlotante,
   VideoPlayer, EmbedFrame, EditorBotonesExtra,
@@ -316,42 +319,8 @@ function CarruselCursos({ lineas, cursos, onSelect }) {
 // (rutaAcceso se movió a src/config.js)
 
 /* ============================================================
-   HEADER
+   HEADER (movido a src/components/Header.jsx)
    ============================================================ */
-function Header({ user, esAdmin, onLogout, nombreUsuario }) {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [menuAbierto, setMenuAbierto] = useState(false)
-  const ir = (ruta) => { navigate(ruta); setMenuAbierto(false) }
-  return (
-    <header className="app-header">
-      <div className="header-content">
-        <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
-             onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
-          <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="logo-header" />
-          <span className="brand-name">Dr. Ernesto Cotonieto</span>
-        </div>
-        <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
-        <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
-          {location.pathname !== '/' && <button className="nav-link" onClick={() => ir('/')}>Inicio</button>}
-          {user && <button className="nav-link" onClick={() => ir('/perfil')}>Mi perfil</button>}
-          {user && !esAdmin && <button className="nav-link" onClick={() => ir('/mensajes')}>💬 Mensajes</button>}
-          {esAdmin && <button className="nav-link destacado" onClick={() => ir('/admin')}>Panel</button>}
-          {user ? (
-            <>
-              <span className="user-email" title={nombreUsuario || user.email}>
-                {nombreUsuario || user.email}
-              </span>
-              <button className="button secundario-claro" onClick={onLogout}>Salir</button>
-            </>
-          ) : (
-            <button className="button secundario-claro" onClick={() => ir('/acceso')}>Iniciar sesión</button>
-          )}
-        </nav>
-      </div>
-    </header>
-  )
-}
 
 /* ============================================================
    LOGIN
@@ -2938,168 +2907,8 @@ function Entregables() {
 
 // (ExamenModulo se movio a src/components/ExamenModulo.jsx)
 
-function ModalEditarBotonesRuta({ curso, grupo, onClose, onGuardado }) {
-  const [botones, setBotones] = useState(curso.rutas_botones?.[grupo]?.length ? curso.rutas_botones[grupo] : [])
-  const [guardando, setGuardando] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  const guardar = async () => {
-    setGuardando(true); setMsg('')
-    try {
-      const botonesValidos = botones.filter(b => b.texto.trim() && b.url.trim())
-      const nuevoMapa = { ...(curso.rutas_botones || {}), [grupo]: botonesValidos }
-      const { data, error } = await supabase.from('cursos')
-        .update({ rutas_botones: nuevoMapa }).eq('id', curso.id).select().single()
-      if (error) throw error
-      onGuardado(data)
-      onClose()
-    } catch (e) {
-      setMsg('Error: ' + e.message)
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  return (
-    <ModalPortal>
-    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
-      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>🔗 Botones de "{grupo}"</h3>
-        <p className="nota" style={{ marginTop: 0 }}>
-          Se muestran arriba de los módulos de esta ruta/subgrupo, para todos. Bórralos cuando ya no apliquen.
-        </p>
-        <EditorBotonesExtra botones={botones} onChange={setBotones} />
-
-        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
-
-        <div className="modal-botones" style={{ marginTop: 18 }}>
-          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
-          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
-            {guardando ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
-  )
-}
-
-function ModalNuevoModulo({ cursoId, orden, onClose, onCreado }) {
-  const [titulo, setTitulo] = useState('')
-  const [descripcion, setDescripcion] = useState('')
-  const [grupo, setGrupo] = useState('')
-  const [ordenVal, setOrdenVal] = useState(orden ?? 100)
-  const [guardando, setGuardando] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  const crear = async () => {
-    if (!titulo.trim()) { setMsg('El título es obligatorio'); return }
-    setGuardando(true); setMsg('')
-    try {
-      const { data, error } = await supabase.from('modulos').insert({
-        curso_id:    cursoId,
-        titulo:      titulo.trim(),
-        descripcion: descripcion.trim() || null,
-        orden:       parseInt(ordenVal, 10) || 100,
-        grupo:       grupo.trim() || null,
-        oculto:      false,
-        disponible:  true,
-        activo:      true,
-      }).select().single()
-      if (error) throw error
-      onCreado(data)
-      onClose()
-    } catch (e) {
-      setMsg('Error: ' + e.message)
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  return (
-    <ModalPortal>
-    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
-      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>➕ Nuevo módulo</h3>
-
-        <label>Título</label>
-        <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
-               placeholder="Ej. Grabación del taller" />
-
-        <label>Descripción</label>
-        <textarea rows="3" value={descripcion} onChange={e => setDescripcion(e.target.value)}
-                  placeholder="Texto que aparece debajo del título" />
-
-        <label>Subgrupo (grupo)</label>
-        <input type="text" value={grupo} onChange={e => setGrupo(e.target.value)}
-               placeholder="Vacío = visible para todo el curso" />
-
-        <label>Orden</label>
-        <input type="number" value={ordenVal} onChange={e => setOrdenVal(e.target.value)} />
-
-        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
-
-        <div className="modal-botones" style={{ marginTop: 18 }}>
-          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
-          <button type="button" className="button primary" onClick={crear} disabled={guardando}>
-            {guardando ? 'Creando...' : 'Crear módulo'}
-          </button>
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
-  )
-}
-
-// (ESTILOS_BOTON y rutaAcceso se movieron a src/config.js)
-
-// (EditorBotonesExtra se movió a src/components/ui.jsx)
-
-function ModalEditarBotonesModulo({ modulo, onClose, onGuardado }) {
-  const [botones, setBotones] = useState(modulo.botones_extra?.length ? modulo.botones_extra : [])
-  const [guardando, setGuardando] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  const guardar = async () => {
-    setGuardando(true); setMsg('')
-    try {
-      const botonesValidos = botones.filter(b => b.texto.trim() && b.url.trim())
-      const { data, error } = await supabase.from('modulos')
-        .update({ botones_extra: botonesValidos }).eq('id', modulo.id).select().single()
-      if (error) throw error
-      onGuardado(data)
-      onClose()
-    } catch (e) {
-      setMsg('Error: ' + e.message)
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  return (
-    <ModalPortal>
-    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
-      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>🔗 Botones de "{modulo.titulo}"</h3>
-        <p className="nota" style={{ marginTop: 0 }}>
-          Se muestran arriba del módulo, para todos. Útil para un registro puntual, una liga de examen, etc.
-          Bórralos cuando ya no apliquen.
-        </p>
-        <EditorBotonesExtra botones={botones} onChange={setBotones} />
-
-        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
-
-        <div className="modal-botones" style={{ marginTop: 18 }}>
-          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
-          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
-            {guardando ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
-  )
-}
+// (ModalEditarBotonesRuta, ModalNuevoModulo y ModalEditarBotonesModulo
+// se movieron a src/components/AdminModales.jsx)
 
 // (ModalEditarTaller y TallerRecursos se movieron a src/components/TallerRecursos.jsx)
 

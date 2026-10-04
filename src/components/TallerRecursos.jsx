@@ -10,7 +10,10 @@ import ExamenModulo from './ExamenModulo'
    Extraido de App.jsx en el refactor (etapa 2c).
    ============================================================ */
 
-function ModalEditarTaller({ curso, onClose, onGuardado }) {
+// Se exporta porque App.jsx lo usa en CursoCard (botón "Editar taller").
+// Antes solo quedaba local aquí y App.jsx lo renderizaba sin importarlo:
+// ReferenceError en runtime al pulsar ese botón.
+export function ModalEditarTaller({ curso, onClose, onGuardado }) {
   const [form, setForm] = useState({
     fecha_sesion:    curso.fecha_sesion || '',
     link_registro:   curso.link_registro || '',
