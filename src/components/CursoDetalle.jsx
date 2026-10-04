@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { cursoEspecial } from '../lib/helpers'
+import { rutaAcceso, wa } from '../config'
 import { Breadcrumb, BandaRedes } from './ui'
 
 function CursoDetalle({ user, esAdmin }) {

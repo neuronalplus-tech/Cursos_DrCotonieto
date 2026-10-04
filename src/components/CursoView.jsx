@@ -3,8 +3,9 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   esContenedorTalleres, esTallerIndividual,
-  cursoEspecial,
+  cursoEspecial, normalizarTexto,
 } from '../lib/helpers'
+import { rutaAcceso, wa } from '../config'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
