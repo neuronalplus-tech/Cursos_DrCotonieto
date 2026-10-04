@@ -17,11 +17,19 @@ globalThis.ContentService = {
   },
 }
 const enviados = []
+let remitenteRechazado = false
 globalThis.GmailApp = {
-  sendEmail: (para, asunto, texto, opts) => { enviados.push({ para, asunto, tieneHtml: !!opts.htmlBody }) },
+  sendEmail: (para, asunto, texto, opts) => {
+    // Simula el rechazo de Gmail cuando 'from' no es un alias válido.
+    if (opts && opts.from && remitenteRechazado) {
+      const err = new Error('Argumento no válido: ' + opts.from)
+      throw err
+    }
+    enviados.push({ para, asunto, tieneHtml: !!opts.htmlBody, from: opts && opts.from })
+  },
 }
 
-const fn = new Function(src + '\nreturn { responderCon: responderCon, responder: responder, asuntoDe: asuntoDe, destinatarios: destinatarios, cuerpoHtml: cuerpoHtml };')
+const fn = new Function(src + '\nreturn { responderCon: responderCon, responder: responder, asuntoDe: asuntoDe, destinatarios: destinatarios, cuerpoHtml: cuerpoHtml, remitenteParecenValido: remitenteParecenValido };')
 const M = fn()
 
 let ok = 0, fallos = 0
@@ -65,6 +73,29 @@ check('deduplica ignorando mayúsculas', enviados[0] && enviados[0].para === 'a@
 check('confirma con la cantidad real', textoDe(r4).includes('"enviados":2'), textoDe(r4))
 check('el HTML trae el botón al material', M.cuerpoHtml(JSON.parse(payload)).includes('Ir al material'))
 check('el HTML escapa el asunto', M.cuerpoHtml({ tipo: 'x', cuerpoHtml: '<b>a</b>' }).includes('<b>a</b>'))
+// 7. Remitente inválido: debe reintentar SIN 'from' y salir igual.
+enviados.length = 0
+remitenteRechazado = true
+const r7 = M.responder({ parameter: { reqid: 'r12', payload: JSON.stringify({ tipo: 'recurso-nuevo', alumnos: [{ email: 'x@y.com' }] }) } })
+check('con remitente rechazado igual envía', enviados.length === 1, JSON.stringify(enviados))
+check('el reintento va sin "from"', enviados[0] && !enviados[0].from, JSON.stringify(enviados[0]))
+check('con remitente rechazado confirma ok', textoDe(r7).includes('"ok":true'), textoDe(r7))
+remitenteRechazado = false
+
+// 8. Detecta el typo "neuronal.plusO@gmail.com" sin llamar a Gmail.
+enviados.length = 0
+check('detecta remitente sin arroba', !M.remitenteParecenValido('Dr. X <neuronal.plusO@gmail.com>'))
+check('detecta remitente sin arroba en texto', !M.remitenteParecenValido('TU_CORREO'))
+check('acepta un remitente correcto', M.remitenteParecenValido('Dr. X <neuronal.plus@gmail.com>'))
+check('no llama a Gmail con remitente inválido', enviados.length === 0)
+check('el envío con remitente válido usa "from"', (() => {
+  enviados.length = 0
+  M.responder({ parameter: { reqid: 'r13', payload: JSON.stringify({ tipo: 'recurso-nuevo', alumnos: [{ email: 'z@y.com' }] }) } })
+  return enviados[0] && enviados[0].from === 'Dr. Ernesto Cotonieto <neuronal.plus@gmail.com>'
+})(), JSON.stringify(enviados))
+
+console.log('\n  ' + ok + ' pruebas OK / ' + fallos + ' fallos\n')
+process.exit(fallos ? 1 : 0)
 
 // 5. Payload corrupto: no debe reventar.
 const r5 = M.responder({ parameter: { reqid: 'r11', payload: '{roto' } })

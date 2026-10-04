@@ -28,8 +28,11 @@
  */
 
 const CONFIG = {
-  remitente: 'Dr. Ernesto Cotonieto <TU_CORREO@gmail.com>', // <- pon tu Gmail
-  replyTo: 'TU_CORREO@gmail.com',                          // <- pon tu Gmail
+  // Opcional. Solo úsalo si es un ALIAS de la cuenta que ejecuta el script.
+  // Si está mal escrito o no es alias, Gmail responde "Argumento no válido" y
+  // el envío se pierde, así que el script lo detecta y reintenta sin él.
+  remitente: 'Dr. Ernesto Cotonieto <neuronal.plus@gmail.com>',
+  replyTo: 'neuronal.plus@gmail.com',
   linkPortal: 'https://cursos-drcotonieto.neuronal-plus.workers.dev',
 };
 
@@ -71,15 +74,8 @@ function responder(e) {
     var fallos = [];
     for (var i = 0; i < alumnos.length; i++) {
       var correo = alumnos[i];
-      try {
-        GmailApp.sendEmail(correo, asunto, texto, {
-          htmlBody: html,
-          replyTo: CONFIG.replyTo,
-          from: CONFIG.remitente
-        });
-      } catch (err) {
-        fallos.push(correo + ' → ' + err.message);
-      }
+      var r = enviarUno(correo, asunto, texto, html);
+      if (!r.ok) fallos.push(correo + ' → ' + r.error);
     }
 
     if (fallos.length) {
@@ -110,6 +106,54 @@ function responderCon(reqid, obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Envía UN correo tolerando un remitente mal configurado.
+ *
+ * `from` solo es válido si es un alias real de la cuenta que ejecuta el
+ * script. Basta un typo (o escribir una "O" en vez de "@") para que Gmail
+ * responda "Argumento no válido" y el correo se pierda sin llegar a salir.
+ * Por eso se intenta con `from` y, si el error es del remitente, se reintenta
+ * sin él: el correo sale igual desde la cuenta del script.
+ */
+function enviarUno(correo, asunto, texto, html) {
+  var base = { htmlBody: html };
+  if (CONFIG.replyTo) base.replyTo = CONFIG.replyTo;
+
+  if (CONFIG.remitente && remitenteParecenValido(CONFIG.remitente)) {
+    var conRemitente = {};
+    for (var k in base) conRemitente[k] = base[k];
+    conRemitente.from = CONFIG.remitente;
+    try {
+      GmailApp.sendEmail(correo, asunto, texto, conRemitente);
+      return { ok: true };
+    } catch (e1) {
+      if (!esErrorDeRemitente(e1)) return { ok: false, error: e1.message };
+    }
+  }
+
+  try {
+    GmailApp.sendEmail(correo, asunto, texto, base);
+    return { ok: true };
+  } catch (e2) {
+    return { ok: false, error: e2.message };
+  }
+}
+
+/** Detecta los typos más comunes antes de molestar a Gmail. */
+function remitenteParecenValido(valor) {
+  var correo = String(valor).replace(/^.*<|>.*$/g, '').trim();
+  if (!correo) return false;
+  if (correo.indexOf('@') < 0) return false;
+  if (/O@|0@/.test(correo)) return false;
+  return correo.indexOf('.', correo.indexOf('@')) > correo.indexOf('@');
+}
+
+/** Reconoce el fallo típico de remitente inválido o sin alias. */
+function esErrorDeRemitente(e) {
+  var m = String((e && e.message) || '');
+  return /Argumento no v|Invalid from|from address|no es un alias|not a valid alias/i.test(m);
 }
 
 /* -----------------------------Armado de texto---------------------------- */
