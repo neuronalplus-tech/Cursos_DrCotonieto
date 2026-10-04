@@ -16,7 +16,7 @@
 | 2 | Cloudflare Web Analytics (beacon) | ✅ En vivo y funcionando |
 | 3 | Archivos pesados en R2 | ❌ Descartado (pide tarjeta) → YouTube no listado + OneDrive 1 TB |
 | 4 | Comunicados con *tracking* (Resend) | ⏳ **Bloqueado** — espera tus cuentas (D1, D2, D5) — **D1 se puede posponer sin problema** |
-| 5 | Refactor de `App.jsx` en módulos | 🔄 **Iniciado** — `src/lib/` y `src/components/` creados (etapa 1) |
+| 5 | Refactor de `App.jsx` en módulos | 🔄 **Iniciado** — `src/lib/` y `src/components/` creados (etapa 1) | → ✅ **COMPLETO** (etapas 1, 2a, 2b, 2c, 2d — ver §4.0.1) |
 | 6 | Tipos de pregunta en `examenes` | ✅ **Hecho** (commit `0734945`) + **panel admin completo** (03/10) |
 
 **Lo pendiente de tu lado:** nada urgente. Lo único que bloquea trabajo es la **decisión de cuál de los pasos 4 o 5** quieres primero.
@@ -185,16 +185,59 @@ supabase/
 | 1 | `lib/supabase.js`, `lib/examenes.js`, componentes de exámenes | ~600 | ✅ |
 | 2a | `config.js` + `lib/helpers.js` | ~250 | ✅ |
 | 2b | `components/ui.jsx` (UI compartida) | ~165 | ✅ |
-| 2c | `MensajesInbox`, `TallerRecursos`, `ExamenModulo` | **~1.290** | ✅ |
-| 2d | `Header`, `CursoView`, `ModuloView`, modales de admin | ~1.500 | ⏳ Siguiente |
+| 2c | `MensajesInbox`, `TallerRecursos`, `ExamenModulo` | ~1.290 | ✅ |
+| 2d | `Header`, `PortadaCurso`, `CursoCard`, `CursoView`, `ModuloView`, `RecursosModulo`, `AdminModales` | **~2.100** | ✅ |
 
-> `App.jsx`: **5.640 → ~4.220 líneas** (‑25%) sin cambiar comportamiento.
-> El bundle se mantiene en ~1.314 kB, señal de que fue un movimiento puro.
+> `App.jsx`: **4.285 → 2.185 líneas** (‑49%) sin cambiar comportamiento.
+> El bundle se mantiene en ~1.318 kB, señal de que fue un movimiento puro.
 
-**Bug encontrado y corregido en la 2c:** `TallerRecursos.jsx` usaba `<VideoPlayer>`
-sin importarlo. El build de Vite **no** detecta variables no definidas en runtime, así que
-esto habría roto la página de talleres recién al entrar. Se detectó con un chequeo de
-dependencias por archivo (identificador usado vs. importado) antes de publicar.
+### Estructura final de `src/`
+
+```
+src/
+├── config.js               → configuración global, paleta, enlaces
+├── App.css
+├── App.jsx                 → rutas, Home, Login, Perfil, Admin,
+│                              CursoDetalle, Constancia
+├── lib/
+│   ├── supabase.js         → cliente único
+│   ├── helpers.js          → helpers puros
+│   ├── examenes.js         → tipos, calificación, importador
+│   └── correo.js           → envío con confirmación real (JSONP)
+└── components/
+    ├── ui.jsx              → ModalPortal, Breadcrumb, VideoPlayer, …
+    ├── Header.jsx          → barra superior
+    ├── PortadaCurso.jsx    → portada animada + motivoDe
+    ├── CursoCard.jsx       → tarjeta de curso
+    ├── CursoView.jsx       → vista de curso
+    ├── ModuloView.jsx      → vista de módulo
+    ├── RecursosModulo.jsx  → PdfViewer, Autoevaluacion, RecursoCard,
+    │                         modales de recurso, Diapositivas, Entregables
+    ├── AdminModales.jsx    → botones de ruta, nuevo módulo, botones de módulo
+    ├── TallerRecursos.jsx  → ModalEditarTaller + material del taller
+    ├── ExamenModulo.jsx    → examen autocalificable
+    ├── AdminExamenes.jsx   → panel de exámenes
+    ├── EditorExamen.jsx    → crear/editar + carga masiva
+    ├── EditorPregunta.jsx  → captura manual
+    └── MensajesInbox.jsx   → bandeja + página de mensajes
+```
+
+### Herramientas de seguridad del refactor
+
+| Script | Para qué |
+|---|---|
+| `scripts/check-imports.mjs` | Detecta componentes JSX usados sin importar. **Vite no avisa de esto**: el build pasa y el error solo aparece en runtime, al entrar a esa página. |
+| `scripts/extraer.mjs` | Mueve un componente a otro archivo y añade `export default`. Aborta si el rango no cuadra. |
+| `scripts/mover-bloque.mjs` | Igual, pero para varios componentes a la vez, sin añadir exports. |
+| `scripts/recortar.mjs` | Borra un bloque y deja un comentario con el destino. |
+
+> **Por qué existen.** Ya pasó dos veces: `TallerRecursos` usaba
+> `<VideoPlayer>` sin importarlo, y `App.jsx` usaba `<ModalEditarTaller>` en
+> `CursoCard` sin importarlo (dos botones lo abrían → *ReferenceError* al
+> pulsarlos). El segundo lo detectó `check-imports.mjs` antes de publicar.
+>
+> **Antes de publicar un refactor:**
+> `node scripts/check-imports.mjs` y luego `npm run build`.
 
 ---
 
