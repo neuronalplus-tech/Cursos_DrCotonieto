@@ -42,6 +42,13 @@ const ESCENARIOS = {
     constancias: [{ id: 1, usuario_id: 'u1', curso_id: 1, folio: 'TC-001', fecha_emision: '2024-01-01', nombre_completo: 'Usuario Prueba' }],
     notas_admin: [],
     leads_talleres: [],
+    foro_hilos: [
+      { id: 1, curso_id: 1, autor_id: 'u1', autor_nombre: 'Dr. Ernesto Cotonieto', autor_email: 'doc@ejemplo.com', titulo: 'Bienvenida al foro', cuerpo: '<p>Presenta aqui tus dudas.</p>', fijado: true, cerrado: false, creado_en: '2024-01-03T10:00:00Z', actualizado_en: '2024-01-03T10:00:00Z' },
+      { id: 2, curso_id: 1, autor_id: 'u1', autor_nombre: 'Dr. Ernesto Cotonieto', autor_email: 'doc@ejemplo.com', titulo: 'Tema cerrado', cuerpo: 'Este ya no admite respuestas.', fijado: false, cerrado: true, creado_en: '2024-01-02T10:00:00Z', actualizado_en: '2024-01-02T10:00:00Z' },
+    ],
+    foro_respuestas: [
+      { id: 1, hilo_id: 1, autor_id: 'u2', autor_nombre: 'Alumno Prueba', autor_email: 'alumno@ejemplo.com', cuerpo: '<p>Tengo una duda.</p>', editado: false, borrada: false, creado_en: '2024-01-03T11:00:00Z' },
+    ],
   },
 
   // Plataforma recien creada: no hay NADA. Es el estado real de un usuario
@@ -50,7 +57,7 @@ const ESCENARIOS = {
     cursos: [], modulos: [], recursos: [], acceso: [], perfiles: [],
     progreso_usuario: [], mensajes: [], examenes: [], intentos_examen: [],
     vista_admin_inscripciones: [], usuarios: [], constancias: [],
-    notas_admin: [], leads_talleres: [],
+    notas_admin: [], leads_talleres: [], foro_hilos: [], foro_respuestas: [],
   },
 }
 
@@ -60,6 +67,8 @@ ESCENARIOS.sinModulos = { ...ESCENARIOS.completo, modulos: [], recursos: [], exa
 ESCENARIOS.sinRecursos = { ...ESCENARIOS.completo, recursos: [] }
 ESCENARIOS.sinIntentos = { ...ESCENARIOS.completo, intentos_examen: [] }
 ESCENARIOS.sinMensajes = { ...ESCENARIOS.completo, mensajes: [] }
+// Foro recien creado: el admin aún no abrió ningún tema.
+ESCENARIOS.sinForo = { ...ESCENARIOS.completo, foro_hilos: [], foro_respuestas: [] }
 
 function tablas() {
   return ESCENARIOS[globalThis.__ESCENARIO__] || ESCENARIOS.completo

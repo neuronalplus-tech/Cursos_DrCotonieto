@@ -442,6 +442,20 @@ function CursoView({ user, esAdmin }) {
       </>
       )}
 
+      {/* Foro del curso: lo ve quien tenga acceso. El RLS es lo que de
+          verdad lo protege; este botón es solo la puerta de entrada. */}
+      {user && (
+        <section className="foro-acceso">
+          <div>
+            <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Foro del curso</h2>
+            <p className="nota" style={{ margin: 0 }}>
+              Dudas, comentarios y conversación con el resto del grupo.
+            </p>
+          </div>
+          <Link to={`/foro/${curso.id}`} className="button secondary">💬 Entrar al foro</Link>
+        </section>
+      )}
+
       {confirmacion && (
         <ModalPortal>
         <div className="modal-overlay">

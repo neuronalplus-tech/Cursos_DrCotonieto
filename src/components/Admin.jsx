@@ -5,6 +5,7 @@ import { rutaAcceso } from '../config'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import AdminExamenes from './AdminExamenes'
+import AdminForo from './AdminForo'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
 
@@ -734,6 +735,7 @@ function Admin({ user, esAdmin }) {
         <button type="button" className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`} onClick={() => setVista('comunicados')}>📧 Comunicados</button>
         <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
         <button type="button" className={`admin-tab ${vista === 'examenes' ? 'activa' : ''}`} onClick={() => setVista('examenes')}>📝 Exámenes</button>
+        <button type="button" className={`admin-tab ${vista === 'foro' ? 'activa' : ''}`} onClick={() => setVista('foro')}>💬 Foro</button>
       </div>
 
       {vista === 'inscripciones' && (
@@ -1222,6 +1224,10 @@ function Admin({ user, esAdmin }) {
 
       {vista === 'examenes' && (
         <AdminExamenes />
+      )}
+
+      {vista === 'foro' && (
+        <AdminForo />
       )}
 
       {editorHtmlAbierto && (

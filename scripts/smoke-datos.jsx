@@ -60,7 +60,7 @@ process.on('uncaughtException', (e) => {
 const RUTAS = [
   '/', '/acceso', '/perfil', '/admin',
   '/curso/1', '/curso/1/detalles', '/modulo/1',
-  '/constancia/1', '/mensajes',
+  '/constancia/1', '/mensajes', '/foro/1',
 ]
 
 // Escenarios de datos. Cada uno ejercita una rama distinta de la misma app:
@@ -80,6 +80,7 @@ const ESCENARIOS = [
   'sinRecursos',
   'sinIntentos',
   'sinMensajes',
+  'sinForo',
 ]
 
 // Por debajo de esto es el spinner o una pantalla de error, no contenido.

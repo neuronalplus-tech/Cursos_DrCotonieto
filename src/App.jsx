@@ -32,6 +32,7 @@ import Login from './components/Login'
 import Perfil from './components/Perfil'
 import CursoDetalle from './components/CursoDetalle'
 import Constancia from './components/Constancia'
+import ForoCurso from './components/ForoCurso'
 import {
   ModalEditarBotonesRuta, ModalNuevoModulo, ModalEditarBotonesModulo,
 } from './components/AdminModales'
@@ -258,6 +259,7 @@ function App() {
           <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
           <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
           <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
+          <Route path="/foro/:cursoId" element={<ForoCurso user={user} esAdmin={esAdmin} />} />
         </Routes>
       </main>
       <WhatsAppFlotante />
