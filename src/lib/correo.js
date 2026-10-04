@@ -102,6 +102,7 @@ export function enviarCorreo(payload) {
       delete pendientes[reqid]
       clearTimeout(timer)
       if (script && script.parentNode) script.parentNode.removeChild(script)
+      window.removeEventListener('error', alEscucharError)
       resolve(resultado)
     }
 
@@ -119,13 +120,34 @@ export function enviarCorreo(payload) {
       '?reqid=' + encodeURIComponent(reqid) +
       '&payload=' + encodeURIComponent(JSON.stringify(payload))
 
-    // El script devolvió algo que no es JavaScript válido: casi siempre es que
-    // sigue desplegada la versión antigua, que responde JSON plano.
+    // Fallo de red: script inexistente, sin permisos, 404…
     script.onerror = () => finalizar({
       ok: false,
-      motivo: 'El script no devolvió una respuesta utilizable. Suele significar que hay que ' +
-              'volver a desplegar la versión nueva de apps-script/Notificador.gs.',
+      motivo: 'No se pudo cargar el script. Revisa que siga desplegado y con acceso ' +
+              '"Cualquier persona".',
     })
+
+    /**
+     * CASO QUE ANTES COLGABA: si el deployment es el viejo, responde JSON plano.
+     * Al cargarlo como <script> eso es un error de SINTACTIS, y para scripts
+     * clásicos `script.onerror` NO se dispara (solo ante fallos de red). Antes
+     * solo nos cubría el timeout, dejando el botón en "Enviando..." 20 s.
+     * Este listener global sí recibe ese error, con el nombre del fichero.
+     */
+    function alEscucharError(evento) {
+      const deNuestroScript =
+        (evento && evento.target === script) ||
+        (evento && typeof evento.filename === 'string' && evento.filename.indexOf(APPS_SCRIPT_URL) === 0)
+      if (!deNuestroScript) return
+      finalizar({
+        ok: false,
+        versionDesactualizada: true,
+        motivo: 'El script respondió con un formato que el navegador no puede ejecutar. ' +
+                'Es la versión anterior del Apps Script: hay que pegar el Notificador.gs nuevo, ' +
+                'guardar y actualizar la implementación.',
+      })
+    }
+    window.addEventListener('error', alEscucharError)
 
     const timer = setTimeout(() => finalizar({
       ok: false,
