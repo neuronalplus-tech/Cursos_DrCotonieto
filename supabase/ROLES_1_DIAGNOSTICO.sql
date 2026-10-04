@@ -1,101 +1,101 @@
 -- =============================================================
---  ROLES · PASO 1 de 2  ·  DIAGNÓSTICO (solo lectura)
+--  ROLES · PASO 1  ·  DIAGNÓSTICO (solo lectura)
 --
 --  QUÉ HACE
 --  Nada. Solo mira y reporta. No crea, no borra, no cambia
 --  políticas. Puedes correrlo con total tranquilidad.
 --
 --  PARA QUÉ
---  Antes de introducir el rol Facilitador hay que saber cómo está
---  protegida hoy cada tabla. El riesgo concreto: si activamos RLS
---  sobre `cursos` sin una política de lectura para visitantes
---  anónimos, la portada deja de listar cursos y el sitio público
---  se cae. Este script responde exactamente esa pregunta.
+--  Antes de ampliar el rol Facilitador a cursos, módulos y
+--  recursos hay que saber cómo está protegida hoy cada tabla. El
+--  riesgo concreto: si activamos RLS sobre `cursos` sin una
+--  política de lectura para visitantes ANÓNIMOS, la portada deja
+--  de listar cursos y el sitio público se cae.
+--
+--  POR QUÉ ES UNA SOLA CONSULTA
+--  El SQL Editor de Supabase solo enseña el resultado de la
+--  ÚLTIMA sentencia. Con varias consultas sueltas se pierde todo
+--  lo anterior. Aquí va todo unido en una sola tabla.
 --
 --  CÓMO USARLO
 --  Supabase → SQL Editor → New query → pega esto → Run.
---  Luego pásale las CUATRO tablas de resultados a Claude.
+--  Copia la tabla completa de resultados y pásasela a Claude.
 -- =============================================================
 
--- -------------------------------------------------------------
--- 1) ¿Qué tablas tienen RLS activo?
---
---    rls_activo = false significa que CUALQUIER usuario con la
---    clave pública puede escribir en esa tabla desde el navegador.
---    Si alguna tabla de contenido sale en false, es un agujero que
---    ya existe hoy, independientemente de los roles.
--- -------------------------------------------------------------
-select
-  c.relname                           as tabla,
-  c.relrowsecurity                    as rls_activo,
-  (select count(*) from pg_policies p
-    where p.schemaname = 'public' and p.tablename = c.relname) as politicas
-from pg_class c
-join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = 'public'
-  and c.relkind = 'r'
-  and c.relname in (
+with tablas_vigiladas as (
+  select unnest(array[
     'cursos','modulos','recursos','examenes','intentos_examen',
     'foro_hilos','foro_respuestas','acceso','admins','perfiles',
-    'mensajes','progreso_usuario','leads_talleres'
-  )
-order by c.relrowsecurity, c.relname;
+    'mensajes','progreso_usuario','leads_talleres','facilitadores'
+  ]) as nombre
+),
 
--- -------------------------------------------------------------
--- 2) Las políticas que existen hoy, con su condición completa
---
---    `roles` importa tanto como la condición: si una política de
---    lectura es solo `{authenticated}`, los visitantes sin cuenta
---    no ven nada.
--- -------------------------------------------------------------
-select
-  tablename  as tabla,
-  policyname as politica,
-  cmd        as operacion,
-  roles,
-  qual       as condicion_using,
-  with_check as condicion_check
-from pg_policies
-where schemaname = 'public'
-  and tablename in (
-    'cursos','modulos','recursos','examenes','intentos_examen',
-    'foro_hilos','foro_respuestas','acceso','admins','perfiles',
-    'mensajes','progreso_usuario','leads_talleres'
-  )
-order by tablename, cmd, policyname;
+-- 1) ¿Tiene RLS activo?
+--    "RLS APAGADO" significa que cualquiera con la clave pública
+--    puede escribir en esa tabla desde el navegador.
+estado_rls as (
+  select
+    '1 · RLS'                                   as seccion,
+    c.relname::text                             as tabla,
+    case when c.relrowsecurity
+         then 'RLS activo'
+         else '>>> RLS APAGADO <<<'
+    end                                         as detalle,
+    (select count(*)::text from pg_policies p
+      where p.schemaname = 'public'
+        and p.tablename = c.relname) || ' politica(s)' as condicion
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relkind = 'r'
+    and c.relname in (select nombre from tablas_vigiladas)
+),
 
--- -------------------------------------------------------------
--- 3) ¿Qué funciones de permiso existen ya?
--- -------------------------------------------------------------
-select
-  p.proname                                as funcion,
-  pg_get_function_identity_arguments(p.oid) as argumentos
-from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public'
-  and p.proname in (
-    'es_admin','tiene_acceso_al_curso',
-    'puede_gestionar_curso','es_facilitador','curso_del_modulo'
-  )
-order by p.proname;
+-- 2) Las políticas que existen, con su condición completa.
+--    `roles` importa tanto como la condición: si una lectura es
+--    solo {authenticated}, quien no tiene cuenta no ve nada.
+politicas as (
+  select
+    '2 · Politica'                              as seccion,
+    tablename::text                             as tabla,
+    (cmd || ' · ' || policyname)::text          as detalle,
+    ('roles=' || array_to_string(roles, ',') ||
+     ' | using: '  || coalesce(qual, '-') ||
+     ' | check: '  || coalesce(with_check, '-'))::text as condicion
+  from pg_policies
+  where schemaname = 'public'
+    and tablename in (select nombre from tablas_vigiladas)
+),
 
--- -------------------------------------------------------------
--- 4) Columnas reales de `examenes`
---
---    La app consulta `curso_id` y `modulo_id`. Hay que confirmar
---    cuáles existen y si admiten null, porque de eso depende cómo
---    se resuelve "¿a qué curso pertenece este examen?" en la
---    política del facilitador.
--- -------------------------------------------------------------
-select column_name as columna, data_type as tipo, is_nullable as admite_null
-from information_schema.columns
-where table_schema = 'public' and table_name = 'examenes'
-order by ordinal_position;
+-- 3) Funciones de permiso ya disponibles.
+funciones as (
+  select
+    '3 · Funcion'                               as seccion,
+    p.proname::text                             as tabla,
+    ('(' || pg_get_function_identity_arguments(p.oid) || ')')::text as detalle,
+    ''::text                                    as condicion
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname in (
+      'es_admin','tiene_acceso_al_curso',
+      'puede_gestionar_curso','es_facilitador','curso_del_examen'
+    )
+)
+
+select * from estado_rls
+union all
+select * from politicas
+union all
+select * from funciones
+order by seccion, tabla, detalle;
 
 -- =============================================================
---  QUÉ HACER CON ESTO
---  Copia las cuatro tablas de resultados y pásaselas a Claude.
---  Con eso se escribe el paso 2 sin romper lo que ya funciona.
+--  QUÉ MIRAR
+--  En la sección "1 · RLS", cualquier tabla de contenido que diga
+--  ">>> RLS APAGADO <<<" es un agujero que ya existe hoy,
+--  independientemente de los roles: cualquier alumno autenticado
+--  puede escribir en ella desde la consola del navegador.
 --
---  NO corras todavía ROLES_2_APLICAR.sql.
+--  Pásale la tabla completa a Claude para escribir el paso 3.
 -- =============================================================
