@@ -13,6 +13,7 @@ import { sanear, resumen, esTextoPlano, aTextoPlano } from '../lib/foro'
 import { rutaAcceso, FOTO_PERFIL } from '../config'
 import { Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import EditorForo from './EditorForo'
+import AdminForoModal from './AdminForoModal'
 
 /** "hace 5 min", "ayer", "12 de marzo": sin librerías de fechas. */
 function haceCuanto(fecha) {
@@ -185,6 +186,7 @@ export function ForoCurso({ user, esAdmin }) {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [perfil, setPerfil] = useState({ nombre: '', email: '', foto: null })
+  const [adminForoAbierto, setAdminForoAbierto] = useState(false)
   const [borrando, setBorrando] = useState(false)
 
   const [nuevo, setNuevo] = useState('')
@@ -392,7 +394,14 @@ export function ForoCurso({ user, esAdmin }) {
 
       {!hiloActual ? (
         <>
-          <h1>Foro · {curso?.titulo || 'Curso'}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h1>Foro · {curso?.titulo || 'Curso'}</h1>
+            {esAdmin && (
+              <button type="button" className="button primary" onClick={() => setAdminForoAbierto(true)}>
+                🔧 Administrar foro
+              </button>
+            )}
+          </div>
           <p className="seccion-intro">
             Espacio de duda y reflexión del grupo. Solo tú y las personas inscritas
             en este curso pueden leerlo.
@@ -467,6 +476,14 @@ export function ForoCurso({ user, esAdmin }) {
             )}
           </div>
         </>
+      )}
+
+      {adminForoAbierto && (
+        <AdminForoModal
+          cursoId={cursoId}
+          user={user}
+          onClose={() => setAdminForoAbierto(false)}
+        />
       )}
 
       <BandaRedes />
