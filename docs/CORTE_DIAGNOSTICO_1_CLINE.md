@@ -94,6 +94,13 @@ hará **a mano**.
 > No reintroducir la plantilla sin confirmarlo antes. La versión vigente es la
 > simple, con `envolver()` y el bloque `CONFIG` al principio del archivo.
 
+**El formato manual ya funciona** (validado el 3 de octubre). Documentos:
+
+| Documento | Para qué |
+|---|---|
+| `docs/PLANTILLA_CORREO_MANUAL.html` | Bloque listo para pegar en el botón `</> HTML` |
+| `docs/REFERENCIA_CORREO_Y_CONSTANCIAS.md` | Paleta, anatomía del correo y de la constancia PDF, patrones de encabezado/firma/botón, reglas de compatibilidad |
+
 ---
 
 ## Nota de alcance y limitaciones
