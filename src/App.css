@@ -732,6 +732,18 @@ a { color: var(--primary); }
   font-family: var(--texto);
   font-size: 15px;
 }
+/* Selector de rol del alta de usuarios. Cada opción explica lo que
+   concede, porque "facilitador" no significa nada por sí solo para
+   quien no ha leído el SQL. */
+.rol-opciones { display: grid; gap: 8px; margin-bottom: 14px; }
+.rol-opcion { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px;
+  align-items: start; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--borde); cursor: pointer; }
+.rol-opcion input { grid-row: span 2; align-self: center; }
+.rol-opcion.activa { border-color: var(--accent); background: var(--bg-card); }
+.rol-opcion-titulo { font-weight: 600; color: var(--primary); }
+.rol-opcion .nota { grid-column: 2; font-size: 12.5px; }
+
 .cursos-checkboxes {
   display: flex;
   flex-direction: column;

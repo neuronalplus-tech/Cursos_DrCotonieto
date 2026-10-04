@@ -22,6 +22,7 @@ function Admin({ user, esAdmin }) {
   const [nuevoPass, setNuevoPass] = useState('')
   const [cursosLista, setCursosLista] = useState([])
   const [cursosSeleccionados, setCursosSeleccionados] = useState([])
+  const [rolNuevo, setRolNuevo] = useState('alumno')
   const [creando, setCreando] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -48,6 +49,7 @@ function Admin({ user, esAdmin }) {
   const [emailsMasivos, setEmailsMasivos] = useState('')
   const [passMasivo, setPassMasivo] = useState('')
   const [cursosMasivos, setCursosMasivos] = useState([])
+  const [rolMasivo, setRolMasivo] = useState('alumno')
   const [creandoMasivo, setCreandoMasivo] = useState(false)
   const [progresoMasivo, setProgresoMasivo] = useState({ actual: 0, total: 0 })
   const [resultadoMasivo, setResultadoMasivo] = useState(null)
@@ -138,13 +140,54 @@ function Admin({ user, esAdmin }) {
     )
   }
 
+  /*
+   * Asigna el rol de facilitador a una lista de correos.
+   *
+   * Va por separado de la creación de la cuenta a propósito:
+   * `facilitadores` se indexa por CORREO, no por usuario_id, así que
+   * funciona igual con alguien que ya tiene cuenta y con alguien que
+   * todavía no ha entrado nunca. El día que esa persona se registre
+   * con ese correo, el rol ya estará esperándola.
+   *
+   * El índice único (lower(email), curso_id) impide duplicados, así que
+   * reasignar a alguien que ya estaba no da error ni crea basura.
+   */
+  const asignarFacilitadores = async (emails, cursoIds) => {
+    const filas = []
+    for (const email of emails) {
+      for (const curso_id of cursoIds) {
+        filas.push({ email: email.trim().toLowerCase(), curso_id })
+      }
+    }
+    if (!filas.length) return { asignadas: 0, error: null }
+    const { error } = await supabase
+      .from('facilitadores')
+      .upsert(filas, { onConflict: 'email,curso_id', ignoreDuplicates: true })
+    return { asignadas: error ? 0 : filas.length, error }
+  }
+
   const crearUsuario = async () => {
     setMsg('')
-    if (!nuevoEmail || !nuevoPass) { setMsg('Error: correo y contraseña son obligatorios'); return }
-    if (nuevoPass.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    // Solo facilitador no crea cuenta: es una asignación de rol por
+    // correo, así que no pide contraseña.
+    const soloFacilitador = rolNuevo === 'facilitador'
+    if (!nuevoEmail) { setMsg('Error: el correo es obligatorio'); return }
+    if (!soloFacilitador && !nuevoPass) { setMsg('Error: correo y contraseña son obligatorios'); return }
+    if (!soloFacilitador && nuevoPass.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
     if (cursosSeleccionados.length === 0) { setMsg('Error: selecciona al menos un curso'); return }
 
     setCreando(true)
+
+    if (soloFacilitador) {
+      const { asignadas, error } = await asignarFacilitadores([nuevoEmail], cursosSeleccionados)
+      setMsg(error
+        ? 'Error al asignar: ' + error.message
+        : `✅ ${nuevoEmail} queda como facilitador de ${asignadas} curso(s)`)
+      if (!error) { setNuevoEmail(''); setCursosSeleccionados([]) }
+      setCreando(false)
+      return
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
@@ -173,7 +216,12 @@ function Admin({ user, esAdmin }) {
       if (!res.ok || json.error) {
         setMsg(`Error (HTTP ${res.status}): ${errorReal}`)
       } else {
-        setMsg(`✅ Usuario ${json.email} creado y asignado a ${cursosSeleccionados.length} curso(s)`)
+        let extra = ''
+        if (rolNuevo === 'ambos') {
+          const r = await asignarFacilitadores([nuevoEmail], cursosSeleccionados)
+          extra = r.error ? ` (pero falló el rol de facilitador: ${r.error.message})` : ' y queda como facilitador'
+        }
+        setMsg(`✅ Usuario ${json.email} creado y asignado a ${cursosSeleccionados.length} curso(s)` + extra)
         setNuevoEmail('')
         setNuevoPass('')
         setCursosSeleccionados([])
@@ -210,8 +258,24 @@ function Admin({ user, esAdmin }) {
 
     if (emails.length === 0) { setMsgMasivo('Error: pega al menos un correo válido'); return }
     if (emails.length > 200) { setMsgMasivo(`Error: máximo 200 correos por lote (pegaste ${emails.length})`); return }
-    if (!passMasivo || passMasivo.length < 6) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    const soloFacilMasivo = rolMasivo === 'facilitador'
+    if (!soloFacilMasivo && (!passMasivo || passMasivo.length < 6)) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
     if (cursosMasivos.length === 0) { setMsgMasivo('Error: selecciona al menos un curso'); return }
+
+    // Asignar el rol no crea cuentas, así que no necesita confirmación
+    // de "esto no se puede deshacer": quitar a un facilitador es una
+    // fila menos en la tabla.
+    if (soloFacilMasivo) {
+      setCreandoMasivo(true)
+      const { asignadas, error } = await asignarFacilitadores(emails, cursosMasivos)
+      setMsgMasivo(error
+        ? 'Error al asignar: ' + error.message
+        : `✅ ${emails.length} persona(s) quedan como facilitadoras · ${asignadas} asignación(es)`)
+      if (!error) setEmailsMasivos('')
+      setCreandoMasivo(false)
+      return
+    }
+
 
     const confirmado = await new Promise(resolve => {
       setConfirmacion({
@@ -260,6 +324,11 @@ function Admin({ user, esAdmin }) {
         todosResultados.push(...(json.resultados || []))
 
         setProgresoMasivo({ actual: Math.min(i + BATCH, emails.length), total: emails.length })
+      }
+
+      if (rolMasivo === 'ambos') {
+        const r = await asignarFacilitadores(emails, cursosMasivos)
+        if (r.error) setMsgMasivo('Cuentas creadas, pero falló el rol de facilitador: ' + r.error.message)
       }
 
       setResultadoMasivo({
@@ -750,8 +819,29 @@ function Admin({ user, esAdmin }) {
                 <h3>Nuevo usuario</h3>
                 <label>Correo electrónico</label>
                 <input type="email" value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)} placeholder="alumno@ejemplo.com" />
-                <label>Contraseña temporal</label>
-                <input type="text" value={nuevoPass} onChange={e => setNuevoPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
+                <label>Rol en los cursos seleccionados</label>
+                <div className="rol-opciones">
+                  {[
+                    ['alumno', '🎓 Alumno', 'Accede al contenido del curso.'],
+                    ['facilitador', '🛠️ Facilitador', 'Gestiona el curso: foro, módulos, recursos y exámenes.'],
+                    ['ambos', '🎓🛠️ Ambos', 'Gestiona el curso y además lo cursa como alumno.'],
+                  ].map(([valor, etiqueta, ayuda]) => (
+                    <label key={valor} className={`rol-opcion${rolNuevo === valor ? ' activa' : ''}`}>
+                      <input type="radio" name="rol-alta-individual" value={valor}
+                             checked={rolNuevo === valor}
+                             onChange={() => setRolNuevo(valor)} />
+                      <span className="rol-opcion-titulo">{etiqueta}</span>
+                      <span className="nota">{ayuda}</span>
+                    </label>
+                  ))}
+                </div>
+                {/* Asignar solo el rol no crea cuenta, así que no pide contraseña. */}
+                {rolNuevo !== 'facilitador' && (
+                  <>
+                    <label>Contraseña temporal</label>
+                    <input type="text" value={nuevoPass} onChange={e => setNuevoPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
+                  </>
+                )}
                 <label>Cursos a los que tendrá acceso</label>
                 <div className="cursos-checkboxes">
                   {cursosLista.map(c => (
@@ -788,9 +878,29 @@ function Admin({ user, esAdmin }) {
                   style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
                 <p className="nota" style={{ marginTop: 6 }}>{parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)</p>
 
-                <label>Contraseña temporal (misma para todos)</label>
-                <input type="text" value={passMasivo} onChange={e => setPassMasivo(e.target.value)} placeholder="Ej. Curso2026!" />
-                <p className="nota" style={{ marginTop: 6 }}>⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.</p>
+                <label>Rol en los cursos seleccionados</label>
+                <div className="rol-opciones">
+                  {[
+                    ['alumno', '🎓 Alumno', 'Accede al contenido del curso.'],
+                    ['facilitador', '🛠️ Facilitador', 'Gestiona el curso: foro, módulos, recursos y exámenes.'],
+                    ['ambos', '🎓🛠️ Ambos', 'Gestiona el curso y además lo cursa como alumno.'],
+                  ].map(([valor, etiqueta, ayuda]) => (
+                    <label key={valor} className={`rol-opcion${rolMasivo === valor ? ' activa' : ''}`}>
+                      <input type="radio" name="rol-alta-masiva" value={valor}
+                             checked={rolMasivo === valor}
+                             onChange={() => setRolMasivo(valor)} />
+                      <span className="rol-opcion-titulo">{etiqueta}</span>
+                      <span className="nota">{ayuda}</span>
+                    </label>
+                  ))}
+                </div>
+                {rolMasivo !== 'facilitador' && (
+                  <>
+                    <label>Contraseña temporal (misma para todos)</label>
+                    <input type="text" value={passMasivo} onChange={e => setPassMasivo(e.target.value)} placeholder="Ej. Curso2026!" />
+                    <p className="nota" style={{ marginTop: 6 }}>⚠️ Todos los usuarios nuevos compartirán esta contraseña. Avísales que la cambien después.</p>
+                  </>
+                )}
 
                 <label>Cursos a los que tendrán acceso</label>
                 <div className="cursos-checkboxes">
