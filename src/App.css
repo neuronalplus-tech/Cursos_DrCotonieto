@@ -2375,6 +2375,19 @@ a { color: var(--primary); }
 .foro-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .05em; color: var(--accent); }
 
+/* Firma de cada mensaje: "Re: <tema>" y "por <quien> · <fecha>".
+   El bloque va en columna para que el asunto no compita con la fecha. */
+.foro-firma { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.foro-firma-asunto { font-size: 15px; line-height: 1.35; color: var(--primary); }
+.foro-firma-linea { display: flex; align-items: baseline; gap: 6px;
+  flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.foro-firma-quien { font-weight: 600; color: var(--primary); }
+
+/* La insignia de administración se distingue del resto a propósito:
+   en un foro de curso importa saber quién habla con voz docente. */
+.foro-badge-admin { padding: 1px 7px; border-radius: 999px;
+  background: var(--accent); color: #fff; letter-spacing: .04em; }
+
 .foro-texto { margin-top: 12px; font-size: 15.5px; line-height: 1.75; color: var(--primary); }
 .foro-texto p { margin: 0 0 10px; }
 .foro-texto p:last-child { margin-bottom: 0; }

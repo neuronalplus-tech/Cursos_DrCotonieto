@@ -27,6 +27,15 @@ function haceCuanto(fecha) {
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+/** "domingo, 4 de octubre de 2026, 14:58": la firma de cada mensaje. */
+function fechaLarga(fecha) {
+  if (!fecha) return ''
+  return new Date(fecha).toLocaleString('es-MX', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+}
+
 function iniciales(nombre) {
   const p = String(nombre || '?').trim().split(/\s+/)
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase()
@@ -43,7 +52,7 @@ let CANAL_FORO = 0
 /* ------------------------------------------------------------
    TARJETA DE RESPUESTA
    ------------------------------------------------------------ */
-function Respuesta({ r, propio, esAdmin, onBorrar }) {
+function Respuesta({ r, propio, esAdmin, deAdmin, tituloHilo, onBorrar }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(r.cuerpo || '')
   const [guardando, setGuardando] = useState(false)
@@ -70,10 +79,14 @@ function Respuesta({ r, propio, esAdmin, onBorrar }) {
         {r.autor_foto
           ? <img className="foro-avatar" src={r.autor_foto} alt="" />
           : <span className="foro-avatar foro-inicial" aria-hidden="true">{iniciales(r.autor_nombre)}</span>}
-        <div className="foro-respuesta-quien">
-          <strong>{r.autor_nombre}</strong>
-          {propio && <span className="foro-badge">tú</span>}
-          <span className="nota">{haceCuanto(r.creado_en)}</span>
+        <div className="foro-firma">
+          <strong className="foro-firma-asunto">Re: {tituloHilo}</strong>
+          <span className="foro-firma-linea">
+            por <span className="foro-firma-quien">{r.autor_nombre}</span>
+            {deAdmin && <span className="foro-badge foro-badge-admin">Administración</span>}
+            {propio && <span className="foro-badge">tú</span>}
+            <span className="nota">· {fechaLarga(r.creado_en)}</span>
+          </span>
         </div>
       </header>
 
@@ -187,6 +200,11 @@ export function ForoCurso({ user, esAdmin }) {
   const [error, setError] = useState(null)
   const [perfil, setPerfil] = useState({ nombre: '', email: '', foto: null })
   const [adminForoAbierto, setAdminForoAbierto] = useState(false)
+  // Quién firma como "Administración". Misma fuente que el resto de la app:
+  // la tabla `admins`, por correo. Si RLS no deja leerla desde una cuenta de
+  // alumno queda vacía, y se cae al invariante del foro: quien abre un tema
+  // siempre es admin (ver esDeAdmin).
+  const [adminEmails, setAdminEmails] = useState(() => new Set())
   const [borrando, setBorrando] = useState(false)
 
   const [nuevo, setNuevo] = useState('')
@@ -215,6 +233,15 @@ export function ForoCurso({ user, esAdmin }) {
     })()
     return () => { vivo = false }
   }, [uid, uemail])
+
+  useEffect(() => {
+    let vivo = true
+    supabase.from('admins').select('email').then(({ data }) => {
+      if (!vivo || !data) return
+      setAdminEmails(new Set(data.map((a) => String(a.email || '').toLowerCase())))
+    })
+    return () => { vivo = false }
+  }, [])
 
   /* --- Datos del curso, hilos y respuestas --- */
   const cargar = async () => {
@@ -381,6 +408,15 @@ export function ForoCurso({ user, esAdmin }) {
     conteo[r.hilo_id] = (conteo[r.hilo_id] || 0) + 1
   }
 
+  const esDeAdmin = (correo) => {
+    const c = String(correo || '').toLowerCase()
+    if (!c) return false
+    if (adminEmails.has(c)) return true
+    // Solo un admin puede abrir un tema: su autor firma como tal aunque
+    // la tabla `admins` no se haya podido leer.
+    return c === String(hiloActual?.autor_email || '').toLowerCase()
+  }
+
   if (!user) return null
   if (cargando) return <div className="loading">Cargando…</div>
 
@@ -425,10 +461,14 @@ export function ForoCurso({ user, esAdmin }) {
               {perfil.foto
                 ? <img className="foro-avatar" src={perfil.foto} alt="" />
                 : <span className="foro-avatar foro-inicial" aria-hidden="true">{iniciales(hiloActual.autor_nombre)}</span>}
-              <div className="foro-respuesta-quien">
-                <strong>{hiloActual.autor_nombre}</strong>
-                {hiloActual.autor_id === user.id && <span className="foro-badge">tú</span>}
-                <span className="nota">{haceCuanto(hiloActual.creado_en)}</span>
+              <div className="foro-firma">
+                <span className="foro-firma-linea">
+                  por <span className="foro-firma-quien">{hiloActual.autor_nombre}</span>
+                  {esDeAdmin(hiloActual.autor_email) &&
+                    <span className="foro-badge foro-badge-admin">Administración</span>}
+                  {hiloActual.autor_id === user.id && <span className="foro-badge">tú</span>}
+                  <span className="nota">· {fechaLarga(hiloActual.creado_en)}</span>
+                </span>
               </div>
             </div>
             <div className="foro-texto" style={{ marginTop: 12 }}
@@ -444,6 +484,8 @@ export function ForoCurso({ user, esAdmin }) {
                 r={{ ...r, autor_foto: r.autor_id === user.id ? perfil.foto : null }}
                 propio={r.autor_id === user.id}
                 esAdmin={esAdmin}
+                deAdmin={esDeAdmin(r.autor_email)}
+                tituloHilo={hiloActual.titulo}
                 onBorrar={borrarRespuesta}
               />
             ))}

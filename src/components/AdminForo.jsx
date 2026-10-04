@@ -230,7 +230,7 @@ return (
                 <button type="button" className="button secondary" onClick={() => setFormAbierto(false)}>
                   Cancelar
                 </button>
-                <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+                <button type="button" className="button primary" onClick={() => guardar()} disabled={guardando}>
                   {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Publicar tema'}
                 </button>
               </div>
