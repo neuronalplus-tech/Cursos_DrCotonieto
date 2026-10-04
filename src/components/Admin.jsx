@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { Fragment, useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso } from '../config'
@@ -1092,76 +1092,108 @@ function Admin({ user, esAdmin }) {
                 </div>
               )}
 
-              <div className="gestion-usuarios">
-                {usuariosFiltrados.length === 0 && <p className="sutil">No se encontraron usuarios con ese criterio.</p>}
-                {usuariosFiltrados.map(u => {
-                  const cursosDelUsuario = u.cursos_inscritos || 0
-                  const seleccionado = seleccionados.has(u.usuario_id)
-                  const expandido = expandidos.has(u.usuario_id)
-                  const inactivo = u.ultimo_ingreso && !esActivo(u)
-                  const dias = diasSinEntrar(u)
-                  return (
-                    <div key={u.usuario_id} className={`gestion-usuario-card ${seleccionado ? 'seleccionado' : ''} ${expandido ? 'expandido' : ''}`}>
-                      <div className="gestion-usuario-header">
-                        <div className="gestion-usuario-check">
-                          <input type="checkbox" checked={seleccionado} onChange={() => toggleSeleccion(u.usuario_id)} />
-                        </div>
-                        <div className="gestion-usuario-info">
-                          <div className="gestion-usuario-nombre-linea">
+              {/* Tabla densa en vez de una tarjeta por persona: con 20+
+                  usuarios las tarjetas obligaban a desplazarse sin aportar
+                  nada. Aquí cada fila cabe de un vistazo y los cursos se
+                  despliegan solo cuando hacen falta. */}
+              {usuariosFiltrados.length === 0 ? (
+                <p className="sutil">No se encontraron usuarios con ese criterio.</p>
+              ) : (
+                <div className="gestion-tabla-scroll">
+                <table className="gestion-tabla">
+                  <thead>
+                    <tr>
+                      <th className="col-check"></th>
+                      <th>Persona</th>
+                      <th>Cursos</th>
+                      <th>Rol</th>
+                      <th>Último ingreso</th>
+                      <th className="col-acciones"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuariosFiltrados.map(u => {
+                      const cursosDelUsuario = u.cursos_inscritos || 0
+                      const seleccionado = seleccionados.has(u.usuario_id)
+                      const expandido = expandidos.has(u.usuario_id)
+                      const inactivo = u.ultimo_ingreso && !esActivo(u)
+                      const dias = diasSinEntrar(u)
+                      const correoU = String(u.email || '').toLowerCase()
+                      const nFacilita = facilitaPorEmail[correoU]?.size || 0
+                      return (
+                        <Fragment key={u.usuario_id}>
+                        <tr className={`gestion-fila ${seleccionado ? 'seleccionada' : ''} ${expandido ? 'expandida' : ''}`}>
+                          <td className="col-check">
+                            <input type="checkbox" checked={seleccionado} onChange={() => toggleSeleccion(u.usuario_id)} />
+                          </td>
+                          <td>
                             <strong>{u.nombre_completo || '(sin nombre)'}</strong>
+                            <span className="celda-sub">{u.email}</span>
+                            {u.profesion && <span className="celda-sub">{u.profesion}</span>}
+                            {u.notas_admin && <span className="gestion-nota-preview">{u.notas_admin}</span>}
+                          </td>
+                          <td>
                             {cursosDelUsuario > 0
-                              ? <span className="badge ok">{cursosDelUsuario} curso(s)</span>
-                              : <span className="badge neutro">Sin acceso</span>}
-                            {inactivo && <span className="badge" style={{ background: '#FBEDEA', color: '#9B2C20' }}>Inactivo {dias}d</span>}
-                          </div>
-                          <span className="celda-sub">{u.email}</span>
-                          {u.profesion && <span className="celda-sub">{u.profesion}</span>}
-                          {u.ultimo_ingreso && <span className="celda-sub">Último ingreso: {fecha(u.ultimo_ingreso)}</span>}
-                          {u.notas_admin && <span className="gestion-nota-preview">📝 {u.notas_admin}</span>}
-                        </div>
-                        <div className="gestion-usuario-acciones">
-                          <button type="button" className="button texto"
-                            onClick={() => setModalNotas({ usuario_id: u.usuario_id, email: u.email, texto: u.notas_admin || '' })}>
-                            {u.notas_admin ? '✏️ Editar nota' : '📝 Añadir nota'}
-                          </button>
-                          <button type="button" className="gestion-expandir-btn" onClick={() => toggleExpandido(u.usuario_id)}>
-                            {expandido ? '▲ Ocultar cursos' : '▼ Ver cursos'}
-                          </button>
-                        </div>
-                      </div>
+                              ? <span className="badge ok">{cursosDelUsuario}</span>
+                              : <span className="sutil">—</span>}
+                          </td>
+                          <td className="col-rol">
+                            {nFacilita > 0 && <span className="badge rol-facil">Facilita {nFacilita}</span>}
+                            {cursosDelUsuario > 0 && <span className="badge rol-alumno">Alumno</span>}
+                            {nFacilita === 0 && cursosDelUsuario === 0 && <span className="sutil">—</span>}
+                          </td>
+                          <td>
+                            <span className="celda-sub">{fecha(u.ultimo_ingreso)}</span>
+                            {inactivo && <span className="badge inactivo">Inactivo {dias}d</span>}
+                          </td>
+                          <td className="col-acciones">
+                            <button type="button" className="button texto" title="Nota interna"
+                              onClick={() => setModalNotas({ usuario_id: u.usuario_id, email: u.email, texto: u.notas_admin || '' })}>
+                              {u.notas_admin ? 'Nota ✏️' : 'Nota'}
+                            </button>
+                            <button type="button" className="gestion-expandir-btn" onClick={() => toggleExpandido(u.usuario_id)}>
+                              {expandido ? '▲ Cursos' : '▼ Cursos'}
+                            </button>
+                          </td>
+                        </tr>
 
-                      {expandido && (
-                        <div className="gestion-cursos">
-                          {cursosLista.map(c => {
-                            const tiene = accesos[u.usuario_id]?.has(c.id) || false
-                            const key = `${u.usuario_id}-${c.id}`
-                            const ocupado = toggling[key]
-                            const correo = String(u.email || '').toLowerCase()
-                            const facilita = facilitaPorEmail[correo]?.has(c.id) || false
-                            const ocupadoFacil = toggling[`facil-${correo}-${c.id}`]
-                            return (
-                              <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
-                                <span className="gestion-curso-titulo">{c.titulo}</span>
-                                <button type="button" className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
-                                  onClick={() => toggleAcceso(u.usuario_id, c.id, tiene, u.email)} disabled={ocupado}>
-                                  {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
-                                </button>
-                                <button type="button"
-                                  className={`gestion-toggle facilitador ${facilita ? 'quitar' : 'dar'}`}
-                                  onClick={() => toggleFacilitador(u.email, c.id, facilita)}
-                                  disabled={ocupadoFacil}
-                                  title="Gestiona el foro, los módulos, los recursos y los exámenes de este curso">
-                                  {ocupadoFacil ? '...' : facilita ? '🛠️ Facilitador · Quitar' : '+ Facilitador'}
-                                </button>
+                        {expandido && (
+                          <tr className="gestion-fila-cursos">
+                            <td colSpan={6}>
+                              <div className="gestion-cursos">
+                                {cursosLista.map(c => {
+                                  const tiene = accesos[u.usuario_id]?.has(c.id) || false
+                                  const ocupado = toggling[`${u.usuario_id}-${c.id}`]
+                                  const facilita = facilitaPorEmail[correoU]?.has(c.id) || false
+                                  const ocupadoFacil = toggling[`facil-${correoU}-${c.id}`]
+                                  return (
+                                    <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
+                                      <span className="gestion-curso-titulo">{c.titulo}</span>
+                                      <button type="button" className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
+                                        onClick={() => toggleAcceso(u.usuario_id, c.id, tiene, u.email)} disabled={ocupado}>
+                                        {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
+                                      </button>
+                                      <button type="button"
+                                        className={`gestion-toggle facilitador ${facilita ? 'quitar' : 'dar'}`}
+                                        onClick={() => toggleFacilitador(u.email, c.id, facilita)}
+                                        disabled={ocupadoFacil}
+                                        title="Gestiona el foro, los módulos, los recursos y los exámenes de este curso">
+                                        {ocupadoFacil ? '...' : facilita ? '🛠️ Facilitador · Quitar' : '+ Facilitador'}
+                                      </button>
+                                    </div>
+                                  )
+                                })}
                               </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                </div>
+              )}
             </>
           )}
         </>
