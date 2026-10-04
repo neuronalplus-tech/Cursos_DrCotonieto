@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
-import { MARCA, CONTACTO_EMAIL, rutaAcceso } from '../config'
+import { MARCA, CONTACTO_EMAIL, rutaAcceso, wa } from '../config'
 import { emiteConstancia } from '../lib/helpers'
 import { Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 

@@ -19,7 +19,14 @@
 | 5 | Refactor de `App.jsx` en módulos | 🔄 **Iniciado** — `src/lib/` y `src/components/` creados (etapa 1) | → ✅ **COMPLETO** (etapas 1, 2a, 2b, 2c, 2d — ver §4.0.1) |
 | 6 | Tipos de pregunta en `examenes` | ✅ **Hecho** (commit `0734945`) + **panel admin completo** (03/10) |
 
-**Lo pendiente de tu lado:** nada urgente. Lo único que bloquea trabajo es la **decisión de cuál de los pasos 4 o 5** quieres primero.
+> **Lo pendiente de tu lado:** nada urgente. Los seis pasos de la tabla
+> anterior están completos. El paso 4 (Resend) queda **en pausa por tu
+> decisión** de aplazar la compra del dominio (03/10): no bloquea nada más.
+>
+> **Pendiente que sí requiere acción tuya:** correr
+> `supabase/RLS_EXAMENES.sql` en el SQL Editor de Supabase y confirmar que
+> `select public.es_admin()` devuelve `true`. Sin eso no puedes crear ni
+> guardar exámenes desde el panel.
 
 ---
 
@@ -363,5 +370,73 @@ Si los nombres coinciden → publicado correctamente.
 git revert <commit>
 git push origin main     # publica el revert automáticamente
 ```
+
+---
+
+## 8. Verificación automática (03/10/2026)
+
+El plan cerró con una barrera que corre antes de publicar. Todo se ejecuta con
+`npm run` y no necesita cuentas externas.
+
+| Comando | Qué comprueba | Resultado 03/10 |
+|---|---|---|
+| `npm run check` | Identificadores usados sin importar en cada componente. **Vite no los detecta**: el error solo aparece al entrar a esa página | 28 archivos · 0 rotas |
+| `npm run check:texto` | Texto corrupto (mojibake). Imprime puntos de código en ASCII porque la consola de Windows recodifica lo que muestra | 0 marcas |
+| `npm run smoke` | Las vistas se renderizan sin reventar | 19/19 |
+| `npm run smoke:datos` | La app completa en jsdom, con datos falsos | **108/108** |
+| `node supabase/test-examenes.mjs` | Lógica de exámenes, importador, autocalificación | 60/60 |
+| `node supabase/test-correo.mjs` | Plantilla de correo y callbacks del script | 27/27 |
+| `npm run reparar:texto` | Corrige mojibake automáticamente | a demanda |
+
+### 8.1 Escenarios de datos de `smoke:datos`
+
+El doble de Supabase (`scripts/fake-supabase.js`) **aplica los filtros**
+(`.eq`, `.in`, `.gte`, `.order`, `.limit`). Antes los ignoraba, así que toda
+consulta devolvía todas las filas y solo se ejercitaba la rama "hay datos".
+
+| Escenario | Qué simula |
+|---|---|
+| `completo` | Todo lleno: la referencia |
+| `vacio` | Nada publicado — el estado de una cuenta recién creada |
+| `sinModulos` | El curso existe pero está vacío |
+| `sinRecursos` | El módulo existe pero sin materiales |
+| `sinIntentos` | El alumno nunca abrió el examen |
+| `sinMensajes` | Bandeja de entrada vacía |
+
+Cada uno se monta en las 9 rutas, con y sin sesión: **6 × 2 × 9 = 108**.
+
+### 8.2 Bugs que encontraron estas pruebas
+
+| Bug | Consecuencia | Por qué estaba oculto |
+|---|---|---|
+| `Constancia.jsx` usaba `wa()` sin importarlo | **`/constancia/:id` reventaba** al pulsar "Escríbeme por WhatsApp" | El doble no tenía la tabla `constancias`, así que esa rama nunca se ejecutaba |
+| `ModalEditarTaller` sin importar | Botón "Editar taller" tumbaba la tarjeta de curso | El componente se movió de archivo y se olvidó el `export` |
+| `VideoPlayer` sin importar en `TallerRecursos` | La página de talleres se caía al entrar | Igual: el bloque se movió, la conexión se olvidó |
+| 28 identificadores sin importar en total | Varias rutas rotas | El refactor de `App.jsx` los dejó atrás |
+
+### 8.3 Lo que **no** cubren estas pruebas
+
+Conviene tenerlo claro para no confiar de más:
+
+1. **Sin interacción.** No hay clics, `submit`, apertura de modales ni uploads.
+   Solo render y carga de datos.
+2. **Sin red real.** El doble no llama a Supabase, así que un error de RLS,
+   una columna mal nombrada o un tipo devuelto distinto **no se detectan**.
+   Para eso están las pruebas manuales contra el sitio publicado.
+3. **Sin `pdfjs` ni `canvas`.** jsdom no los implementa; los visores de PDF y
+   el canvas de páginas quedan fuera de alcance.
+
+### 8.4 Antes de publicar, siempre
+
+```bash
+npm run check          # imports
+npm run check:texto    # mojibake
+npm run smoke:datos    # 108 montajes
+npm run build
+git add -A && git commit -m "..." && git push origin main
+```
+
+Los tres primeros se ejecutan en segundos y han encontrado **más bugs reales
+que la revisión manual**.
 
 

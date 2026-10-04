@@ -63,6 +63,25 @@ const RUTAS = [
   '/constancia/1', '/mensajes',
 ]
 
+// Escenarios de datos. Cada uno ejercita una rama distinta de la misma app:
+//   completo     → todo lleno (referencia)
+//   vacio        → nada publicado: el estado real de una cuenta nueva
+//   sinModulos   → el curso existe pero esta vacio
+//   sinRecursos  → el modulo existe pero sin materiales
+//   sinIntentos  → el alumno nunca abrio el examen
+//   sinMensajes  → bandeja de entrada vacia
+//
+// Antes el doble ignoraba los filtros y devolvia todas las filas, asi que
+// estas cinco ramas no se habian ejecutado jamas. Ahora si.
+const ESCENARIOS = [
+  'completo',
+  'vacio',
+  'sinModulos',
+  'sinRecursos',
+  'sinIntentos',
+  'sinMensajes',
+]
+
 // Por debajo de esto es el spinner o una pantalla de error, no contenido.
 const MINIMO = 400
 
@@ -81,39 +100,53 @@ async function main() {
   let ok = 0
   const fallos = []
 
-  for (const conSesion of [true, false]) {
-    globalThis.__SESION__ = conSesion
-    const etiqueta = conSesion ? 'con sesión' : 'sin sesión'
+  // Solo el escenario "completo" con sesion y sin sesion usa el minimo de
+  // contenido: en los demas, una vista vacia es CORRECTA y debe renderizar
+  // poco (un mensaje de "aun no hay contenido" sin modal ni error).
+  const esCompleto = (escenario) => escenario === 'completo'
 
-    for (const ruta of RUTAS) {
-      const contenedor = document.createElement('div')
-      document.body.appendChild(contenedor)
-      window.history.pushState({}, '', ruta)
+  for (const escenario of ESCENARIOS) {
+    globalThis.__ESCENARIO__ = escenario
 
-      try {
-        const root = createRoot(contenedor)
-        await act(async () => { root.render(React.createElement(Root)) })
-        // Segundo turno: deja que las promesas de las consultas se vacíen.
-        await act(async () => { await new Promise((r) => setTimeout(r, 5)) })
+    for (const conSesion of [true, false]) {
+      globalThis.__SESION__ = conSesion
+      const etiqueta = `${escenario}/${conSesion ? 'con' : 'sin'}`
 
-        const html = contenedor.innerHTML
-        if (html.length < MINIMO) {
-          fallos.push([`${ruta} (${etiqueta})`, `solo ${html.length} car., parece estado de carga`])
-        } else {
-          ok++
-          console.log(`  OK   ${ruta.padEnd(20)} ${etiqueta.padEnd(11)} ${html.length} car.`)
+      for (const ruta of RUTAS) {
+        const contenedor = document.createElement('div')
+        document.body.appendChild(contenedor)
+        window.history.pushState({}, '', ruta)
+
+        try {
+          const root = createRoot(contenedor)
+          await act(async () => { root.render(React.createElement(Root)) })
+          // Segundo turno: deja que las promesas de las consultas se vacien.
+          await act(async () => { await new Promise((r) => setTimeout(r, 5)) })
+
+          const html = contenedor.innerHTML
+          // En las vistas sin datos basta con que exista contenido, no que
+          // sea largo: el texto "no hay modulos" es la respuesta correcta.
+          const minimo = esCompleto(escenario) ? MINIMO : 60
+
+          if (html.length < minimo) {
+            fallos.push([`${ruta} (${etiqueta})`, `solo ${html.length} car., esperaba >= ${minimo}`])
+            console.log(`  FALLA ${ruta} (${etiqueta}): solo ${html.length} car.`)
+          } else {
+            ok++
+            console.log(`  OK   ${ruta.padEnd(20)} ${etiqueta.padEnd(18)} ${html.length} car.`)
+          }
+          await act(async () => { root.unmount() })
+        } catch (e) {
+          fallos.push([`${ruta} (${etiqueta})`, e.message.split('\n')[0]])
+          console.log(`  FALLA ${ruta} (${etiqueta}): ${e.message.split('\n')[0]}`)
         }
-        await act(async () => { root.unmount() })
-      } catch (e) {
-        fallos.push([`${ruta} (${etiqueta})`, e.message.split('\n')[0]])
-        console.log(`  FALLA ${ruta} (${etiqueta}): ${e.message.split('\n')[0]}`)
+        contenedor.remove()
       }
-      contenedor.remove()
     }
   }
 
   console.log('\n' + '─'.repeat(56))
-  console.log(`${ok} rutas renderizan con datos · ${fallos.length} con error`)
+  console.log(`${ok} montajes OK · ${fallos.length} con error`)
   for (const [n, m] of fallos) console.log(`  ✗ ${n}: ${m}`)
   // Los rechazos sueltos son bugs igual de reales: los carga de datos que
   // se ejecutan sin catch y dejaban la vista a medias.
