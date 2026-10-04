@@ -6,6 +6,7 @@ import {
   cursoEspecial, normalizarTexto,
 } from '../lib/helpers'
 import { rutaAcceso, wa } from '../config'
+import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
