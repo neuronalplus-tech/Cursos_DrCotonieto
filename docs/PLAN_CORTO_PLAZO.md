@@ -36,14 +36,22 @@
 
 | # | Acción tuya | Para qué sirve | Costo |
 |---|---|---|---|
-| **D1** | Decidir si compramos **dominio propio** (ej. `drcotonieto.com`) vía Cloudflare Registrar | Habilita correo con *tracking* (Resend), analítica automática y sitio con marca | ~US$10/año |
+| **D1** | Comprar **dominio propio** (ej. `drcotonieto.com`) vía Cloudflare Registrar | Habilita correo con *tracking* (Resend), analítica automática y sitio con marca | ~US$10/año |
 | **D2** | Crear cuenta **Resend** (gratis) + API key + verificar dominio | Comunicados con métricas de apertura/clics | $0 |
 | **D3** | ~~Activar **Cloudflare Web Analytics** y pasarme el *snippet*~~ ✅ **Recibido** (token `07cbd488…`) | Métricas de visitas | $0 |
 | **D4** | ~~Crear **bucket R2** + API token~~ ❌ **Descartado 02/10: pide tarjeta. Decisión: YouTube no listado + OneDrive 1 TB** | Flujo confirmado (cero tarjeta, cero costo) | $0 |
-| **D5** | Confirmar acceso al **proyecto Supabase** (o compartir el SQL del esquema) | Edge Function de correo y tipos de pregunta | $0 |
+| **D5** | Acceso al **proyecto Supabase** (o compartir el SQL del esquema) | Edge Function de correo y tipos de pregunta | $0 |
 | **D6** | ~~Decidir **Jitsi o Teams**~~ ✅ **Decidido 02/10: Teams** | Diseño de la clase en vivo | $0 |
 
 > Nota: **D1 no es indispensable** para los pasos ya hechos. Solo será necesaria para el correo con *tracking* (paso 4).
+>
+> **Decisión 03/10 (Dr. Ernesto):** la compra del dominio **se aplaza**, y con
+> ella **D2 (Resend) también**. El paso 4 queda en pausa hasta que haya un
+> momento adecuado para ambas cuentas. Mientras tanto, el correo sigue con
+> Google Apps Script (`apps-script/Notificador.gs`), que ya funciona.
+>
+> **Lo que sí puedo hacer sin D1/D2:** seguir con el refactor y con todo lo que
+> no dependa de cuentas externas. Nada de lo hecho hasta ahora queda bloqueado.
 
 ---
 
