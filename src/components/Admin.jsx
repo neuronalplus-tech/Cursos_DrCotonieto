@@ -33,6 +33,10 @@ function Admin({ user, esAdmin }) {
   const [filtroCursoUsuario, setFiltroCursoUsuario] = useState('todos')
   const [seleccionados, setSeleccionados] = useState(new Set())
   const [expandidos, setExpandidos] = useState(new Set())
+  // correo (minúsculas) -> Set de curso_id que facilita.
+  // Se indexa por correo y no por usuario_id porque así está la tabla:
+  // permite asignar a quien todavía no tiene cuenta.
+  const [facilitaPorEmail, setFacilitaPorEmail] = useState({})
   const [toggling, setToggling] = useState({})
   const [cargandoGestion, setCargandoGestion] = useState(false)
   const [msgGestion, setMsgGestion] = useState('')
@@ -112,6 +116,24 @@ function Admin({ user, esAdmin }) {
   useEffect(() => {
     if (!esAdmin || vista !== 'usuarios') return
     if (usuarios.length === 0) cargarGestion()
+  }, [esAdmin, vista, usuarios.length])
+
+  // Las asignaciones de facilitador se cargan aparte de los accesos:
+  // son otra tabla y otra llave (correo, no usuario_id).
+  useEffect(() => {
+    if (!esAdmin || vista !== 'usuarios') return
+    let vivo = true
+    supabase.from('facilitadores').select('email, curso_id').then(({ data }) => {
+      if (!vivo || !data) return
+      const mapa = {}
+      for (const fila of data) {
+        const k = String(fila.email || '').toLowerCase()
+        if (!mapa[k]) mapa[k] = new Set()
+        mapa[k].add(Number(fila.curso_id))
+      }
+      setFacilitaPorEmail(mapa)
+    })
+    return () => { vivo = false }
   }, [esAdmin, vista, usuarios.length])
 
   const fecha = (d) => d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
@@ -517,6 +539,37 @@ function Admin({ user, esAdmin }) {
     } finally {
       setComunicadoEnviando(false)
     }
+  }
+
+  /* Pone o quita el rol de facilitador de UN curso concreto. */
+  const toggleFacilitador = async (email, curso_id, esFacil) => {
+    const correo = String(email || '').toLowerCase()
+    const key = `facil-${correo}-${curso_id}`
+    setToggling(prev => ({ ...prev, [key]: true }))
+    setMsgGestion('')
+    try {
+      if (esFacil) {
+        const { error } = await supabase.from('facilitadores')
+          .delete().eq('curso_id', curso_id).ilike('email', correo)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('facilitadores')
+          .insert({ email: correo, curso_id })
+        if (error) throw error
+      }
+      setFacilitaPorEmail(prev => {
+        const nuevo = { ...prev }
+        const set = new Set(nuevo[correo] || [])
+        if (esFacil) set.delete(Number(curso_id))
+        else set.add(Number(curso_id))
+        nuevo[correo] = set
+        return nuevo
+      })
+      setMsgGestion(esFacil ? '✓ Ya no facilita ese curso' : '✓ Asignado como facilitador')
+    } catch (e) {
+      setMsgGestion('Error: ' + (e.message || e))
+    }
+    setToggling(prev => ({ ...prev, [key]: false }))
   }
 
   const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
@@ -1083,12 +1136,22 @@ function Admin({ user, esAdmin }) {
                             const tiene = accesos[u.usuario_id]?.has(c.id) || false
                             const key = `${u.usuario_id}-${c.id}`
                             const ocupado = toggling[key]
+                            const correo = String(u.email || '').toLowerCase()
+                            const facilita = facilitaPorEmail[correo]?.has(c.id) || false
+                            const ocupadoFacil = toggling[`facil-${correo}-${c.id}`]
                             return (
                               <div key={c.id} className={`gestion-curso-fila ${tiene ? 'con-acceso' : ''}`}>
                                 <span className="gestion-curso-titulo">{c.titulo}</span>
                                 <button type="button" className={`gestion-toggle ${tiene ? 'quitar' : 'dar'}`}
                                   onClick={() => toggleAcceso(u.usuario_id, c.id, tiene, u.email)} disabled={ocupado}>
                                   {ocupado ? '...' : tiene ? '✓ Con acceso · Quitar' : '+ Dar acceso'}
+                                </button>
+                                <button type="button"
+                                  className={`gestion-toggle facilitador ${facilita ? 'quitar' : 'dar'}`}
+                                  onClick={() => toggleFacilitador(u.email, c.id, facilita)}
+                                  disabled={ocupadoFacil}
+                                  title="Gestiona el foro, los módulos, los recursos y los exámenes de este curso">
+                                  {ocupadoFacil ? '...' : facilita ? '🛠️ Facilitador · Quitar' : '+ Facilitador'}
                                 </button>
                               </div>
                             )

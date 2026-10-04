@@ -849,6 +849,11 @@ a { color: var(--primary); }
   gap: 8px;
 }
 
+/* El botón de facilitador se distingue del de acceso a propósito:
+   conceden cosas muy distintas y están uno al lado del otro. */
+.gestion-toggle.facilitador { border-color: var(--accent); }
+.gestion-toggle.facilitador.quitar { background: var(--accent); color: #fff; }
+
 .gestion-curso-fila {
   display: flex;
   align-items: center;
