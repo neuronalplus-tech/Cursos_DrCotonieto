@@ -217,7 +217,7 @@ function App() {
             <Route path="/acceso" element={<Login message={message} />} />
             <Route path="/perfil" element={<Perfil user={user} />} />
             <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
-            <Route path="/curso/:id" element={<CursoView user={user} esAdmin={esAdmin} />} />
+            <Route path="/curso/:id" element={<CursoView user={user} />} />
             <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} esAdmin={esAdmin} />} />
             <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
             <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />

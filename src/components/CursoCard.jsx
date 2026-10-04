@@ -2,16 +2,20 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso, MARCA, wa } from '../config'
+import { usePermisos } from '../lib/permisos'
 import { ModalEditarTaller } from './TallerRecursos'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
 import { esContenedorTalleres, cursoEspecial } from '../lib/helpers'
 
-function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
+function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
   const [curso, setCurso] = useState(cursoProp)
   const [abierto, setAbierto] = useState(false)
   const [abiertoCustom, setAbiertoCustom] = useState(false)
   const [editandoTaller, setEditandoTaller] = useState(false)
   const navigate = useNavigate()
+  // Cada tarjeta resuelve el permiso de SU curso: en una parrilla puede
+  // haber cursos que gestionas y otros que no.
+  const gestiona = usePermisos(user).puedeGestionar(curso?.id)
   const gratis = !!curso.gratuito
   const prox = !!curso.proximamente
   const esContenedor = esContenedorTalleres(curso)
@@ -140,7 +144,7 @@ function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
             </Link>
           )}
           {prox ? (
-            esAdmin ? (
+            gestiona ? (
               <>
                 <p className="nota" style={{ marginTop: 0 }}>🔒 Marcado como "Próximamente" — el público solo ve el botón de WhatsApp.</p>
                 <div className="card-boton-admin">
@@ -174,7 +178,7 @@ function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
                   ) : (
                     <button className="button secondary ancho" disabled>🔒 Registro cerrado</button>
                   )}
-                  {esAdmin && (
+                  {gestiona && (
                     <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
                             onClick={toggleRegistro}
                             title={curso.registro_activo === false ? 'Activar botón' : 'Desactivar botón'}>
@@ -200,7 +204,7 @@ function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
                     🎬 Grabación en proceso
                   </button>
                 )}
-                {esAdmin && curso.link_grabacion && (
+                {gestiona && curso.link_grabacion && (
                   <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
                           onClick={toggleGrabacion}
                           title={curso.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
@@ -209,7 +213,7 @@ function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
                 )}
               </div>
 
-              {esAdmin && (
+              {gestiona && (
                 <button type="button" className="button texto ancho" onClick={() => setEditandoTaller(true)}>
                   ✏️ Editar links y textos
                 </button>

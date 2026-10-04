@@ -6,6 +6,7 @@ import {
   cursoEspecial, normalizarTexto,
 } from '../lib/helpers'
 import { rutaAcceso, wa } from '../config'
+import { usePermisos } from '../lib/permisos'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
@@ -14,9 +15,12 @@ import { ModalEditarBotonesRuta, ModalNuevoModulo } from './AdminModales'
 import CursoCard from './CursoCard'
 import PortadaCurso from './PortadaCurso'
 
-function CursoView({ user, esAdmin }) {
+function CursoView({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  // El id viene de la URL, asi que el permiso esta resuelto desde el
+  // primer render, sin esperar a que cargue el curso.
+  const gestiona = usePermisos(user).puedeGestionar(id)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [talleres, setTalleres] = useState([])
@@ -42,7 +46,7 @@ function CursoView({ user, esAdmin }) {
         if (eC) throw eC
         setCurso(c)
         if (!c) { setEstado('ok'); return }
-        if (c.proximamente && !esAdmin) { setEstado('proximo'); return }
+        if (c.proximamente && !gestiona) { setEstado('proximo'); return }
 
         if (esContenedorTalleres(c)) {
           const { data: hermanos, error: eH } = await supabase.from('cursos')
@@ -55,7 +59,7 @@ function CursoView({ user, esAdmin }) {
 
         let grupo = null
         let acceso = false
-        if (!esAdmin && user) {
+        if (!gestiona && user) {
           const { data: acc } = await supabase.from('acceso')
             .select('id, grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
           if (acc) { grupo = acc.grupo || null; acceso = true }
@@ -68,12 +72,12 @@ function CursoView({ user, esAdmin }) {
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
         if (eM) throw eM
 
-        const visibles = (mods || []).filter(m => esAdmin || !m.oculto || !!user)
+        const visibles = (mods || []).filter(m => gestiona || !m.oculto || !!user)
         setModulos(visibles)
 
         if (user && visibles.length) {
           const modsConAcceso = visibles.filter(m => {
-            if (esAdmin) return true
+            if (gestiona) return true
             if (m.disponible === false) return false
             if (m.grupo && m.grupo !== grupo) return false
             return true
@@ -95,7 +99,7 @@ function CursoView({ user, esAdmin }) {
       }
     }
     load()
-  }, [id, user, esAdmin])
+  }, [id, user, gestiona])
 
   if (estado === 'cargando') return <div className="loading">Cargando...</div>
   if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
@@ -118,7 +122,7 @@ function CursoView({ user, esAdmin }) {
         {talleres.length === 0
           ? <p className="sutil">Todavía no hay talleres publicados en esta sección.</p>
           : <div className="course-grid">
-              {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} esAdmin={esAdmin} tieneAcceso={false} />)}
+              {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />)}
             </div>}
         <BandaRedes />
       </section>
@@ -166,14 +170,14 @@ function CursoView({ user, esAdmin }) {
       : ''
 
   const tieneAccesoAlGrupo = (g) => {
-    if (esAdmin) return true
+    if (gestiona) return true
     if (!user) return false
     if (!g) return true
     return miGrupo === g
   }
 
   const esModuloBloqueado = (m) => {
-    if (esAdmin) return false
+    if (gestiona) return false
     if (m.disponible === false) return true
     if (!user) return true
     if (m.grupo && miGrupo !== m.grupo) return true
@@ -181,7 +185,7 @@ function CursoView({ user, esAdmin }) {
   }
 
   const toggleCursoProximamente = async () => {
-    if (!esAdmin) return
+    if (!gestiona) return
     const nuevo = !curso.proximamente
     if (nuevo === true) {
       const ok = window.confirm(
@@ -198,7 +202,7 @@ function CursoView({ user, esAdmin }) {
   }
 
   const toggleDisponible = async (m) => {
-    if (!esAdmin) return
+    if (!gestiona) return
     const nuevo = !m.disponible
 
     let notificar = false
@@ -268,9 +272,9 @@ function CursoView({ user, esAdmin }) {
 
   const renderModulo = (m, i) => {
     const bloqueado = esModuloBloqueado(m)
-    const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !esAdmin
-    const bloqueadoPorDisponibilidad = bloqueado && m.disponible === false && !esAdmin
-    const bloqueadoPorLogin = bloqueado && !user && !esAdmin
+    const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !gestiona
+    const bloqueadoPorDisponibilidad = bloqueado && m.disponible === false && !gestiona
+    const bloqueadoPorLogin = bloqueado && !user && !gestiona
 
     const contenido = (
       <>
@@ -281,8 +285,8 @@ function CursoView({ user, esAdmin }) {
             {bloqueadoPorLogin && <span className="etiqueta-grupo">🔒 Requiere acceso</span>}
             {bloqueadoPorRuta && <span className="etiqueta-grupo">🔒 Otra ruta</span>}
             {bloqueadoPorDisponibilidad && <span className="etiqueta-grupo">🔒 Próximamente</span>}
-            {esAdmin && m.disponible === false && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
-            {esAdmin && m.grupo && <span className="etiqueta-grupo">{m.grupo}</span>}
+            {gestiona && m.disponible === false && <span className="etiqueta-grupo">🔒 Oculto para alumnos</span>}
+            {gestiona && m.grupo && <span className="etiqueta-grupo">{m.grupo}</span>}
           </h3>
           <p>{m.descripcion}</p>
         </div>
@@ -291,7 +295,7 @@ function CursoView({ user, esAdmin }) {
     )
 
     if (bloqueado) return <div key={m.id} className="modulo-card bloqueado">{contenido}</div>
-    if (!esAdmin) return <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+    if (!gestiona) return <Link key={m.id} to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
 
     return (
       <div key={m.id} className="modulo-row">
@@ -336,9 +340,9 @@ function CursoView({ user, esAdmin }) {
         </div>
       )}
 
-      {esAdmin && (
+      {gestiona && (
         <div className="admin-banner">
-          <strong>Vista de administrador.</strong> Ves todas las rutas y módulos. Los módulos con <em>🔒 Bloqueado (solo admin)</em> no están abiertos todavía para alumnos.
+          <strong>Vista de gestión.</strong> Ves todas las rutas y módulos. Los módulos con <em>🔒 Oculto para alumnos</em> no están abiertos todavía para alumnos.
           <div style={{ marginTop: 10 }}>
             <button type="button" className={`candado-toggle ${curso.proximamente ? 'cerrado' : 'abierto'}`}
                     onClick={toggleCursoProximamente}>
@@ -362,12 +366,12 @@ function CursoView({ user, esAdmin }) {
       )}
 
       {esTallerIndividual(curso) ? (
-        <TallerRecursos curso={curso} user={user} esAdmin={esAdmin} onActualizado={(c) => setCurso(c)} />
+        <TallerRecursos curso={curso} user={user} gestiona={gestiona} onActualizado={(c) => setCurso(c)} />
       ) : (
       <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <h2 className="titulo-seccion">Contenido del curso</h2>
-        {esAdmin && (
+        {gestiona && (
           <button type="button" className="button secondary" onClick={() => setNuevoModuloAbierto(true)}>
             ➕ Nuevo módulo
           </button>
@@ -401,7 +405,7 @@ function CursoView({ user, esAdmin }) {
                     ))}
                   </div>
                 )}
-                {esAdmin && (
+                {gestiona && (
                   <button type="button" className="button texto" style={{ marginTop: 10 }}
                           onClick={() => setEditandoBotonesRuta(g)}>
                     🔗 Botones de esta ruta
@@ -420,7 +424,7 @@ function CursoView({ user, esAdmin }) {
                   💬 Solicitar información
                 </a>
                 <button className="button secondary ancho" onClick={() => {
-                  if (esAdmin || tieneAcceso) {
+                  if (gestiona || tieneAcceso) {
                     if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
                     else alert('Esta ruta aún no tiene módulos abiertos.')
                   } else if (!user) {
@@ -429,7 +433,7 @@ function CursoView({ user, esAdmin }) {
                     alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
                   }
                 }}>
-                  {esAdmin || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
+                  {gestiona || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
                 </button>
               </div>
             </section>
@@ -454,7 +458,7 @@ function CursoView({ user, esAdmin }) {
       {/* Foro del curso: solo quien tiene acceso al curso (o el admin).
           El RLS es lo que de verdad protege los datos; ocultar la puerta
           de entrada evita el susto de entrar y no ver nada. */}
-      {(esAdmin || (user && tieneAcceso)) && (
+      {(gestiona || (user && tieneAcceso)) && (
         <section className="foro-acceso">
           <div>
             <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Foro del curso</h2>

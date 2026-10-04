@@ -92,7 +92,7 @@ function Home({ user, esAdmin }) {
           <p className="aviso-error">El catálogo está vacío. Si acabas de publicar, recarga en un momento.</p>}
         {!loading && disponibles.length > 0 && (
           <div className="course-grid">
-            {disponibles.map((c) => <CursoCard key={c.id} curso={c} user={user} esAdmin={esAdmin} tieneAcceso={accesos.has(c.id)} />)}
+            {disponibles.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={accesos.has(c.id)} />)}
           </div>
         )}
         {!loading && !error && cursos.length > 0 && lineaActiva !== 'todas' && disponibles.length === 0 && proximos.length === 0 && (
@@ -108,7 +108,7 @@ function Home({ user, esAdmin }) {
             así también sé qué producir primero.
           </p>
           <div className="course-grid">
-            {proximos.map((c) => <CursoCard key={c.id} curso={c} user={user} esAdmin={esAdmin} tieneAcceso={false} />)}
+            {proximos.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={false} />)}
           </div>
         </section>
       )}
