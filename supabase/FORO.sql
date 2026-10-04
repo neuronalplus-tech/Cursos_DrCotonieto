@@ -14,6 +14,43 @@
 -- =============================================================
 
 -- -------------------------------------------------------------
+-- 0) FUNCIÓN AUXILIAR ADMIN (por si aún no la has creado)
+--
+--    Este script usa public.es_admin() en sus políticas. Esa función
+--    la crea RLS_EXAMENES.sql; este bloque la crea SOLO si falta,
+--    para que FORO.sql funcione por sí solo (si ya existe, no toca
+--    nada). Si la tabla public.admins todavía no existe, aquí no
+--    pasa nada y verás un aviso; en ese caso crea antes `admins`.
+-- -------------------------------------------------------------
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'admins'
+  ) and not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'es_admin'
+  ) then
+    execute $fn$
+      create or replace function public.es_admin()
+      returns boolean
+      language sql
+      stable
+      security definer
+      set search_path = public
+      as 'select exists (select 1 from public.admins a where lower(a.email) = lower(auth.jwt() ->> ''email''))';
+    $fn$;
+    revoke all on function public.es_admin() from public;
+    grant execute on function public.es_admin() to authenticated, service_role;
+    raise notice 'es_admin() creada por FORO.sql';
+  else
+    raise notice 'es_admin() ya existe (o falta la tabla admins): no se toca';
+  end if;
+end $$;
+
+-- -------------------------------------------------------------
 -- 1) HILOS
 -- -------------------------------------------------------------
 create table if not exists public.foro_hilos (
@@ -171,6 +208,8 @@ begin
     end if;
   end loop;
 end $$;
+notify pgrst, 'reload schema';
+
 -- -------------------------------------------------------------
 -- 6) COMPROBACIÓN
 --
