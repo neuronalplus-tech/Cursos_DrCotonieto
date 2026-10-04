@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { rutaAcceso } from '../config'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import AdminExamenes from './AdminExamenes'

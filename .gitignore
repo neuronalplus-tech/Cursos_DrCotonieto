@@ -1,6 +1,11 @@
 node_modules/ 
 dist/ 
 
+# Salidas de las pruebas de render (scripts/smoke*.jsx)
+.smoke/
+.smoke-datos/
+*.log
+
 # Archivos temporales de editores
 *.swp
 *.swo

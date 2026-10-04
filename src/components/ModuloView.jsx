@@ -3,9 +3,9 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
-  emiteConstancia, analizarUrl,
+  emiteConstancia, analizarUrl, esCursoProblemasContemporaneos,
 } from '../lib/helpers'
-import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET } from '../config'
+import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, wa } from '../config'
 import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'

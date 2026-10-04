@@ -3,7 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from '../lib/supabase'
 import { analizarUrl } from '../lib/helpers'
-import { BUCKET_TALLERES, ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES } from '../config'
+import { BUCKET_TALLERES, ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, ICONO_TIPO, NOMBRE_TIPO } from '../config'
 import { ModalPortal, Breadcrumb, VideoPlayer, EmbedFrame, EditorBotonesExtra } from './ui'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
 

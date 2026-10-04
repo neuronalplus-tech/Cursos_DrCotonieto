@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Breadcrumb, BandaRedes, ModalPortal, EmbedFrame } from './ui'
-import { rutaAcceso, WHATSAPP, wa } from '../config'
+import { rutaAcceso, WHATSAPP, wa, FOTO_PERFIL } from '../config'
 
 /* ============================================================
    MENSAJES - bandeja (Supabase Realtime) + pagina completa
