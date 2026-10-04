@@ -1,0 +1,113 @@
+<!--
+  PLANTILLA DE CORREO — editable a mano
+  ======================================
+  Cómo usarla:
+   1. En el panel, Communicados, escribe el Asunto.
+   2. Pulsa el botón "</> HTML" de la barra de herramientas.
+   3. Borra lo que haya y pega este bloque entero.
+   4. Cierra el modo HTML. Solo cambia los textos marcados.
+
+  REGLAS IMPORTANTES (Gmail es exigente):
+   · SIEMPRE estilos en línea (style="..."). Gmail borra <style> y clases CSS.
+   · Nada de flex ni grid: usa <table> para maquetar.
+   · NO pongas tu firma al final: el script ya la agrega sola.
+
+  COLORES DE TU MARCA:
+   crema     #FAFAF8   fondo
+   pizarra   #1B3A4B   texto principal
+   terracota #C17A5E   acentos y reglas
+   gris      #8A9BAD   textos secundarios
+-->
+
+<!-- ============================ PRUEBA RÁPIDA ============================ -->
+<!-- Copia solo este bloque para comprobar que los colores y el botón funcionan. -->
+
+<h2 style="font-family:Georgia,serif;font-size:24px;color:#1B3A4B;margin:0 0 12px 0">
+  Título del comunicado
+</h2>
+
+<p style="font-size:15px;line-height:1.75;color:#1B3A4B;margin:0 0 14px 0">
+  Este párrafo lleva <strong>negrita</strong> y <em>cursiva</em> para comprobar que se ven bien.
+</p>
+
+<p style="font-size:15px;line-height:1.75;color:#1B3A4B;margin:0 0 14px 0">
+  Colores de tu marca: pizarra <span style="color:#1B3A4B">#1B3A4B</span>,
+  terracota <span style="color:#C17A5E">#C17A5E</span>,
+  gris <span style="color:#8A9BAD">#8A9BAD</span>.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 0 0">
+  <tr>
+    <td style="background:#1B3A4B;border-radius:6px;padding:13px 24px">
+      <a href="https://cursos-drcotonieto.neuronal-plus.workers.dev"
+         style="color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:600">
+        Ir a la plataforma
+      </a>
+    </td>
+  </tr>
+</table>
+
+<!-- ========================= PLANTILLA CON MARCA ========================= -->
+<!-- Cuando la prueba funcione, usa este bloque y cambia solo los textos. -->
+
+<div style="font-family:Helvetica,Arial,sans-serif;background:#FAFAF8;padding:28px 14px">
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF">
+    <tr><td style="height:6px;line-height:6px;background:#1B3A4B;font-size:0">&nbsp;</td></tr>
+
+    <tr>
+      <td style="padding:34px 40px">
+
+        <!-- ANTETÍTULO: se lee antes que el título -->
+        <div style="font-size:11px;letter-spacing:2.5px;color:#8A9BAD;margin:0 0 14px 0">
+          COMUNICADO
+        </div>
+
+        <!-- TÍTULO -->
+        <div style="font-family:Georgia,serif;font-size:26px;line-height:1.3;color:#1B3A4B;margin:0 0 18px 0">
+          Título del comunicado
+        </div>
+
+        <!-- RULETA TERRACOTA -->
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0">
+          <tr><td style="width:44px;height:2px;line-height:2px;background:#C17A5E;font-size:0">&nbsp;</td></tr>
+        </table>
+
+        <!-- BAJADA: la frase de apertura -->
+        <div style="font-size:16px;line-height:1.65;color:#1B3A4B;margin:0 0 16px 0">
+          Una línea que abre y resume el mensaje.
+        </div>
+
+        <!-- PÁRRAFOS -->
+        <div style="font-size:15px;line-height:1.75;color:#1B3A4B;margin:0 0 14px 0">
+          Primer párrafo. Escribe aquí el contenido principal del comunicado.
+        </div>
+
+        <div style="font-size:15px;line-height:1.75;color:#1B3A4B;margin:0 0 14px 0">
+          Segundo párrafo, por si necesitas separar ideas.
+        </div>
+
+        <!-- BOTÓN: quita la tabla entera si no lo necesitas -->
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 4px 0">
+          <tr>
+            <td style="background:#1B3A4B;border-radius:6px;padding:13px 24px">
+              <a href="https://cursos-drcotonieto.neuronal-plus.workers.dev"
+                 style="color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:600">
+                Ir a la plataforma
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <!-- PIE: texto pequeño antes de la firma automática -->
+        <div style="font-size:12.5px;line-height:1.6;color:#8A9BAD;margin:24px 0 0 0">
+          Texto pequeño de cierre, opcional.
+        </div>
+
+      </td>
+    </tr>
+
+    <tr><td style="height:6px;line-height:6px;background:#1B3A4B;font-size:0">&nbsp;</td></tr>
+  </table>
+
+</div>
