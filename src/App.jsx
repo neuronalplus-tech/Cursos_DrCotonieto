@@ -222,7 +222,7 @@ function App() {
             <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
             <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
             <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
-            <Route path="/foro/:cursoId" element={<ForoCurso user={user} esAdmin={esAdmin} />} />
+            <Route path="/foro/:cursoId" element={<ForoCurso user={user} />} />
           </Routes>
         </BarreraErrores>
       </main>

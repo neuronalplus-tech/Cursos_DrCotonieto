@@ -13,6 +13,7 @@ import { sanear, resumen, esTextoPlano, aTextoPlano } from '../lib/foro'
 import { rutaAcceso, FOTO_PERFIL } from '../config'
 import { Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import EditorForo from './EditorForo'
+import { usePermisos } from '../lib/permisos'
 import AdminForoModal from './AdminForoModal'
 
 /** "hace 5 min", "ayer", "12 de marzo": sin librerías de fechas. */
@@ -182,9 +183,15 @@ function ListaHilos({ hilos, abrir, totalRespuestas }) {
    · Texto libre con formato, y también HTML a mano.
    ============================================================ */
 
-export function ForoCurso({ user, esAdmin }) {
+export function ForoCurso({ user }) {
   const { cursoId } = useParams()
   const navigate = useNavigate()
+
+  // Quien gestiona este curso modera su foro: el admin siempre, y el
+  // facilitador solo en los cursos que tiene asignados. El permiso real
+  // lo impone RLS; esto solo decide que botones se pintan.
+  const { puedeGestionar } = usePermisos(user)
+  const gestionaCurso = puedeGestionar(cursoId)
 
   // `user` es un objeto NUEVO en cada refresco de sesión aunque sea la misma
   // persona. Si los efectos dependieran de `user`, se repetirían sin necesidad
@@ -432,7 +439,7 @@ export function ForoCurso({ user, esAdmin }) {
         <>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h1>Foro · {curso?.titulo || 'Curso'}</h1>
-            {esAdmin && (
+            {gestionaCurso && (
               <button type="button" className="button primary" onClick={() => setAdminForoAbierto(true)}>
                 🔧 Administrar foro
               </button>
@@ -483,7 +490,7 @@ export function ForoCurso({ user, esAdmin }) {
                 key={r.id}
                 r={{ ...r, autor_foto: r.autor_id === user.id ? perfil.foto : null }}
                 propio={r.autor_id === user.id}
-                esAdmin={esAdmin}
+                esAdmin={gestionaCurso}
                 deAdmin={esDeAdmin(r.autor_email)}
                 tituloHilo={hiloActual.titulo}
                 onBorrar={borrarRespuesta}
