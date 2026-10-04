@@ -11,7 +11,8 @@
     "check:texto": "node scripts/auditar-mojibake.mjs",
     "reparar:texto": "node scripts/reparar-mojibake.mjs --aplicar",
     "smoke": "vite build --ssr scripts/smoke-render.jsx --outDir .smoke --logLevel error && node .smoke/smoke-render.js",
-    "smoke:datos": "vite build --config vite.smoke.config.js --logLevel error && node .smoke-datos/smoke-datos.js"
+    "smoke:datos": "vite build --config vite.smoke.config.js --logLevel error && node .smoke-datos/smoke-datos.js",
+    "test:foro-ui": "vite build --config vite.foro.config.js --logLevel error && node .smoke-foro-ui/test-foro-ui.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",

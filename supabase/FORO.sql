@@ -194,6 +194,6 @@ select 'tiempo real' as que, count(*) as n
 -- =============================================================
 --  RESULTADO ESPERADO
 --  · tablas     = 2
---  · politicas  = 6
+--  · politicas  = 8
 --  · tiempo real= 2
 -- =============================================================

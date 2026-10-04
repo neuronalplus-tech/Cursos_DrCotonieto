@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { sanear, resumen, esTextoPlano } from '../lib/foro'
+import { sanear, resumen, esTextoPlano, aTextoPlano } from '../lib/foro'
 import { rutaAcceso, FOTO_PERFIL } from '../config'
 import { Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import EditorForo from './EditorForo'

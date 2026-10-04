@@ -972,9 +972,18 @@ a { color: var(--primary); }
   align-items: center;
   justify-content: center;
   padding: 20px;
+  /* Si el cuadro es más alto que la pantalla, el overlay es el que se
+     desplaza: sin esto los modales altos quedaban recortados abajo. */
+  overflow-y: auto;
   z-index: 600;
 }
-.modal-box {
+
+/* `.modal` es alias de `.modal-box`. El foro usaba "modal modal-ancho" y
+   esa clase no existía en la hoja: el cuadro salía sin fondo, sin alto
+   máximo y sin scroll, de modo que el botón de guardar quedaba fuera de
+   la pantalla y no había forma de cerrar los cambios. */
+.modal-box,
+.modal {
   background: var(--blanco);
   border-radius: 14px;
   padding: 28px;
@@ -984,13 +993,35 @@ a { color: var(--primary); }
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,.3);
 }
-.modal-box h3 { margin-top: 0; color: var(--primary); }
+.modal-box h3,
+.modal h3 { margin-top: 0; color: var(--primary); }
+
+/* Cuadro ancho: el editor del foro necesita más espacio que los modales
+   normales, y el contenido puede ser largo, así que se acota el alto. */
+.modal-ancho {
+  max-width: 760px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Barra de acciones fija al pie del cuadro: aunque el contenido sea largo
+   se llega siempre a "Guardar cambios", sin tener que desplazarse hasta
+   el final para encontrarlo. */
 .modal-botones {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+.modal-ancho .modal-botones {
+  position: sticky;
+  bottom: -28px;
+  margin-top: 18px;
+  padding: 14px 0 4px;
+  background: var(--blanco);
+  border-top: 1px solid var(--borde);
 }
 
 .modal-textarea {

@@ -14,7 +14,7 @@ import { sanear, resumen, aTextoPlano, esTextoPlano } from '../lib/foro'
 import { ModalPortal } from './ui'
 import EditorForo from './EditorForo'
 
-export default function AdminForo() {
+export default function AdminForo({ user }) {
   const [cursos, setCursos] = useState([])
   const [cursoId, setCursoId] = useState('')
   const [hilos, setHilos] = useState([])
@@ -26,6 +26,24 @@ export default function AdminForo() {
   const [titulo, setTitulo] = useState('')
   const [cuerpo, setCuerpo] = useState('')
   const [guardando, setGuardando] = useState(false)
+  // Nombre real del admin, para la firma del tema. Sin esto el INSERT
+  // guardaba autor_id = null y el NOT NULL de la tabla lo rechazaba.
+  const [autor, setAutor] = useState(null)
+
+  useEffect(() => {
+    if (!user) return
+    let vivo = true
+    ;(async () => {
+      const { data } = await supabase
+        .from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle()
+      if (!vivo) return
+      setAutor({
+        nombre: data?.nombre_completo || user.email || 'Administración',
+        email: user.email || '',
+      })
+    })()
+    return () => { vivo = false }
+  }, [user])
 
   useEffect(() => {
     ;(async () => {
@@ -40,12 +58,7 @@ export default function AdminForo() {
     if (!cursoId) return
     setCargando(true)
     ;(async () => {
-      const { data } = await supabase
-        .from('foro_hilos').select('*')
-        .eq('curso_id', cursoId)
-        .order('fijado', { ascending: false })
-        .order('actualizado_en', { ascending: false })
-      setHilos(data || [])
+      await recargar()
       setCargando(false)
     })()
   }, [cursoId])
@@ -66,28 +79,60 @@ export default function AdminForo() {
     setFormAbierto(true)
   }
 
-  const guardar = async () => {
+  const guardar = async (cuerpoFinal) => {
+    // Permite que el editor HTML pase el contenido ya saneado: al pulsar
+    // "Aplicar y guardar" se guarda exactamente eso, sin un segundo paso.
+    const contenido = cuerpoFinal !== undefined ? cuerpoFinal : cuerpo
     if (!titulo.trim()) return setMsg({ tipo: 'error', texto: 'El título es obligatorio.' })
     if (!cursoId) return setMsg({ tipo: 'error', texto: 'Elige un curso.' })
+    if (!user?.id) return setMsg({ tipo: 'error', texto: 'Tu sesión expiró. Vuelve a entrar.' })
     setGuardando(true)
     const payload = {
       curso_id: Number(cursoId),
       titulo: titulo.trim(),
-      cuerpo: sanear(cuerpo),
+      cuerpo: sanear(contenido),
       actualizado_en: new Date().toISOString(),
     }
+    // Al editar solo se manda el cuerpo; al crear, también la firma. Y la
+    // firma SIEMPRE es la del admin que pulsa, nunca la de un tema anterior.
     const { error } = editando
-      ? await supabase.from('foro_hilos').update(payload).eq('id', editando.id)
+      ? await supabase.from('foro_hilos').update({
+          ...payload,
+          autor_id: user.id,
+          autor_nombre: autor?.nombre || user.email || 'Administración',
+          autor_email: autor?.email || user.email || '',
+        }).eq('id', editando.id)
       : await supabase.from('foro_hilos').insert({
           ...payload,
-          autor_id: editando?.autor_id || null,
-          autor_nombre: editando?.autor_nombre || 'Dr. Ernesto Cotonieto',
-          autor_email: editando?.autor_email || '',
+          autor_id: user.id,
+          autor_nombre: autor?.nombre || user.email || 'Administración',
+          autor_email: autor?.email || user.email || '',
         })
     setGuardando(false)
     if (error) return setMsg({ tipo: 'error', texto: 'No se pudo guardar: ' + error.message })
+    // Se recarga la lista: si no, el tema nuevo no aparece hasta que se
+    // cambia de curso, y parece que el guardado no funcionó.
+    const { data: frescos } = await supabase
+      .from('foro_hilos').select('*')
+      .eq('curso_id', cursoId)
+      .order('fijado', { ascending: false })
+      .order('actualizado_en', { ascending: false })
+    setHilos(frescos || [])
     setFormAbierto(false)
     setMsg({ tipo: 'ok', texto: editando ? 'Tema actualizado.' : 'Tema publicado. Ya lo ven los inscritos.' })
+  }
+
+  const recargar = async (id = cursoId) => {
+    if (!id) return
+    // El id se manda como número a propósito: curso_id es un entero y el
+    // <select> da texto. Enviar "1" obliga a Postgres a coercir y hacia que
+    // las consultas no coincidan con la columna.
+    const { data } = await supabase
+      .from('foro_hilos').select('*')
+      .eq('curso_id', Number(id))
+      .order('fijado', { ascending: false })
+      .order('actualizado_en', { ascending: false })
+    setHilos(data || [])
   }
 
   const alternar = async (h, campo) => {
@@ -96,12 +141,14 @@ export default function AdminForo() {
       .update({ [campo]: !h[campo] })
       .eq('id', h.id)
     if (error) return setMsg({ tipo: 'error', texto: 'No se pudo cambiar: ' + error.message })
+    await recargar()
   }
 
   const borrar = async (h) => {
     if (!window.confirm(`¿Eliminar el tema "${h.titulo}" y todas sus respuestas?`)) return
     const { error } = await supabase.from('foro_hilos').delete().eq('id', h.id)
     if (error) return setMsg({ tipo: 'error', texto: 'No se pudo eliminar: ' + error.message })
+    await recargar()
     setMsg({ tipo: 'ok', texto: 'Tema eliminado.' })
   }
 return (
@@ -171,7 +218,7 @@ return (
                      placeholder="Ej. Duda sobre el caso del módulo 2" autoFocus />
 
               <label style={{ marginTop: 14 }}>Contenido</label>
-              <EditorForo valor={cuerpo} onChange={setCuerpo} minAlto={160} />
+              <EditorForo valor={cuerpo} onChange={setCuerpo} minAlto={160} onGuardar={guardar} />
 
               {msg && (
                 <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'} style={{ marginTop: 10 }}>

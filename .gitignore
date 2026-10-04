@@ -4,6 +4,7 @@ dist/
 # Salidas de las pruebas de render (scripts/smoke*.jsx)
 .smoke/
 .smoke-datos/
+.smoke-foro-ui/
 *.log
 
 # Archivos temporales de editores

@@ -1227,7 +1227,7 @@ function Admin({ user, esAdmin }) {
       )}
 
       {vista === 'foro' && (
-        <AdminForo />
+        <AdminForo user={user} />
       )}
 
       {editorHtmlAbierto && (

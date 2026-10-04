@@ -75,6 +75,29 @@ function tablas() {
 }
 
 /**
+ * Registro de escrituras para las pruebas de interacción.
+ *
+ * El doble antes ignoraba insert/update/delete, así que las pruebas solo
+ * podían comprobar que la vista se pinta, nunca que el botón de guardar
+ * llega a enviar algo. Ahora cada escritura queda anotada en
+ * globalThis.__ESCRITAS__ y las pruebas pueden verificar, entre otras
+ * cosas, que un tema nuevo va con autor_id de verdad y no a null.
+ */
+function anotar(tabla, operacion, datos) {
+  if (!globalThis.__ESCRITAS__) globalThis.__ESCRITAS__ = []
+  globalThis.__ESCRITAS__.push({ tabla, operacion, datos })
+}
+
+/** Deja el registro limpio. Lo llama cada prueba antes de empezar. */
+export function limpiarEscritas() {
+  globalThis.__ESCRITAS__ = []
+}
+
+export function escrituras() {
+  return globalThis.__ESCRITAS__ || []
+}
+
+/**
  * Query builder falso que APLICA los filtros.
  *
  * El cliente real encadena .from(tabla).select().eq().order() y devuelve un
@@ -149,7 +172,16 @@ function consulta(tabla) {
           return (n) => { limite = n; return proxy }
         case 'range':
           return (desde, hasta) => { filas = filas.slice(desde, hasta + 1); return proxy }
-        // select / update / insert / upsert / delete no transforman nada aqui
+        // insert / update / delete no transforman las filas; solo quedan anotados
+        // para que las pruebas de interacción vean lo que se intentó escribir.
+        case 'insert':
+          return (datos) => { anotar(tabla, 'insert', datos); return proxy }
+        case 'upsert':
+          return (datos) => { anotar(tabla, 'upsert', datos); return proxy }
+        case 'update':
+          return (datos) => { anotar(tabla, 'update', datos); return proxy }
+        case 'delete':
+          return () => { anotar(tabla, 'delete', null); return proxy }
         default:
           return () => proxy
       }

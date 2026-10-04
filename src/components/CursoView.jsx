@@ -19,6 +19,10 @@ function CursoView({ user, esAdmin }) {
   const [modulos, setModulos] = useState([])
   const [talleres, setTalleres] = useState([])
   const [miGrupo, setMiGrupo] = useState(null)
+  // Tener fila en `acceso` da acceso al curso, diga o no diga grupo.
+  // `miGrupo` a secas no servía para decidir esto: un alumno con acceso y
+  // sin ruta asignada tiene miGrupo === null y se le ocultaba el foro.
+  const [tieneAcceso, setTieneAcceso] = useState(false)
   const [progreso, setProgreso] = useState(0)
   const [estado, setEstado] = useState('cargando')
   const [error, setError] = useState(null)
@@ -48,12 +52,15 @@ function CursoView({ user, esAdmin }) {
         }
 
         let grupo = null
-        if (!esAdmin && !c.gratuito && user) {
+        let acceso = false
+        if (!esAdmin && user) {
           const { data: acc } = await supabase.from('acceso')
             .select('id, grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
-          if (acc) grupo = acc.grupo || null
+          if (acc) { grupo = acc.grupo || null; acceso = true }
         }
         setMiGrupo(grupo)
+        // Un curso gratuito se puede abrir sin fila en `acceso`.
+        setTieneAcceso(acceso || !!c.gratuito)
 
         const { data: mods, error: eM } = await supabase.from('modulos')
           .select('*').eq('curso_id', id).eq('activo', true).order('orden')
@@ -442,9 +449,10 @@ function CursoView({ user, esAdmin }) {
       </>
       )}
 
-      {/* Foro del curso: lo ve quien tenga acceso. El RLS es lo que de
-          verdad lo protege; este botón es solo la puerta de entrada. */}
-      {user && (
+      {/* Foro del curso: solo quien tiene acceso al curso (o el admin).
+          El RLS es lo que de verdad protege los datos; ocultar la puerta
+          de entrada evita el susto de entrar y no ver nada. */}
+      {(esAdmin || (user && tieneAcceso)) && (
         <section className="foro-acceso">
           <div>
             <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Foro del curso</h2>

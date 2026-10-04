@@ -28,7 +28,7 @@ const BOTONES = [
   { titulo: 'Quitar formato', cmd: 'removeFormat', etiqueta: '✕ Formato', peligro: true },
 ]
 
-export default function EditorForo({ valor, onChange, placeholder, minAlto = 140 }) {
+export default function EditorForo({ valor, onChange, placeholder, minAlto = 140, onGuardar }) {
   const [htmlAbierto, setHtmlAbierto] = useState(false)
   const [htmlTexto, setHtmlTexto] = useState('')
   const areaRef = useRef(null)
@@ -73,6 +73,10 @@ export default function EditorForo({ valor, onChange, placeholder, minAlto = 140
     if (areaRef.current) areaRef.current.innerHTML = limpio
     onChange(limpio)
     setHtmlAbierto(false)
+    // Si quien usa el editor tiene un botón de guardar (el tema, la
+    // respuesta), se guarda de una vez: entrar al HTML a retocar no
+    // debe dejar el trabajo a medias sin avisar.
+    if (onGuardar) onGuardar(limpio)
   }
 
   const limpiar = () => {
@@ -129,6 +133,7 @@ export default function EditorForo({ valor, onChange, placeholder, minAlto = 140
               <h3>Editar HTML</h3>
               <p className="sutil" style={{ marginBottom: 14 }}>
                 Pega o edita el HTML. Al aplicar se limpia lo que no esté permitido.
+                {onGuardar && ' El tema se guarda en cuanto apliques.'}
               </p>
               <textarea className="modal-textarea modal-textarea-html"
                         value={htmlTexto} onChange={(e) => setHtmlTexto(e.target.value)}
@@ -136,7 +141,9 @@ export default function EditorForo({ valor, onChange, placeholder, minAlto = 140
               <div className="modal-botones">
                 <button type="button" className="button secondary"
                         onClick={() => setHtmlAbierto(false)}>Cancelar</button>
-                <button type="button" className="button primary" onClick={aplicarHtml}>Aplicar HTML</button>
+                <button type="button" className="button primary" onClick={aplicarHtml}>
+                  {onGuardar ? 'Aplicar y guardar' : 'Aplicar al mensaje'}
+                </button>
               </div>
             </div>
           </div>
