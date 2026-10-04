@@ -101,15 +101,29 @@ create policy "intentos_delete_admin" on public.intentos_examen
   using (public.es_admin());
 
 -- -------------------------------------------------------------
--- 4) COMPROBACIÓN — debe devolver "true" con tu sesión de admin
+-- 4) COMPROBACIÓN
+--
+--  OJO: `select public.es_admin();` SIEMPRE devuelve false aquí.
+--  No es un fallo, es que en el SQL Editor no hay sesión iniciada: la
+--  función lee auth.jwt(), que sin un usuario autenticado devuelve NULL,
+--  y comparar contra NULL nunca es verdadero. Ese dato no dice nada.
+--
+--  Para comprobar de verdad, mira si tu correo está en la tabla:
 -- -------------------------------------------------------------
-select public.es_admin() as soy_admin;
+select email from public.admins order by email;
+
+-- ¿Ya existe la función y las políticas?
+select public.es_admin() as siempre_false_aqui;  -- informativo, no es prueba
+select tablename, policyname, cmd
+from pg_policies
+where schemaname = 'public' and tablename in ('examenes','intentos_examen')
+order by tablename, cmd;
 
 -- =============================================================
---  RESULTADO ESPERADO
---  · "soy_admin" = true  (si sale false, tu correo no está en `admins`)
---  · Con eso, el panel → 📝 Exámenes ya puede crear y guardar.
+--  CÓMO SABER QUE YA FUNCIONÓ
+--  La única prueba real es la de la app: entra al panel → 📝 Exámenes →
+--  Crear → escribe una pregunta → Crear examen. Si guarda, el RLS está bien.
 --
---  Si "soy_admin" sale false, agrega tu correo:
+--  Si tu correo NO aparece en la lista de arriba, agrégalo:
 --    insert into public.admins (email) values ('TU-CORREO@GMAIL.COM');
 -- =============================================================

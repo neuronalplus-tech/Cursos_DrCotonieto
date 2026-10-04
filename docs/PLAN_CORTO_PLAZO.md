@@ -24,9 +24,10 @@
 > decisión** de aplazar la compra del dominio (03/10): no bloquea nada más.
 >
 > **Pendiente que sí requiere acción tuya:** correr
-> `supabase/RLS_EXAMENES.sql` en el SQL Editor de Supabase y confirmar que
-> `select public.es_admin()` devuelve `true`. Sin eso no puedes crear ni
-> guardar exámenes desde el panel.
+> `supabase/RLS_EXAMENES.sql` en el SQL Editor de Supabase. Después,
+> **la única prueba válida es abrir el panel → 📝 Exámenes → Crear y guardar**:
+> `select public.es_admin()` en el SQL Editor siempre devuelve `false` porque
+> ahí no hay sesión iniciada, así que no sirve como comprobación.
 
 ---
 
@@ -436,7 +437,12 @@ npm run build
 git add -A && git commit -m "..." && git push origin main
 ```
 
-Los tres primeros se ejecutan en segundos y han encontrado **más bugs reales
-que la revisión manual**.
+## 8.5 Falsas alarmas que supimos resolver
+
+| Señal | Por qué NO es un problema |
+|---|---|
+| `select public.es_admin()` devuelve `false` en el SQL Editor | Ahí no hay sesión: la función lee `auth.jwt()`, que sin usuario devuelve NULL. **Siempre da false ahí.** La prueba real es guardar un examen desde el panel |
+| Aviso "Exposed Auth Users" en `vista_admin_inscripciones` | La vista es `security definer` y proyecta `auth.users`. No es una fuga si la vista tiene RLS restricting el SELECT a admins. Conviene revisarlo antes de abrir registro público |
+| Avisos "Auth RLS Initialization Plan" | Linter preventivo de Supabase: avisa de que RLS no está inicializado en tablas como `perfiles` o `acceso`. No es un error, solo señala que conviene hacerlo |
 
 
