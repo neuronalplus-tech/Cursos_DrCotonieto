@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { emitsConstancia, cursoEspecial } from '../lib/helpers'
+import { cursoEspecial } from '../lib/helpers'
 import { Breadcrumb, BandaRedes } from './ui'
 
 function CursoDetalle({ user, esAdmin }) {

@@ -1,5 +1,6 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import PortadaCurso from './PortadaCurso'
+import { LINEA_COPY } from '../config'
 
 export default function CarruselCursos({ lineas, cursos, onSelect }) {
   const slides = lineas.map((l) => {

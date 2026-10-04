@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { rutaAcceso, MARCA } from '../config'
+import { rutaAcceso, MARCA, wa } from '../config'
 import { ModalEditarTaller } from './TallerRecursos'
-import PortadaCurso from './PortadaCurso'
+import PortadaCurso, { motivoDe } from './PortadaCurso'
+import { esContenedorTalleres, cursoEspecial } from '../lib/helpers'
 
 function CursoCard({ curso: cursoProp, user, esAdmin, tieneAcceso }) {
   const [curso, setCurso] = useState(cursoProp)

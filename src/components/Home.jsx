@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { rutaAcceso } from '../config'
+import {
+  rutaAcceso, FOTO_PERFIL, MARCA, WA_CONSULTA,
+  SERVICIOS, CASOS, ENFOQUES, REDES,
+  ICONO_TIPO, NOMBRE_TIPO, LOGO_BLANCO, LOGO_CLARO,
+  ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES,
+  CONTACTO_EMAIL,
+} from '../config'
 import { WhatsAppFlotante, BandaRedes } from './ui'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
 import CarruselCursos from './CarruselCursos'

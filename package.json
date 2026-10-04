@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "node scripts/check-imports.mjs",
+    "smoke": "vite build --ssr scripts/smoke-render.jsx --outDir .smoke --logLevel error && node .smoke/smoke-render.js"
   },
   "dependencies": {
     "react": "^18.2.0",

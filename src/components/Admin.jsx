@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'

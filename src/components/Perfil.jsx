@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { AVATAR_BUCKET, REDES, LINEA_COPY } from '../config'
 import { Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
