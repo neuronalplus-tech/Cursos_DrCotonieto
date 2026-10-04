@@ -10,6 +10,82 @@
 
 ---
 
+## ⚠️ LECCIÓN PERMANENTE — Correo: los permisos de Google Apps Script
+
+> **Si estás leyendo esto y los correos "no llegan", empieza por aquí.**
+> Resuelto el 3 de octubre de 2026. Costó varias sesiones de diagnóstico.
+
+### El síntoma
+
+El Apps Script respondía `200 OK`, el `ping` funcionaba, la página mostraba
+"✓ enviado"... pero **no llegaba ningún correo**, ni a la bandeja de entrada ni
+a "Enviados" de Gmail.
+
+### La causa real
+
+**Google Apps Script no había autorizado el envío de correo.** El proyecto
+nunca se había ejecutado *desde el editor*, y el primer uso de `GmailApp`
+(o `MailApp`) mediante una web app **externa** no dispara el consentimiento.
+
+Consecuencia: el script corría, pero `GmailApp.sendEmail()` fallaba por falta
+de autorización, y el fallo quedaba escondido detrás de un `catch` genérico.
+
+### La solución
+
+Ejecutar **una vez** una función desde el propio editor y aprobar los permisos:
+
+1. Apps Script → en el desplegable de funciones elige **`testEnviar`**.
+2. Pulsa **▶ Ejecutar**.
+3. Acepta los permisos que pide Google ("Enviar correo en tu nombre",
+   "Acceder a tus datos"). Google pedirá la cuenta; acepta.
+4. Listo. A partir de ahí el envío funciona desde la web.
+
+Esa función `testEnviar()` existe en `apps-script/Notificador.gs` justamente
+para este propósito: manda un correo con lo mínimo (sin `from`, sin `replyTo`)
+y devuelve el resultado.
+
+### Regla para futuros despliegues
+
+> **Todo script de Apps Script nuevo, o al añadir un servicio nuevo
+> (Gmail, Drive, Calendar…), debe probarse una vez desde el editor con ▶**
+> antes de confiar en que funcionará desde la web.
+
+### Trampas relacionadas (también hubo que aprenderlas)
+
+| Trampa | Qué pasar | Cómo evitarla |
+|---|---|---|
+| **`fetch(..., {mode:'no-cors'})`** | El navegador descarta la respuesta: **imposible saber si se envió**. El panel decía "✓ enviado" siempre. | Ya no se usa. Ver `src/lib/correo.js`. |
+| **`?callback=` de Google** | **No envuelve la salida** (comprobado en un deployment real). El callback nunca se llamaba y todo iba a timeout. | El script devuelve él mismo `window.__appsCorreoRespuesta(reqid, {...})`. |
+| **Deployment desactualizado** | El editor se ve bien pero la URL sigue sirviendo código viejo. | El `ping` devuelve `version`; si no aparece, el deployment está viejo. **Ctrl+S no basta: hay que ir a *Implementar → Gestionar implementaciones → ✏️ → Versión: Nueva versión*.** |
+| **Varios deployments** | Cada implementación tiene su URL. Editar una mientras la web llama a otra = cambios invisibles. | Una sola implementación activa. Borrar las viejas. |
+| **`from` inválido** | Solo válido si es un **alias real** de la cuenta. Si no, Gmail responde *"Argumento no válido"* y **no sale ningún correo**. | `CONFIG.remitente` va **vacío a propósito**: sin `from`, Gmail envía desde la cuenta del script. |
+| **Sintaxis válida ≠ código bien colocado** | Un error de inserción puso helpers dentro de un `catch`. `node --check` pasaba, pero el código era inalcanzable. | Existe `supabase/test-correo.mjs`: ejecuta el `.gs` con stubs y verifica comportamiento. |
+
+### Herramientas de diagnóstico incluidas
+
+- **`testEnviar()`** — envía un correo mínimo y devuelve `OK` o el error.
+- **`testEstado()`** — muestra `version`, `remitente` y `cuenta`.
+- **`ping` por HTTP** — devuelve `version`, `remitenteEnElScript` y `cuentaQueEnvia`:
+
+```
+https://script.google.com/macros/s/<ID>/exec?payload=%7B%22tipo%22%3A%22ping%22%7D
+```
+
+Si ese ping **no** trae `version`, el deployment está sirviendo código viejo.
+
+### Cómo probar el circuito sin abrir la web
+
+```powershell
+$id = '<ID-del-deployment>'
+$base = "https://script.google.com/macros/s/$id/exec"
+$body = '{"tipo":"recurso-nuevo","curso":{"titulo":"Prueba"},"alumnos":[{"email":"correo@destino.com"}]}'
+Invoke-WebRequest -Uri "$base`?payload=$([System.Uri]::EscapeDataString($body))" -UseBasicParsing
+```
+
+Respuesta buena: `{"ok":true,"enviados":1,...}`.
+
+---
+
 ## Nota de alcance y limitaciones
 
 - Se leyó íntegramente el código local de `Cursos_DrCotonieto`: `src/App.jsx` (~5.6k líneas), `src/App (1).jsx` (respaldo), `package.json`, `vite.config.js`, `wrangler.jsonc`, `_redirects`, `.gitignore`.
