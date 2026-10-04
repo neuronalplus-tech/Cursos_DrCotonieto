@@ -75,6 +75,19 @@ function tablas() {
 }
 
 /**
+ * Compara como lo hace PostgREST: el valor de la URL llega siempre como TEXTO
+ * (`useParams()` devuelve "36"), y el servidor lo castea al tipo de la columna
+ * (`bigint`). Con `===` estricto, `f.curso_id === '1'` era siempre false y el
+ * foro salía VACÍO aunque hubiera temas: smoke-datos daba "OK" sin haber
+ * ejercitado nunca la lista con datos.
+ */
+function igual(a, b) {
+  if (a === b) return true
+  if (a == null || b == null) return false
+  return String(a) === String(b)
+}
+
+/**
  * Registro de escrituras para las pruebas de interacción.
  *
  * El doble antes ignoraba insert/update/delete, así que las pruebas solo
@@ -149,13 +162,13 @@ function consulta(tabla) {
 
       switch (prop) {
         case 'eq':
-          return (col, val) => { filas = filas.filter((f) => f[col] === val); return proxy }
+          return (col, val) => { filas = filas.filter((f) => igual(f[col], val)); return proxy }
         case 'neq':
-          return (col, val) => { filas = filas.filter((f) => f[col] !== val); return proxy }
+          return (col, val) => { filas = filas.filter((f) => !igual(f[col], val)); return proxy }
         case 'is':
           return (col, val) => { filas = filas.filter((f) => (val === null ? f[col] == null : f[col] === val)); return proxy }
         case 'in':
-          return (col, vals) => { filas = filas.filter((f) => (vals || []).includes(f[col])); return proxy }
+          return (col, vals) => { filas = filas.filter((f) => (vals || []).some((v) => igual(f[col], v))); return proxy }
         case 'gte':
           return (col, val) => { filas = filas.filter((f) => f[col] != null && f[col] >= val); return proxy }
         case 'gt':
@@ -198,6 +211,56 @@ function sesionActiva() {
   return globalThis.__SESION__ !== false
 }
 
+/**
+ * Canales de Realtime falsos que se comportan como los de verdad.
+ *
+ * Antes `channel()` devolvía un objeto nuevo e inocente, así que ninguna
+ * prueba podía ver el fallo real que dejaba la página en blanco. En el
+ * cliente real:
+ *   · `channel(tema)` REUTILIZA el canal que ya existe con ese tema, y
+ *   · `.on(...)` LANZA una excepción si el canal ya está suscrito:
+ *       "cannot add `postgres_changes` callbacks for ... after `subscribe()`"
+ * Como `removeChannel` es ASÍNCRONO (hace `await unsubscribe()` y luego
+ * suelta el canal), repetir el efecto con el mismo tema encontraba el canal
+ * viejo todavía vivo: la excepción dentro del useEffect desmontaba el árbol
+ * entero de React y la pantalla quedaba en blanco, sin menú ni pistas.
+ */
+const canales = new Map()
+
+function crearCanal(tema) {
+  const canal = {
+    tema,
+    suscrito: false,
+    bindings: [],
+    on(tipo, filtro, cb) {
+      // Mismo guardia que el cliente real.
+      if (canal.suscrito && (tipo === 'postgres_changes' || tipo === 'presence')) {
+        throw new Error(
+          `cannot add \`${tipo}\` callbacks for realtime:${tema} after \`subscribe()\`.`
+        )
+      }
+      canal.bindings.push({ tipo, filtro, cb })
+      return canal
+    },
+    subscribe(cb) {
+      canal.suscrito = true
+      if (cb) setTimeout(cb, 0)
+      return canal
+    },
+    unsubscribe() {
+      canal.suscrito = false
+      return Promise.resolve('ok')
+    },
+    teardown() {},
+  }
+  return canal
+}
+
+/** Lo usan las pruebas para comprobar cuántos canales quedaron vivos. */
+export function canalesFalsos() {
+  return canales
+}
+
 export const supabase = {
   from: (tabla) => consulta(tabla),
 
@@ -226,16 +289,19 @@ export const supabase = {
 
   rpc: async () => ({ data: [], error: null }),
 
-  channel: () => {
-    const c = {
-      on: () => c,
-      subscribe: (cb) => { if (cb) setTimeout(cb, 0); return c },
-      unsubscribe: () => {},
-    }
-    return c
+  // Reutiliza el canal con el mismo tema, igual que supabase-js.
+  channel: (tema) => {
+    if (!canales.has(tema)) canales.set(tema, crearCanal(tema))
+    return canales.get(tema)
   },
 
-  removeChannel: () => {},
+  removeChannel: async (canal) => {
+    if (!canal) return 'ok'
+    const estado = await canal.unsubscribe()
+    canal.teardown()
+    canales.delete(canal.tema)
+    return estado
+  },
 }
 
 export default supabase

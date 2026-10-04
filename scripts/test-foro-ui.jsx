@@ -245,6 +245,127 @@ async function main() {
     await app.desmontar()
   }
 
+  /* --- 6. sanear() no se cuelga con HTML pesado tipo Word --------------- */
+  console.log('\n6. sanear() con HTML pegado de Word no congela la vista')
+  {
+    const { sanear } = await import('../src/lib/foro.js')
+
+    // Lo que pega Word/Docs: cientos de etiquetas no permitidas anidadas.
+    let pesado = '<p>Inicio del tema.</p>'
+    for (let i = 0; i < 400; i++) {
+      pesado += `<font face="Arial"><span style="mso-bidi-font-weight:bold"><o:p>${i}</o:p> texto <b>con</b> formato <table><tr><td>celda</td></tr></table></span></font>`
+    }
+    pesado += '<p>Fin del tema.</p>'
+
+    const t0 = Date.now()
+    const limpio = sanear(pesado)
+    const ms = Date.now() - t0
+
+    comprobar('sanear() termina con HTML pesado (no congela)', limpio.includes('Fin del tema'), `tardo ${ms} ms`)
+    comprobar('sanear() termina rápido (< 2 s)', ms < 2000, `tardo ${ms} ms`)
+    comprobar('sanear() conserva el texto útil', limpio.includes('Inicio del tema'))
+    comprobar('sanear() quita las etiquetas de Word', !/<(font|o:)/i.test(limpio))
+    // Las anidadas se desenvuelven sin perder el contenido ni dejar scripts.
+    comprobar('sanear() anidado: <div><font><span>x</span></font></div> conserva x',
+      sanear('<div><font><span>x</span></font></div>').includes('x'))
+    comprobar('sanear() no deja pasar script anidado',
+      !/script/i.test(sanear('<div><font><script>alert(1)</scr' + 'ipt></font></div>')))
+  }
+
+  /* --- 7. El foro del alumno: entrar al tema no tumba la pantalla ------ */
+  console.log('\n7. El foro del alumno se abre y se puede entrar al tema')
+  {
+    // Reproduce el fallo reportado: la pantalla quedaba en blanco al entrar
+    // al foro cuando YA había un tema publicado (con la lista vacía el canal
+    // de Realtime nunca se creaba, y por eso no se veía en las pruebas).
+    globalThis.__ESCENARIO__ = 'completo'
+    const { MemoryRouter, Routes, Route } = await import('react-router-dom')
+    const ForoCurso = (await import('../src/components/ForoCurso.jsx')).default
+    const { canalesFalsos } = await import('./fake-supabase.js')
+
+    const ALUMNO = { id: 'u1', email: 'alumno@ejemplo.com' }
+    const contenedor = document.createElement('div')
+    document.body.appendChild(contenedor)
+    const raiz = createRoot(contenedor)
+
+    const vista = (u) => React.createElement(
+      MemoryRouter,
+      { initialEntries: ['/foro/1'] },
+      React.createElement(
+        Routes,
+        null,
+        React.createElement(Route, {
+          path: '/foro/:cursoId',
+          element: React.createElement(ForoCurso, { user: u, esAdmin: false }),
+        }),
+      ),
+    )
+
+    await act(async () => { raiz.render(vista(ALUMNO)) })
+    await act(async () => { await asentar(60) })
+
+    comprobar('El foro lista el tema publicado',
+      contenedor.textContent.includes('Bienvenida al foro'),
+      `texto: ${contenedor.textContent.slice(0, 80)}`)
+    comprobar('Se abre un canal de Realtime para el curso',
+      [...canalesFalsos().keys()].some((t) => t === `foro-1` || t.startsWith('foro-1-')),
+      `canales: ${[...canalesFalsos().keys()].join(', ') || '(ninguno)'}`)
+
+    // El disparador real del fallo: supabase emite un token refrescado y la
+    // app entrega un objeto `user` NUEVO con el MISMO id. Con las
+    // dependencias antiguas ([user, ...]) el efecto se repetía,
+    // `channel('foro-' + cursoId)` devolvía el canal todavía suscrito y
+    // `.on()` lanzaba:
+    //   "cannot add `postgres_changes` callbacks ... after `subscribe()`"
+    // Un error dentro de un useEffect no se recupera: React desmonta toda la
+    // app y la persona ve una pantalla blanca, sin menú ni pistas.
+    await act(async () => { raiz.render(vista({ ...ALUMNO })) })
+    await act(async () => { await asentar(40) })
+
+    comprobar('Un `user` nuevo con el mismo id no deja la pantalla en blanco',
+      contenedor.innerHTML.length > 400, `solo ${contenedor.innerHTML.length} car.`)
+    comprobar('No se apilan canales de Realtime para el mismo curso',
+      [...canalesFalsos().keys()].filter((t) => t === 'foro-1' || t.startsWith('foro-1-')).length <= 1,
+      `canales: ${[...canalesFalsos().keys()].join(', ') || '(ninguno)'}`)
+
+    // Entrar al tema: es lo que congelaba la vista.
+    const tema = [...contenedor.querySelectorAll('button')]
+      .find((b) => b.textContent.includes('Bienvenida al foro'))
+    await act(async () => { tema.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+    await act(async () => { await asentar(40) })
+
+    comprobar('Se puede abrir el tema', !!contenedor.querySelector('.foro-hilo-principal'))
+    comprobar('El editor de respuesta aparece', !!contenedor.querySelector('.editor-foro-cuerpo'))
+    comprobar('Se listan las respuestas del tema',
+      contenedor.querySelectorAll('.foro-respuesta').length === 1,
+      `encontradas: ${contenedor.querySelectorAll('.foro-respuesta').length}`)
+
+    await act(async () => { raiz.unmount() })
+    contenedor.remove()
+  }
+
+  /* --- 8. El doble de canales imita al cliente real -------------------- */
+  console.log('\n8. El doble de Realtime se comporta como el cliente real')
+  {
+    // Sin esto, la prueba anterior no podría ver este fallo: el doble
+    // devolvía un canal nuevo e inocente en cada llamada.
+    const { supabase } = await import('./fake-supabase.js')
+
+    const c1 = supabase.channel('tema-de-prueba')
+    c1.on('postgres_changes', { event: '*' }, () => {}).subscribe()
+    comprobar('channel() reutiliza el canal del mismo tema',
+      supabase.channel('tema-de-prueba') === c1)
+
+    let lanzo = false
+    try {
+      supabase.channel('tema-de-prueba').on('postgres_changes', { event: '*' }, () => {})
+    } catch { lanzo = true }
+    comprobar('.on() lanza si el canal ya está suscrito (como el cliente real)', lanzo)
+
+    await supabase.removeChannel(c1)
+    comprobar('removeChannel libera el tema', supabase.channel('tema-de-prueba') !== c1)
+  }
+
   console.log('\n' + '='.repeat(56))
   console.log(`${ok} comprobaciones OK · ${fallos.length} con error`)
   for (const [n, m] of fallos) console.log(`  x ${n}: ${m}`)

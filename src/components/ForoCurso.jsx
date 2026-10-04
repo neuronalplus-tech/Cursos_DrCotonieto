@@ -6,7 +6,7 @@
    · Las respuestas nuevas aparecen solas (Supabase Realtime).
    ============================================================ */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { sanear, resumen, esTextoPlano, aTextoPlano } from '../lib/foro'
@@ -31,6 +31,14 @@ function iniciales(nombre) {
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase()
 }
 
+// Nombre de canal de Realtime único por suscripción.
+//
+// `supabase.channel(tema)` reutiliza el canal existente con ese tema y
+// `.on(...)` lanza si ya está suscrito. Con un contador, cada montaje pide
+// un canal distinto y no puede chocar con el anterior mientras el suyo se
+// está cerrando (removeChannel es asíncrono).
+let CANAL_FORO = 0
+
 /* ------------------------------------------------------------
    TARJETA DE RESPUESTA
    ------------------------------------------------------------ */
@@ -38,6 +46,11 @@ function Respuesta({ r, propio, esAdmin, onBorrar }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(r.cuerpo || '')
   const [guardando, setGuardando] = useState(false)
+  // `sanear()` recorre el DOM: se memoriza por respuesta para no repetirlo
+  // en cada tecla que se escribe en el editor de abajo. Sin esto, con un
+  // tema pesado cada pulsación re-saneaba TODAS las respuestas y la vista
+  // del hilo se sentía congelada.
+  const cuerpoSano = useMemo(() => sanear(r.cuerpo), [r.cuerpo])
 
   const guardar = async () => {
     setGuardando(true)
@@ -78,7 +91,7 @@ function Respuesta({ r, propio, esAdmin, onBorrar }) {
         </>
       ) : (
         <>
-          <div className="foro-texto" dangerouslySetInnerHTML={{ __html: sanear(r.cuerpo) }} />
+          <div className="foro-texto" dangerouslySetInnerHTML={{ __html: cuerpoSano }} />
           <div className="foro-respuesta-pie">
             {r.editado && <span className="nota">editado</span>}
             {!esTextoPlano(r.cuerpo) && <span className="nota">con formato</span>}
@@ -101,7 +114,14 @@ function Respuesta({ r, propio, esAdmin, onBorrar }) {
    LISTA DE HILOS
    ------------------------------------------------------------ */
 function ListaHilos({ hilos, abrir, totalRespuestas }) {
-  if (!hilos.length) {
+  // Los resúmenes se memorizan por lista: `resumen()` sanea cada cuerpo,
+  // y sin esto cada tecla del editor re-saneaba TODOS los temas.
+  const items = useMemo(
+    () => hilos.map((h) => ({ h, txt: h.cuerpo ? resumen(h.cuerpo) : '' })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hilos.map((h) => `${h.id}:${(h.cuerpo || '').length}`).join('|')],
+  )
+  if (!items.length) {
     return (
       <div className="foro-vacio">
         <p className="bloque-icono">🗨️</p>
@@ -116,7 +136,7 @@ function ListaHilos({ hilos, abrir, totalRespuestas }) {
 
   return (
     <div className="foro-lista">
-      {hilos.map((h) => (
+      {items.map(({ h, txt }) => (
         <button key={h.id} type="button" className={`foro-hilo${h.fijado ? ' fijado' : ''}`}
                 onClick={() => abrir(h.id)}>
           <div className="foro-hilo-cab">
@@ -124,7 +144,7 @@ function ListaHilos({ hilos, abrir, totalRespuestas }) {
             {h.cerrado && <span className="foro-insignia cerrado" title="Cerrado">🔒 Cerrado</span>}
             <strong className="foro-hilo-titulo">{h.titulo}</strong>
           </div>
-          {h.cuerpo ? <p className="foro-hilo-resumen">{resumen(h.cuerpo)}</p> : null}
+          {txt ? <p className="foro-hilo-resumen">{txt}</p> : null}
           <div className="foro-hilo-pie">
             <span className="nota">{h.autor_nombre}</span>
             <span className="nota">·</span>
@@ -152,10 +172,16 @@ export function ForoCurso({ user, esAdmin }) {
   const { cursoId } = useParams()
   const navigate = useNavigate()
 
+  // `user` es un objeto NUEVO en cada refresco de sesión aunque sea la misma
+  // persona. Si los efectos dependieran de `user`, se repetirían sin necesidad
+  // (recargas + re-suscripciones a Realtime). Se depende del id, que es estable.
+  const uid = user?.id
+  const uemail = user?.email
+
   const [curso, setCurso] = useState(null)
   const [hilos, setHilos] = useState([])
   const [respuestas, setRespuestas] = useState([])
-  const [abierto, setAbierto] = useState(null)
+  const [hiloId, setHiloId] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [perfil, setPerfil] = useState({ nombre: '', email: '', foto: null })
@@ -168,23 +194,25 @@ export function ForoCurso({ user, esAdmin }) {
 
   /* --- Identidad: el nombre sale del perfil, y si no, del correo. --- */
   useEffect(() => {
-    if (!user) return
+    if (!uid) return
+    const id = uid
+    const correo = uemail
     let vivo = true
     ;(async () => {
       const { data } = await supabase
         .from('perfiles')
         .select('nombre_completo, avatar_url')
-        .eq('id', user.id)
+        .eq('id', id)
         .maybeSingle()
       if (!vivo) return
       setPerfil({
-        nombre: data?.nombre_completo || user.email || 'Participante',
-        email: user.email || '',
+        nombre: data?.nombre_completo || correo || 'Participante',
+        email: correo || '',
         foto: data?.avatar_url || null,
       })
     })()
     return () => { vivo = false }
-  }, [user])
+  }, [uid, uemail])
 
   /* --- Datos del curso, hilos y respuestas --- */
   const cargar = async () => {
@@ -219,28 +247,80 @@ export function ForoCurso({ user, esAdmin }) {
   }
 
   useEffect(() => {
-    if (!user) { navigate(rutaAcceso(`/foro/${cursoId}`)); return }
+    if (!uid) { navigate(rutaAcceso(`/foro/${cursoId}`)); return }
+    let vivo = true
     setCargando(true)
-    cargar()
-  }, [cursoId, user])
+    cargar().catch(() => { if (vivo) setError('No se pudo cargar el foro.') })
+    return () => { vivo = false }
+    // cargar() se redefine en cada render, pero NO es dependencia: meterla
+    // aquí repetiría la carga en cada render (cargar → setHilos → render →
+    // cargar → …) y congelaría la vista del hilo. Solo curso/usuario recargan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursoId, uid])
 
-  /* --- Tiempo real: las respuestas nuevas aparecen solas --- */
+  /* ------------------------------------------------------------
+     Tiempo real: las respuestas nuevas aparecen solas.
+
+     POR QUÉ ESTÁ ESCRITO ASÍ (fue la causa de la pantalla en blanco):
+
+     1. `supabase.channel(tema)` REUTILIZA el canal si ya existe uno con
+        ese tema, y `.on(...)` LANZA una excepción si el canal ya está
+        suscrito:
+            "cannot add postgres_changes callbacks for ... after subscribe()"
+        Como la limpieza (`supabase.removeChannel`) es ASÍNCRONA, al
+        repetirse el efecto (cambia el usuario, cambia la lista de temas,
+        se vuelve a entrar al foro…) `channel('foro-' + cursoId)` devolvía
+        el canal anterior todavía vivo y `.on()` explotaba. Un error
+        lanzado dentro de un useEffect no se puede recuperar: React
+        desmonta la página ENTERA y queda en blanco.
+
+        Solución: un nombre de canal único por suscripción, así cada
+        efecto tiene su canal y su propia limpieza.
+
+     2. El callback usa `cargarRef`, no `cargar` directo: así el canal
+        (creado una sola vez) llama siempre a la versión fresca de
+        `cargar`, sin obligar a re-suscribir cuando cambian los temas.
+
+     3. El filtro anterior `hilo_id=in.` + ids.join(',') estaba mal
+        formado: el cliente exige `in.(1,2,3)`. Se quita el filtro de
+        respuestas: la RLS decide qué filas puede ver este usuario, y el
+        foro solo muestra las de ESTE curso, así que no se filtra por
+        hilo. Además, filtrar por ids obligaría a re-suscribir cada vez
+        que se abre un tema nuevo (justo el camino que rompía).
+     ------------------------------------------------------------ */
+  const cargarRef = useRef(cargar)
+  useEffect(() => { cargarRef.current = cargar })
+
   useEffect(() => {
-    if (!user || !hilos.length) return
-    const ids = hilos.map((h) => h.id)
+    if (!uid || !cursoId) return
+    let vivo = true
+    const avisar = () => { if (vivo) cargarRef.current() }
+
+    // Tema único por suscripción (usa el contador CANAL_FORO): el cliente
+    // reutiliza el canal con el mismo tema y `.on()` lanza si ya está
+    // suscrito. Con tema fijo, repetir el efecto (p. ej. objeto `user` nuevo
+    // con el mismo id tras refrescar el token) encontraba el canal viejo aún
+    // vivo y explotaba dentro del useEffect → React desmontaba todo (pantalla
+    // blanca). Con tema único cada efecto tiene su canal y su limpieza, y al
+    // depender de `uid` (string estable) ni siquiera se repite sin necesidad.
     const canal = supabase
-      .channel('foro-' + cursoId)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'foro_respuestas',
-        filter: 'hilo_id=in.' + ids.join(','),
-      }, () => { cargar() })
+      .channel(`foro-${cursoId}-${++CANAL_FORO}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'foro_hilos',
         filter: 'curso_id=eq.' + cursoId,
-      }, () => { cargar() })
+      }, avisar)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'foro_respuestas',
+      }, avisar)
       .subscribe()
-    return () => { supabase.removeChannel(canal) }
-  }, [user, cursoId, hilos.map((h) => h.id).join(',')])
+
+    return () => {
+      vivo = false
+      if (canal) {
+        try { supabase.removeChannel(canal) } catch { /* ya estaba cerrado */ }
+      }
+    }
+  }, [uid, cursoId])
 
   /* --- Responder: cualquier inscrito, sin pedir autorización --- */
   const responder = async () => {
@@ -252,7 +332,7 @@ export function ForoCurso({ user, esAdmin }) {
     setEnviando(true)
     setAviso(null)
     const { error } = await supabase.from('foro_respuestas').insert({
-      hilo_id: abierto.id,
+      hilo_id: hiloId,
       autor_id: user.id,
       autor_nombre: perfil.nombre,
       autor_email: perfil.email,
@@ -277,8 +357,22 @@ export function ForoCurso({ user, esAdmin }) {
   }
 
   /* --- Derivados --- */
-  const hiloActual = abierto ? hilos.find((h) => h.id === abierto.id) : null
-  const delHilo = abierto ? respuestas.filter((r) => r.hilo_id === abierto.id) : []
+  // El hilo abierto y sus respuestas se derivan del estado. NUNCA pasar
+  // por setState dentro de un efecto/lectura: antes `abierto` era un
+  // objeto `{ id }` nuevo en cada clic y un efecto lo reescribía, lo que
+  // en la vista del hilo provocaba re-renders en cadena (congelamiento).
+  // Ahora `hiloId` es un primitivo (número|null) y esta lectura es pura.
+  const hiloActual = hiloId != null ? hilos.find((h) => h.id === hiloId) : null
+  const delHilo = hiloId != null ? respuestas.filter((r) => r.hilo_id === hiloId) : []
+  // El cuerpo del tema se sanea UNA vez por tema abierto, no en cada
+  // render: con HTML pesado, sanear en el JSX congelaba la vista al
+  // escribir cada letra en el editor de respuesta.
+  const cuerpoDelHilo = hiloActual?.cuerpo
+  const cuerpoHiloSano = useMemo(
+    () => (cuerpoDelHilo ? sanear(cuerpoDelHilo) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hiloId, cuerpoDelHilo],
+  )
   const conteo = {}
   for (const r of respuestas) {
     if (r.borrada) continue
@@ -303,12 +397,12 @@ export function ForoCurso({ user, esAdmin }) {
             Espacio de duda y reflexión del grupo. Solo tú y las personas inscritas
             en este curso pueden leerlo.
           </p>
-          <ListaHilos hilos={hilos} abrir={(id) => setAbierto({ id })} totalRespuestas={conteo} />
+          <ListaHilos hilos={hilos} abrir={(id) => setHiloId(id)} totalRespuestas={conteo} />
         </>
       ) : (
         <>
           <button type="button" className="enlace-texto" style={{ marginBottom: 14 }}
-                  onClick={() => { setAbierto(null); setAviso(null) }}>
+                  onClick={() => { setHiloId(null); setAviso(null) }}>
             ← Volver a todos los temas
           </button>
 
@@ -329,7 +423,7 @@ export function ForoCurso({ user, esAdmin }) {
               </div>
             </div>
             <div className="foro-texto" style={{ marginTop: 12 }}
-                 dangerouslySetInnerHTML={{ __html: sanear(hiloActual.cuerpo) }} />
+                 dangerouslySetInnerHTML={{ __html: cuerpoHiloSano }} />
           </article>
 
           <h2 className="foro-sub">{delHilo.filter((r) => !r.borrada).length} respuesta(s)</h2>

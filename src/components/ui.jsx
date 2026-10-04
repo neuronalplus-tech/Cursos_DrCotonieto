@@ -4,10 +4,54 @@
    durante el refactor (etapa 2b). Mismo render, mismo comportamiento.
    ============================================================ */
 
+import { Component } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { analizarUrl } from '../lib/helpers'
 import { WA_CONSULTA, LOGO_BLANCO, MARCA, REDES, ESTILOS_BOTON } from '../config'
+
+/* ------------------------------------------------------------
+   BARRERA DE ERRORES
+   ------------------------------------------------------------
+   Un error lanzado al pintar (o dentro de un useEffect) que nadie
+   captura desmonta TODA la aplicación: la pantalla queda en blanco, sin
+   menú ni pista de qué pasó. Fue justo lo que ocurrió con el foro.
+
+   Con esta barrera se ve un aviso con el motivo y el resto de la web
+   sigue en pie. Se remonta sola al cambiar de ruta (ver `key` en App).
+   ------------------------------------------------------------ */
+export class BarreraErrores extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  componentDidCatch(error, info) {
+    console.error('Error al pintar la pantalla:', error, info?.componentStack)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <section className="contenedor">
+          <h2 className="titulo-seccion">Algo se rompió al cargar esta pantalla</h2>
+          <p className="aviso-error" style={{ marginBottom: 14 }}>
+            {String(this.state.error?.message || this.state.error)}
+          </p>
+          <button type="button" className="button primary"
+                  onClick={() => this.setState({ error: null })}>
+            Reintentar
+          </button>
+        </section>
+      )
+    }
+    return this.props.children
+  }
+}
 
 /* ------------------------------------------------------------
    PORTAL DE MODALES

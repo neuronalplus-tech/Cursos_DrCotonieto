@@ -38,7 +38,7 @@ import {
 } from './components/AdminModales'
 import {
   ModalPortal, Breadcrumb, WhatsAppFlotante, BandaRedes, NavegacionFlotante,
-  VideoPlayer, EmbedFrame, EditorBotonesExtra,
+  VideoPlayer, EmbedFrame, EditorBotonesExtra, BarreraErrores,
 } from './components/ui'
 import { jsPDF } from 'jspdf'  
 import './App.css'
@@ -201,6 +201,9 @@ function App() {
   const [message, setMessage] = useState('')
   const [nombreUsuario, setNombreUsuario] = useState('')
   const navigate = useNavigate()
+  // La barrera de errores se remonta en cada ruta: un fallo pasajero en una
+  // pantalla no debe dejar a la persona atrapada en el aviso de error.
+  const { pathname } = useLocation()
 
   useEffect(() => {
     async function load() {
@@ -249,18 +252,20 @@ function App() {
     <>
       <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} nombreUsuario={nombreUsuario} />
       <main className="app-main">
-        <Routes>
-          <Route path="/" element={<Home user={user} esAdmin={esAdmin} />} />
-          <Route path="/acceso" element={<Login message={message} />} />
-          <Route path="/perfil" element={<Perfil user={user} />} />
-          <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
-          <Route path="/curso/:id" element={<CursoView user={user} esAdmin={esAdmin} />} />
-          <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} esAdmin={esAdmin} />} />
-          <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
-          <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
-          <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
-          <Route path="/foro/:cursoId" element={<ForoCurso user={user} esAdmin={esAdmin} />} />
-        </Routes>
+        <BarreraErrores key={pathname}>
+          <Routes>
+            <Route path="/" element={<Home user={user} esAdmin={esAdmin} />} />
+            <Route path="/acceso" element={<Login message={message} />} />
+            <Route path="/perfil" element={<Perfil user={user} />} />
+            <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
+            <Route path="/curso/:id" element={<CursoView user={user} esAdmin={esAdmin} />} />
+            <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} esAdmin={esAdmin} />} />
+            <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
+            <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
+            <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
+            <Route path="/foro/:cursoId" element={<ForoCurso user={user} esAdmin={esAdmin} />} />
+          </Routes>
+        </BarreraErrores>
       </main>
       <WhatsAppFlotante />
     </>

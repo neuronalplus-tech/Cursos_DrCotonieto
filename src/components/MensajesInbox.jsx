@@ -9,6 +9,11 @@ import { rutaAcceso, WHATSAPP, wa, FOTO_PERFIL } from '../config'
    Extraido de App.jsx en el refactor (etapa 2c).
    ============================================================ */
 
+// Contador de canales de Realtime. `supabase.channel(tema)` reutiliza el
+// canal con ese tema y `.on(...)` lanza si ya está suscrito, así que cada
+// suscripción pide un tema propio. Ver el comentario del efecto.
+let CANAL_INBOX = 0
+
 /* ============================================================
    MENSAJES · INBOX (Supabase Realtime)
    ============================================================ */
@@ -129,25 +134,42 @@ export default function MensajesInbox({ user, esAdmin }) {
 
   useEffect(() => {
     if (!user) return
-    const canal = supabase
-      .channel('inbox-' + user.id)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'mensajes' },
-        (payload) => {
-          const m = payload.new
-          if (m.de_id !== user.id && m.para_id !== user.id) return
-          if (chatCon && !modoEnvioMultiple) {
-            const esDeEsta =
-              (m.de_id === user.id && m.para_id === chatCon) ||
-              (m.de_id === chatCon && m.para_id === user.id)
-            if (esDeEsta) {
-              setMensajes(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
+    // El nombre del canal lleva un contador a propósito.
+    // `supabase.channel(tema)` REUTILIZA el canal existente y `.on(...)`
+    // LANZA una excepción si el canal ya está suscrito:
+    //   "cannot add postgres_changes callbacks for ... after subscribe()"
+    // Como este efecto se repite al abrir otro chat (chatCon cambia) y
+    // `removeChannel` es asíncrono, el tema fijo devolvía el canal viejo
+    // todavía vivo: la excepción dentro del useEffect tumbaba el árbol
+    // entero de React y la página quedaba en blanco.
+    let canal = null
+    try {
+      canal = supabase
+        .channel(`inbox-${user.id}-${++CANAL_INBOX}`)
+        .on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'mensajes' },
+          (payload) => {
+            const m = payload.new
+            if (m.de_id !== user.id && m.para_id !== user.id) return
+            if (chatCon && !modoEnvioMultiple) {
+              const esDeEsta =
+                (m.de_id === user.id && m.para_id === chatCon) ||
+                (m.de_id === chatCon && m.para_id === user.id)
+              if (esDeEsta) {
+                setMensajes(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
+              }
             }
           }
-        }
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(canal) }
+        )
+        .subscribe()
+    } catch (e) {
+      // Sin Realtime la bandeja sigue funcionando: solo se pierde la
+      // llegada automática de mensajes.
+      console.warn('Tiempo real de mensajes no disponible:', e?.message || e)
+    }
+    return () => {
+      if (canal) { try { supabase.removeChannel(canal) } catch { /* ya cerrado */ } }
+    }
   }, [user, chatCon, modoEnvioMultiple])
 
   useEffect(() => {

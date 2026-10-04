@@ -28,17 +28,24 @@ export function sanear(html) {
   const doc = new DOMParser().parseFromString(String(html), 'text/html')
 
   const limpiar = (nodo) => {
+    // Recorrido en una sola pasada: cada hijo se visita una vez.
+    // (Antes, al desenvolver una etiqueta no permitida se volvía a
+    // escanear el nodo desde cero con `limpiar(nodo); return`, lo que
+    // con HTML pegado de Word/Docs —cientos de <font>, <o:p>,
+    // <table>...— se volvía cuadrático y congelaba la vista del hilo.)
     for (const hijo of [...nodo.childNodes]) {
       if (hijo.nodeType === 3) continue
       if (hijo.nodeType !== 1) { hijo.remove(); continue }
 
       const et = hijo.tagName.toLowerCase()
-      if (!(et in ETIQUETAS)) {
-        // Etiqueta no permitida: se conserva su texto y se suelta la etiqueta.
+      if (!Object.hasOwn(ETIQUETAS, et)) {
+        // Etiqueta no permitida: primero se limpia por dentro (por si
+        // trae atributos o anidados raros) y luego se desenvuelve,
+        // conservando su texto/contenido pero soltando la etiqueta.
+        limpiar(hijo)
         while (hijo.firstChild) nodo.insertBefore(hijo.firstChild, hijo)
         hijo.remove()
-        limpiar(nodo)
-        return
+        continue
       }
       for (const attr of [...hijo.attributes]) {
         if (!ETIQUETAS[et].includes(attr.name.toLowerCase())) {
