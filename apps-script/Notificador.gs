@@ -27,6 +27,8 @@
  * ============================================================================
  */
 
+const VERSION = '2026-10-03.v4-fallback-remitente';
+
 const CONFIG = {
   // Opcional. Solo úsalo si es un ALIAS de la cuenta que ejecuta el script.
   // Si está mal escrito o no es alias, Gmail responde "Argumento no válido" y
@@ -55,6 +57,10 @@ function responder(e) {
     if (tipo === 'ping') {
       return responderCon(reqid, {
         ok: true,
+        version: VERSION,
+        // Esto permite ver qué código está VIVO de verdad, sin adivinar.
+        remitenteEnElScript: CONFIG.remitente,
+        tieneFallbackRemitente: (typeof enviarUno === 'function'),
         mensaje: 'Conexión OK. El script está desplegado y responde.'
       });
     }
