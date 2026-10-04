@@ -27,7 +27,7 @@
  * ============================================================================
  */
 
-const VERSION = '2026-10-03.v5-plantilla-marca';
+const VERSION = '2026-10-03.v4-fallback-remitente';
 
 const CONFIG = {
   // VACÍO A PROPÓSITO, y no es descuido.
@@ -44,41 +44,6 @@ const CONFIG = {
   remitente: '',
   replyTo: 'neuronal.plus@gmail.com',
   linkPortal: 'https://cursos-drcotonieto.neuronal-plus.workers.dev',
-};
-
-/**
- * ════════════════════════════════════════════════════════════════════════
- *  MARCA — plantilla base de los correos
- * ════════════════════════════════════════════════════════════════════════
- *  Solo se edita el CONTENIDO: el envoltorio con la marca vive aquí y no se
- *  toca nunca. Desde la web se envía:
- *
- *      contenido: {
- *        antetitulo: 'NUEVO MATERIAL',        // opcional, sale en versalitas
- *        titulo:     'Título del correo',
- *        bajada:     'Una línea de apertura',  // opcional
- *        parrafos:   ['Texto 1', 'Texto 2'],
- *        botones:    [{ texto: 'Ir al material', url: 'https://...' }],
- *        pie:        'Texto pequeño del pie'   // opcional
- *      }
- *
- *  Si no viene `contenido`, el script lo arma según el tipo de envío.
- *  El HTML usa <table> y estilos en línea porque Gmail no soporta flex/grid.
- *  Para cambiar colores o textos fijos de la marca, edita SOLO este bloque.
- */
-const MARCA = {
-  colores: {
-    crema:     '#FAFAF8',
-    pizarra:   '#1B3A4B',
-    terracota: '#C17A5E',
-    gris:      '#8A9BAD',
-    borde:     '#E7E7E2',
-  },
-  nombre:   'Dr. Ernesto Cotonieto',
-  cargo:    'Psicología especializada basada en evidencia',
-  contacto: '@dr.cotonieto · fb.com/dr.cotonieto · 56 3784 1931',
-  sitio:    'https://cursos-drcotonieto.neuronal-plus.workers.dev',
-  ancho:    560,
 };
 
 function doPost(e) {
@@ -286,187 +251,45 @@ function cuerpoTexto(d, html) {
   var bruto = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
   return bruto.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
 }
-/**
- * Construye el HTML del correo con la marca.
- * Usa el `contenido` que manda la web; si no viene, lo arma por tipo.
- */
 function cuerpoHtml(d) {
-  var contenido = normalizarContenido(d.contenido) || contenidoPorDefecto(d);
-  return plantilla(contenido);
-}
-
-/** Completa y sanea lo que llega de la web. */
-function normalizarContenido(c) {
-  if (!c) return null;
-  var out = {
-    antetitulo: String(c.antetitulo || '').trim(),
-    titulo:     String(c.titulo || '').trim(),
-    bajada:     String(c.bajada || '').trim(),
-    pie:        String(c.pie || '').trim(),
-    parrafos:   [],
-    botones:    []
-  };
-  var ps = Array.isArray(c.parrafos) ? c.parrafos : (c.parrafos ? [c.parrafos] : []);
-  for (var i = 0; i < ps.length; i++) {
-    var p = String(ps[i] || '').trim();
-    if (p) out.parrafos.push(p);
-  }
-  var bs = Array.isArray(c.botones) ? c.botones : [];
-  for (var j = 0; j < bs.length; j++) {
-    var b = bs[j] || {};
-    var txt = String(b.texto || b.label || '').trim();
-    var url = String(b.url || b.href || '').trim();
-    if (txt && url) out.botones.push({ texto: txt, url: url });
-  }
-  return (out.titulo || out.parrafos.length || out.botones.length) ? out : null;
-}
-
-/** Contenido por defecto según el tipo de envío. */
-function contenidoPorDefecto(d) {
-  var curso = (d.curso && d.curso.titulo) ? d.curso.titulo : 'la plataforma';
-  var url = d.curso && d.curso.url ? d.curso.url : '';
-
+  if (d.cuerpoHtml) return envolver(d.cuerpoHtml);
   if (d.tipo === 'recurso-nuevo') {
     var r = d.recurso || {};
-    var p = [];
-    if (r.descripcion) p.push(String(r.descripcion));
-    p.push('Ya puedes verlo dentro de tu curso.');
-    return {
-      antetitulo: 'NUEVO MATERIAL',
-      titulo: r.titulo || 'Material nuevo',
-      parrafos: p,
-      botones: url ? [{ texto: 'Ir al material', url: url }] : []
-    };
+    return envolver(
+      '<p>Se acaba de publicar un material nuevo:</p>' +
+      '<p style="font-size:18px;font-weight:700;margin:16px 0">' + esc(r.titulo || '') + '</p>' +
+      (r.descripcion ? '<p>' + esc(r.descripcion) + '</p>' : '') +
+      boton(d.curso && d.curso.url)
+    );
   }
   if (d.tipo === 'modulo-abierto') {
     var m = d.modulo || {};
-    var p2 = [];
-    if (m.descripcion) p2.push(String(m.descripcion));
-    p2.push('Ya puedes entrar con tu acceso habitual.');
-    return {
-      antetitulo: 'NUEVO MÓDULO',
-      titulo: m.titulo || 'Módulo nuevo',
-      parrafos: p2,
-      botones: url ? [{ texto: 'Entrar al módulo', url: url }] : []
-    };
+    return envolver(
+      '<p>Se abrió un módulo nuevo:</p>' +
+      '<p style="font-size:18px;font-weight:700;margin:16px 0">' + esc(m.titulo || '') + '</p>' +
+      (m.descripcion ? '<p>' + esc(m.descripcion) + '</p>' : '') +
+      boton(d.curso && d.curso.url)
+    );
   }
-  // Comunicados: el cuerpo libre va en los párrafos, respetando los saltos.
-  var libre = d.cuerpoTexto ? String(d.cuerpoTexto) : '';
-  if (!libre && d.cuerpoHtml) libre = String(d.cuerpoHtml).replace(/<br\s*\/?>/gi, '\n');
-  var bloques = libre.split(/\n{2,}/);
-  var ps3 = [];
-  for (var k = 0; k < bloques.length; k++) {
-    var t = bloques[k].replace(/\n/g, ' ').trim();
-    if (t) ps3.push(t);
-  }
-  return {
-    antetitulo: 'COMUNICADO · ' + String(curso).toUpperCase(),
-    titulo: d.asunto || 'Aviso',
-    parrafos: ps3,
-    botones: []
-  };
+  return envolver('<p>' + esc(cuerpoTexto(d, '')).replace(/\n/g, '<br>') + '</p>');
 }
 
-/**
- * Envoltorio con la marca. Tablas + estilos en línea: Gmail no renderiza
- * flex ni grid, y un <div> suelto se descuadra en varios clientes de correo.
- */
-function plantilla(c) {
-  var K = MARCA.colores;
-  var W = MARCA.ancho;
-  var html = '';
-
-  if (c.antetitulo) {
-    html += '<div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2.5px;' +
-            'color:' + K.gris + ';padding:0 0 14px 0;">' + esc(c.antetitulo) + '</div>';
-  }
-  html += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">' +
-    '<table role="presentation" width="' + W + '" cellpadding="0" cellspacing="0" style="width:' + W + 'px;background:#FFFFFF;">' +
-      '<tr><td style="height:6px;line-height:6px;background:' + K.pizarra + ';">&nbsp;</td></tr>' +
-      '<tr><td style="padding:36px 42px 34px 42px;">';
-
-  if (c.titulo) {
-    html += '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:26px;line-height:1.3;' +
-            'color:' + K.pizarra + ';margin:0 0 20px 0;">' + esc(c.titulo) + '</div>';
-    html += '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px 0;">' +
-            '<tr><td style="width:44px;height:2px;line-height:2px;background:' + K.terracota + ';">&nbsp;</td></tr></table>';
-  }
-  if (c.bajada) {
-    html += '<div style="font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:1.65;' +
-            'color:' + K.pizarra + ';margin:0 0 16px 0;">' + esc(c.bajada) + '</div>';
-  }
-  for (var i = 0; i < c.parrafos.length; i++) {
-    html += '<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.75;' +
-            'color:' + K.pizarra + ';margin:0 0 14px 0;">' + esc(c.parrafos[i]) + '</div>';
-  }
-
-  if (c.botones.length) {
-    html += '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px 0;"><tr>';
-    for (var j = 0; j < c.botones.length; j++) {
-      var b = c.botones[j];
-      html += '<td style="padding:0 8px 8px 0;">' + botonMarca(b.texto, b.url) + '</td>';
-    }
-    html += '</tr></table>';
-  }
-
-  if (c.pie) {
-    html += '<div style="font-family:Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.6;' +
-            'color:' + K.gris + ';margin:24px 0 0 0;">' + esc(c.pie) + '</div>';
-  }
-
-  // Firma fija de la marca: no se edita desde la web.
-  html += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0 0;">' +
-          '<tr><td style="height:1px;line-height:1px;background:' + K.borde + ';">&nbsp;</td></tr></table>' +
-          '<div style="font-family:Helvetica,Arial,sans-serif;font-size:14px;color:' + K.pizarra + ';margin:22px 0 0 0;">' +
-            esc(MARCA.nombre) + '</div>' +
-          '<div style="font-family:Helvetica,Arial,sans-serif;font-size:12.5px;color:' + K.gris + ';margin:5px 0 0 0;">' +
-            esc(MARCA.cargo) + '</div>' +
-          '<div style="font-family:Helvetica,Arial,sans-serif;font-size:12.5px;color:' + K.gris + ';margin:10px 0 0 0;">' +
-            esc(MARCA.contacto) + '</div>';
-
-  html += '</td></tr>' +
-      '<tr><td style="height:6px;line-height:6px;background:' + K.pizarra + ';">&nbsp;</td></tr>' +
-    '</table></td></tr></table>';
-
-  return fondo(K.crema, html);
+function boton(url) {
+  if (!url) return '';
+  return '<p style="margin:24px 0">' +
+    '<a href="' + esc(url) + '" style="background:#0f6f6b;color:#fff;padding:12px 22px;' +
+    'border-radius:8px;text-decoration:none;display:inline-block;font-weight:600">' +
+    'Ir al material</a></p>';
 }
 
-function botonMarca(texto, url) {
-  var K = MARCA.colores;
-  return '<a href="' + esc(url) + '" style="background:' + K.pizarra + ';color:#FFFFFF;' +
-    'padding:13px 24px;border-radius:6px;text-decoration:none;font-family:Helvetica,Arial,sans-serif;' +
-    'font-size:14px;font-weight:600;display:inline-block;">' + esc(texto) + '</a>';
-}
-
-function fondo(color, interior) {
-  return '<div style="background:' + color + ';padding:28px 12px;font-family:Helvetica,Arial,sans-serif;">' +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">' +
-    interior + '</td></tr></table></div>';
-}
-
-/**
- * VISTA PREVIA (ejecuta ▶ con esta función seleccionada).
- * Genera el HTML de un comunicado de ejemplo y lo abre en una pestaña para
- * revisar cómo se verá la marca antes de mandarlo a los alumnos.
- */
-function testPlantilla() {
-  var html = plantilla({
-    antetitulo: 'COMUNICADO · CURSO DE PRUEBA',
-    titulo: 'Aquí va el título del comunicado',
-    bajada: 'Una línea de apertura que recoge la idea principal.',
-    parrafos: [
-      'Primer párrafo del comunicado. Puedes escribir varios y se muestran separados.',
-      'Segundo párrafo. El texto se escapa solo, así que puedes escribir <libros> & símbolos sin riesgo.'
-    ],
-    botones: [
-      { texto: 'Ir al material', url: 'https://cursos-drcotonieto.neuronal-plus.workers.dev' },
-      { texto: 'Ir a la plataforma', url: 'https://cursos-drcotonieto.neuronal-plus.workers.dev/inicio' }
-    ],
-    pie: 'Texto pequeño opcional, antes de la firma.'
-  });
-  var salida = HtmlService.createHtmlOutput(html);
-  Logger.log('Plantilla generada (' + html.length + ' caracteres).');
-  return salida;
+/** Plantilla con la firma; ya no hace falta que la web la agregue. */
+function envolver(interior) {
+  return '<div style="font-family:Arial,sans-serif;color:#222;max-width:620px">' +
+    interior +
+    '<hr style="border:none;border-top:1px solid #ddd;margin:28px 0">' +
+    '<p style="font-size:12px;color:#777;margin:0">Dr. Ernesto Cotonieto · ' +
+    '<a href="' + CONFIG.linkPortal + '" style="color:#0f6f6b">Plataforma de cursos</a></p>' +
+    '</div>';
 }
 
 function esc(s) {

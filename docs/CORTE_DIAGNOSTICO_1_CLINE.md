@@ -84,6 +84,16 @@ Invoke-WebRequest -Uri "$base`?payload=$([System.Uri]::EscapeDataString($body))"
 
 Respuesta buena: `{"ok":true,"enviados":1,...}`.
 
+### Pendiente conocido: plantilla con la marca
+
+El 3 de octubre de 2026 se intentó meter una plantilla HTML con la marca
+(bloque `MARCA` en el script, con botones y vista previa). **Se revirtió a
+petición del Dr. Ernesto**: el envío funciona mejor simple y el formato se
+hará **a mano**.
+
+> No reintroducir la plantilla sin confirmarlo antes. La versión vigente es la
+> simple, con `envolver()` y el bloque `CONFIG` al principio del archivo.
+
 ---
 
 ## Nota de alcance y limitaciones
