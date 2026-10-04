@@ -14,3 +14,9 @@ dist/
 
 # .vscode/ NO se ignora: extensions.json con las recomendaciones del
 # proyecto se versiona a propósito.
+
+# Volcados de diagnóstico (salida de build, diffs, listados). Son
+# desechables y se colaron una vez con un `git add -A`.
+build-check.txt
+dif.txt
+lista-dot.txt

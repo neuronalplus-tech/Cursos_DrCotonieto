@@ -15,10 +15,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      # Bloquea el deploy si alguien usa un identificador sin importarlo.
+      # El build NO detecta eso: pasa limpio y la página sale en blanco.
+      - name: Lint (identificadores sin definir)
+        run: npm run lint
+
+      # Complementa al lint: revisa componentes JSX usados sin importar.
+      - name: Comprobar imports de componentes
+        run: npm run check
 
       - name: Build
         run: npm run build

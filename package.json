@@ -12,7 +12,8 @@
     "reparar:texto": "node scripts/reparar-mojibake.mjs --aplicar",
     "smoke": "vite build --ssr scripts/smoke-render.jsx --outDir .smoke --logLevel error && node .smoke/smoke-render.js",
     "smoke:datos": "vite build --config vite.smoke.config.js --logLevel error && node .smoke-datos/smoke-datos.js",
-    "test:foro-ui": "vite build --config vite.foro.config.js --logLevel error && node .smoke-foro-ui/test-foro-ui.js"
+    "test:foro-ui": "vite build --config vite.foro.config.js --logLevel error && node .smoke-foro-ui/test-foro-ui.js",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",
@@ -23,7 +24,11 @@
     "react-router-dom": "^6.20.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^4.0.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
     "jsdom": "^30.1.1",
     "vite": "^4.4.0"
   }
