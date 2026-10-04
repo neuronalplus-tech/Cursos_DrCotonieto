@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "node scripts/check-imports.mjs",
+    "check:texto": "node scripts/auditar-mojibake.mjs",
+    "reparar:texto": "node scripts/reparar-mojibake.mjs --aplicar",
     "smoke": "vite build --ssr scripts/smoke-render.jsx --outDir .smoke --logLevel error && node .smoke/smoke-render.js",
     "smoke:datos": "vite build --config vite.smoke.config.js --logLevel error && node .smoke-datos/smoke-datos.js"
   },

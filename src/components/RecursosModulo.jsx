@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from '../lib/supabase'
@@ -23,7 +23,7 @@ export function PdfViewer({ archivo, bucket }) {
         if (error) throw new Error(error.message)
         const buf = await blob.arrayBuffer()
         if (cancelled) return
-        if (buf.byteLength === 0) throw new Error('El archivo estÃ¡ vacÃ­o')
+        if (buf.byteLength === 0) throw new Error('El archivo está vacío')
         setStatus('Procesando...')
         loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false })
         pdfDocument = await loadingTask.promise
@@ -70,7 +70,7 @@ function PdfPage({ page, n, total }) {
 
   return (
     <figure className="pdf-page">
-      <canvas ref={canvasRef} aria-label={`PÃ¡gina ${n} de ${total}`} />
+      <canvas ref={canvasRef} aria-label={`Página ${n} de ${total}`} />
       <figcaption className="pdf-num">{n} / {total}</figcaption>
     </figure>
   )
@@ -105,12 +105,12 @@ export function Autoevaluacion({ url, recursoId, userId, onComplete }) {
   }
 
   if (cargando) return <div className="loading">Cargando...</div>
-  if (completado) return <div className="aviso-ok">âœ” AutoevaluaciÃ³n completada.</div>
-  if (intentos >= 3) return <div className="aviso-error">Alcanzaste el lÃ­mite de 3 intentos.</div>
+  if (completado) return <div className="aviso-ok">✔ Autoevaluación completada.</div>
+  if (intentos >= 3) return <div className="aviso-error">Alcanzaste el límite de 3 intentos.</div>
   return (
     <div>
-      <p className="sutil">MÃ¡ximo 3 intentos. Llevas {intentos}.</p>
-      <iframe src={url} className="forms-iframe" title="AutoevaluaciÃ³n" />
+      <p className="sutil">Máximo 3 intentos. Llevas {intentos}.</p>
+      <iframe src={url} className="forms-iframe" title="Autoevaluación" />
       <button className="button primary" onClick={marcar}>Marcar como completada</button>
     </div>
   )
@@ -132,15 +132,15 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
-  // Opt-in: nada se envÃ­a solo. Si marcas, avisar es parte del guardado.
+  // Opt-in: nada se envía solo. Si marcas, avisar es parte del guardado.
   const [notificar, setNotificar] = useState(false)
   // Tras crear (con aviso) el modal sigue abierto: evita un doble clic que
-  // volverÃ­a a insertar el mismo recurso.
+  // volvería a insertar el mismo recurso.
   const [creado, setCreado] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const guardar = async () => {
-    if (!form.titulo.trim()) { setMsg('El tÃ­tulo es obligatorio'); return }
+    if (!form.titulo.trim()) { setMsg('El título es obligatorio'); return }
     setGuardando(true); setMsg('')
     try {
       const payload = {
@@ -167,10 +167,10 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
             curso: { titulo: curso?.titulo || modulo?.titulo, url: link },
             recurso: { titulo: data.titulo, descripcion: data.descripcion || '' },
           })
-          // El recurso YA quedÃ³ guardado: si el aviso falla solo se pierde el correo.
+          // El recurso YA quedó guardado: si el aviso falla solo se pierde el correo.
           setMsg(r.ok
-            ? `âœ“ Recurso creado y notificado a ${r.enviados} inscrito(s).`
-            : `âš ï¸ Recurso creado, pero el aviso NO saliÃ³: ${r.motivo || 'error desconocido'}`)
+            ? `✓ Recurso creado y notificado a ${r.enviados} inscrito(s).`
+            : `⚠️ Recurso creado, pero el aviso NO salió: ${r.motivo || 'error desconocido'}`)
           return // deja el modal abierto para que leas el resultado
         }
       } else {
@@ -187,7 +187,7 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
   }
 
   const eliminar = async () => {
-    if (!window.confirm(`Â¿Eliminar "${recurso.titulo}"? Esta acciÃ³n no se puede deshacer.`)) return
+    if (!window.confirm(`¿Eliminar "${recurso.titulo}"? Esta acción no se puede deshacer.`)) return
     setGuardando(true)
     try {
       const { error } = await supabase.from('recursos').delete().eq('id', recurso.id)
@@ -205,24 +205,24 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
     <ModalPortal>
     <div className="modal-overlay" onClick={() => !guardando && onClose()}>
       <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>{esNuevo ? 'âž• Nuevo recurso' : 'âœï¸ Editar recurso'}</h3>
+        <h3>{esNuevo ? '➕ Nuevo recurso' : '✏️ Editar recurso'}</h3>
 
         <label>Tipo</label>
         <select value={form.tipo} onChange={e => set('tipo', e.target.value)}>
-          <option value="pdf">ðŸ“„ PDF</option>
-          <option value="video">ðŸŽ¬ Video</option>
-          <option value="word">ðŸ“ Word / Descargable</option>
-          <option value="enlace">ðŸ”— Enlace</option>
-          <option value="autoevaluacion">âœï¸ AutoevaluaciÃ³n</option>
+          <option value="pdf">📄 PDF</option>
+          <option value="video">🎬 Video</option>
+          <option value="word">📝 Word / Descargable</option>
+          <option value="enlace">🔗 Enlace</option>
+          <option value="autoevaluacion">✍️ Autoevaluación</option>
         </select>
 
-        <label>TÃ­tulo</label>
+        <label>Título</label>
         <input type="text" value={form.titulo} onChange={e => set('titulo', e.target.value)}
-               placeholder="Ej. Lectura 1: Conceptos bÃ¡sicos" />
+               placeholder="Ej. Lectura 1: Conceptos básicos" />
 
-        <label>DescripciÃ³n</label>
+        <label>Descripción</label>
         <textarea rows="3" value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
-                  placeholder="Texto que aparece debajo del tÃ­tulo" />
+                  placeholder="Texto que aparece debajo del título" />
 
         {['video', 'enlace', 'autoevaluacion'].includes(form.tipo) && (
           <>
@@ -232,10 +232,10 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
             <input type="url" value={form.url} onChange={e => set('url', e.target.value)}
                    placeholder="https://..." />
             {form.tipo === 'video' && (
-              <p className="nota">Pega el link tal cual (YouTube o Google Drive). Se convierte a reproductor automÃ¡ticamente.</p>
+              <p className="nota">Pega el link tal cual (YouTube o Google Drive). Se convierte a reproductor automáticamente.</p>
             )}
             {form.tipo === 'enlace' && (
-              <p className="nota">Si es de YouTube, Google Drive o OneDrive, se mostrarÃ¡ dentro de la plataforma ademÃ¡s del botÃ³n para abrirlo aparte.</p>
+              <p className="nota">Si es de YouTube, Google Drive o OneDrive, se mostrará dentro de la plataforma además del botón para abrirlo aparte.</p>
             )}
           </>
         )}
@@ -257,10 +257,10 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
             <label className="check-fila">
               <input type="checkbox" checked={notificar} onChange={e => setNotificar(e.target.checked)} />
               <span>
-                <strong>ðŸ“§ Notificar a los inscritos</strong><br />
+                <strong>📧 Notificar a los inscritos</strong><br />
                 <span className="nota">
                   Al crear el recurso, manda el correo a todos los inscritos del curso
-                  {curso?.titulo ? ` (${curso.titulo})` : ''}. Si lo dejas sin marcar, no se envÃ­a nada.
+                  {curso?.titulo ? ` (${curso.titulo})` : ''}. Si lo dejas sin marcar, no se envía nada.
                 </span>
               </span>
             </label>
@@ -268,7 +268,7 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
         )}
 
         {msg && (
-          <p className={msg.startsWith('âš ï¸') || msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}
+          <p className={msg.startsWith('⚠️') || msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'}
              style={{ marginTop: 12 }}>{msg}</p>
         )}
 
@@ -276,14 +276,14 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
           {!esNuevo && (
             <button type="button" className="button texto" onClick={eliminar} disabled={guardando}
                     style={{ color: '#9B2C20', marginRight: 'auto' }}>
-              ðŸ—‘ Eliminar
+              🗑 Eliminar
             </button>
           )}
           <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
           <button type="button" className="button primary" onClick={guardar}
                   disabled={guardando || (esNuevo && creado)}>
             {guardando ? 'Guardando...'
-              : (esNuevo && creado) ? 'âœ“ Creado'
+              : (esNuevo && creado) ? '✓ Creado'
               : (esNuevo ? 'Crear' : 'Guardar')}
           </button>
         </div>
@@ -314,7 +314,7 @@ export function ModalDuplicarModulo({ modulo, recursos, onClose }) {
 
   const duplicar = async () => {
     if (!cursoDestino) { setMsg('Elige un curso destino'); return }
-    if (!titulo.trim()) { setMsg('El tÃ­tulo es obligatorio'); return }
+    if (!titulo.trim()) { setMsg('El título es obligatorio'); return }
     setGuardando(true); setMsg('')
     try {
       const { data: nuevoModulo, error: eM } = await supabase.from('modulos').insert({
@@ -356,39 +356,39 @@ export function ModalDuplicarModulo({ modulo, recursos, onClose }) {
     <ModalPortal>
     <div className="modal-overlay" onClick={() => !guardando && onClose()}>
       <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>ðŸ“‹ Duplicar mÃ³dulo</h3>
+        <h3>📋 Duplicar módulo</h3>
 
         {resultado ? (
           <>
             <p className="aviso-ok">
-              "{resultado.titulo}" se creÃ³ con {recursos.length} recurso(s) copiado(s).
+              "{resultado.titulo}" se creó con {recursos.length} recurso(s) copiado(s).
             </p>
             <div className="modal-botones" style={{ marginTop: 18 }}>
               <button type="button" className="button secondary" onClick={onClose}>Cerrar</button>
               <button type="button" className="button primary" onClick={() => navigate(`/modulo/${resultado.id}`)}>
-                Ir al mÃ³dulo nuevo â†’
+                Ir al módulo nuevo →
               </button>
             </div>
           </>
         ) : (
           <>
             <p className="nota" style={{ marginTop: 0 }}>
-              Copia el tÃ­tulo, la descripciÃ³n y los {recursos.length} recurso(s) de "{modulo.titulo}" a un mÃ³dulo nuevo,
+              Copia el título, la descripción y los {recursos.length} recurso(s) de "{modulo.titulo}" a un módulo nuevo,
               en el curso y subgrupo que elijas. Los archivos y enlaces se comparten, no se duplican en Storage.
             </p>
 
             <label>Curso destino</label>
             <select value={cursoDestino} onChange={e => setCursoDestino(e.target.value)}>
-              <option value="">â€” Elige un curso â€”</option>
+              <option value="">— Elige un curso —</option>
               {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
             </select>
 
-            <label>TÃ­tulo del mÃ³dulo nuevo</label>
+            <label>Título del módulo nuevo</label>
             <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} />
 
             <label>Subgrupo (grupo)</label>
             <input type="text" value={grupo} onChange={e => setGrupo(e.target.value)}
-                   placeholder="Ej. ClÃ­nica â€” vacÃ­o = visible para todo el curso" />
+                   placeholder="Ej. Clínica — vacío = visible para todo el curso" />
 
             <label>Orden</label>
             <input type="number" value={orden} onChange={e => setOrden(e.target.value)} />
@@ -433,7 +433,7 @@ export function ModalDuplicarRecurso({ recurso, cursoActualId, onClose }) {
   }, [cursoDestino])
 
   const duplicar = async () => {
-    if (!moduloDestinoId) { setMsg('Elige un mÃ³dulo destino'); return }
+    if (!moduloDestinoId) { setMsg('Elige un módulo destino'); return }
     setGuardando(true); setMsg('')
     try {
       const { data, error } = await supabase.from('recursos').insert({
@@ -459,33 +459,33 @@ export function ModalDuplicarRecurso({ recurso, cursoActualId, onClose }) {
     <ModalPortal>
     <div className="modal-overlay" onClick={() => !guardando && onClose()}>
       <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>ðŸ“‹ Duplicar recurso</h3>
+        <h3>📋 Duplicar recurso</h3>
 
         {resultado ? (
           <>
-            <p className="aviso-ok">"{recurso.titulo}" se copiÃ³ al mÃ³dulo destino.</p>
+            <p className="aviso-ok">"{recurso.titulo}" se copió al módulo destino.</p>
             <div className="modal-botones" style={{ marginTop: 18 }}>
               <button type="button" className="button secondary" onClick={onClose}>Cerrar</button>
               <button type="button" className="button primary" onClick={() => navigate(`/modulo/${resultado.modulo_id}`)}>
-                Ir al mÃ³dulo â†’
+                Ir al módulo →
               </button>
             </div>
           </>
         ) : (
           <>
             <p className="nota" style={{ marginTop: 0 }}>
-              Copia "{recurso.titulo}" a otro mÃ³dulo (de cualquier curso). El archivo o enlace se comparte, no se duplica.
+              Copia "{recurso.titulo}" a otro módulo (de cualquier curso). El archivo o enlace se comparte, no se duplica.
             </p>
 
             <label>Curso destino</label>
             <select value={cursoDestino} onChange={e => setCursoDestino(e.target.value)}>
-              <option value="">â€” Elige un curso â€”</option>
+              <option value="">— Elige un curso —</option>
               {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
             </select>
 
-            <label>MÃ³dulo destino</label>
+            <label>Módulo destino</label>
             <select value={moduloDestinoId} onChange={e => setModuloDestinoId(e.target.value)} disabled={!cursoDestino || cargandoModulos}>
-              <option value="">{cargandoModulos ? 'Cargando...' : 'â€” Elige un mÃ³dulo â€”'}</option>
+              <option value="">{cargandoModulos ? 'Cargando...' : '— Elige un módulo —'}</option>
               {modulosDestino.map(m => (
                 <option key={m.id} value={m.id}>{m.titulo}{m.grupo ? ` (${m.grupo})` : ''}</option>
               ))}
@@ -522,7 +522,7 @@ export function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
       if (!lista.length) { setMsg('No hay alumnos inscritos en este curso.'); return }
       const yaPegados = emails.split(/[,;\n\t ]+/).map(e => e.trim()).filter(Boolean)
       setEmails([...new Set(yaPegados.concat(lista))].join(', '))
-      setMsg(`âœ“ ${lista.length} inscrito(s) agregado(s) a la lista.`)
+      setMsg(`✓ ${lista.length} inscrito(s) agregado(s) a la lista.`)
     } catch (e) {
       setMsg('Error al leer inscritos: ' + e.message)
     } finally {
@@ -540,7 +540,7 @@ export function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
   const link = `${window.location.origin}/modulo/${modulo.id}#r-${recurso.id}`
 
   const enviar = async () => {
-    if (destinatarios.length === 0) { setMsg('Pega al menos un correo vÃ¡lido'); return }
+    if (destinatarios.length === 0) { setMsg('Pega al menos un correo válido'); return }
     setEnviando(true); setMsg('')
     try {
       const res = await enviarCorreo({
@@ -550,8 +550,8 @@ export function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
         alumnos: destinatarios.map(email => ({ email, nombre_completo: '' })),
       })
       setMsg(res.ok
-        ? `âœ“ Enviado y confirmado por el script (${destinatarios.length} correo(s)).`
-        : `âš ï¸ ${res.motivo || 'No se pudo enviar.'} Revisa "Enviados" en Gmail.`)
+        ? `✓ Enviado y confirmado por el script (${destinatarios.length} correo(s)).`
+        : `⚠️ ${res.motivo || 'No se pudo enviar.'} Revisa "Enviados" en Gmail.`)
     } catch (e) {
       setMsg('Error: ' + e.message)
     } finally {
@@ -563,26 +563,26 @@ export function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
     <ModalPortal>
     <div className="modal-overlay" onClick={() => !enviando && onClose()}>
       <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
-        <h3>ðŸ“§ Notificar recurso nuevo</h3>
+        <h3>📧 Notificar recurso nuevo</h3>
         <p className="nota" style={{ marginTop: 0 }}>
           Pega los correos de quienes deben enterarse de "{recurso.titulo}". Se les manda un correo con el link directo
-          al recurso dentro de la plataforma. Ãšsalo para talleres gratuitos donde no hay inscripciÃ³n formal.
+          al recurso dentro de la plataforma. Úsalo para talleres gratuitos donde no hay inscripción formal.
         </p>
 
-        <label>Correos (separados por coma, punto y coma o salto de lÃ­nea)</label>
+        <label>Correos (separados por coma, punto y coma o salto de línea)</label>
         <div className="examen-import-botones" style={{ marginTop: 0 }}>
           <button type="button" className="button secondary" onClick={traerInscritos} disabled={cargandoAlumnos}>
-            {cargandoAlumnos ? 'Buscandoâ€¦' : 'ðŸ‘¥ Traer a los inscritos del curso'}
+            {cargandoAlumnos ? 'Buscando…' : '👥 Traer a los inscritos del curso'}
           </button>
           <button type="button" className="button texto" onClick={() => setEmails('')} disabled={!emails}>
             Vaciar lista
           </button>
         </div>
         <textarea rows="5" value={emails} onChange={e => setEmails(e.target.value)}
-                  placeholder="O presiona Â«Traer a los inscritosÂ»"
+                  placeholder="O presiona «Traer a los inscritos»"
                   style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
-        <p className="nota" style={{ marginTop: 6 }}>{destinatarios.length} correo(s) vÃ¡lido(s) detectado(s)</p>
-        <p className="nota" style={{ marginTop: 6 }}>Link que se incluirÃ¡: <code>{link}</code></p>
+        <p className="nota" style={{ marginTop: 6 }}>{destinatarios.length} correo(s) válido(s) detectado(s)</p>
+        <p className="nota" style={{ marginTop: 6 }}>Link que se incluirá: <code>{link}</code></p>
 
         {msg && <p className={msg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{msg}</p>}
 
@@ -637,7 +637,7 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdm
     <article className="recurso-item" id={`r-${recurso.id}`}>
       <div className="recurso-cabecera">
         <div className="recurso-titulo">
-          <span className="recurso-icono" aria-hidden="true">{ICONO_TIPO[recurso.tipo] || 'ðŸ“Œ'}</span>
+          <span className="recurso-icono" aria-hidden="true">{ICONO_TIPO[recurso.tipo] || '📌'}</span>
           <div>
             <h3>{recurso.titulo}</h3>
             <span className="recurso-tipo">{NOMBRE_TIPO[recurso.tipo] || 'Recurso'}</span>
@@ -645,30 +645,30 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdm
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-          {visto && <span className="badge ok">âœ” Visto</span>}
-          {esAdmin && recurso.disponible === false && <span className="etiqueta-grupo">ðŸ”’ Bloqueado (solo admin)</span>}
+          {visto && <span className="badge ok">✔ Visto</span>}
+          {esAdmin && recurso.disponible === false && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
           {esAdmin && onToggleDisponible && (
             <button type="button" className={`candado-toggle ${recurso.disponible === false ? 'cerrado' : 'abierto'}`}
                     onClick={() => onToggleDisponible(recurso)}
                     title={recurso.disponible === false ? 'Abrir recurso' : 'Cerrar recurso'}>
-              {recurso.disponible === false ? 'ðŸ”’' : 'ðŸ”“'}
+              {recurso.disponible === false ? '🔒' : '🔓'}
             </button>
           )}
           {esAdmin && esGratuito && onNotificar && (
             <button type="button" className="recurso-edit-btn" onClick={() => onNotificar(recurso)} title="Notificar por correo">
-              ðŸ“§ Notificar
+              📧 Notificar
             </button>
           )}
           {esAdmin && onDuplicar && (
             <button type="button" className="recurso-edit-btn" onClick={() => onDuplicar(recurso)} title="Duplicar recurso">
-              ðŸ“‹ Duplicar
+              📋 Duplicar
             </button>
           )}
           {esAdmin && onEditar && (
             <button type="button" className="recurso-edit-btn"
                     onClick={() => onEditar(recurso)}
                     title="Editar recurso">
-              âœï¸ Editar
+              ✏️ Editar
             </button>
           )}
         </div>
@@ -678,7 +678,7 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdm
 
       {bloqueado ? (
         <div className="recurso-acciones">
-          <button className="button secondary" disabled>ðŸ”’ PrÃ³ximamente</button>
+          <button className="button secondary" disabled>🔒 Próximamente</button>
         </div>
       ) : (
         <>
@@ -688,13 +688,13 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdm
                 {abierto ? 'Ocultar material' : 'Ver material'}
               </button>
             )}
-            {videoSinUrl && <button className="button secondary" disabled>ðŸŽ¬ GrabaciÃ³n en proceso</button>}
+            {videoSinUrl && <button className="button secondary" disabled>🎬 Grabación en proceso</button>}
             {recurso.tipo === 'enlace' && (
-              <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace â†’</a>
+              <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
             )}
             {recurso.tipo === 'pdf' && (
               <button className="button secondary" onClick={abrirNuevaPestana} disabled={ocupado}>
-                {ocupado ? 'Abriendo...' : 'Abrir en pestaÃ±a nueva â†—'}
+                {ocupado ? 'Abriendo...' : 'Abrir en pestaña nueva ↗'}
               </button>
             )}
             {recurso.tipo === 'word' && (
@@ -729,20 +729,20 @@ export function DiapositivasPresentarCaso() {
   return (
     <section className="diapositivas-bloque">
       <header className="diapositivas-header">
-        <span className="recurso-icono">ðŸ“½ï¸</span>
+        <span className="recurso-icono">📽️</span>
         <div>
           <h3>Diapositivas para presentar tu caso</h3>
           <p className="recurso-desc">
-            Usa esta plantilla para estructurar la presentaciÃ³n de tu caso en la sesiÃ³n de supervisiÃ³n.
-            Incluye los apartados que revisaremos juntos: motivo de consulta, anÃ¡lisis funcional, hipÃ³tesis y plan.
+            Usa esta plantilla para estructurar la presentación de tu caso en la sesión de supervisión.
+            Incluye los apartados que revisaremos juntos: motivo de consulta, análisis funcional, hipótesis y plan.
           </p>
         </div>
       </header>
       <div className="diapositivas-acciones">
         <a className="button primary ancho" target="_blank" rel="noopener noreferrer" href={ENLACE_DIAPOSITIVAS_PRESENTAR_CASO}>
-          ðŸ“½ï¸ Abrir diapositivas en OneDrive
+          📽️ Abrir diapositivas en OneDrive
         </a>
-        <p className="nota" style={{ marginTop: 8 }}>Se abre en una pestaÃ±a nueva. Puedes descargarla y editarla con tu propio caso.</p>
+        <p className="nota" style={{ marginTop: 8 }}>Se abre en una pestaña nueva. Puedes descargarla y editarla con tu propio caso.</p>
       </div>
     </section>
   )
@@ -752,21 +752,21 @@ export function Entregables() {
   return (
     <section className="entregables-bloque">
       <header className="entregables-header">
-        <span className="recurso-icono">ðŸ“¤</span>
+        <span className="recurso-icono">📤</span>
         <div>
           <h3>Entregables / productos</h3>
           <p className="recurso-desc">
-            Las actividades de las <strong>sesiones 1 y 2</strong> se realizan <strong>en equipo durante la sesiÃ³n</strong>
+            Las actividades de las <strong>sesiones 1 y 2</strong> se realizan <strong>en equipo durante la sesión</strong>
             {' '}y se suben como entregables al final de cada una. Nombren cada archivo haciendo referencia al{' '}
-            <strong>nombre de su regiÃ³n</strong> (ej. <em>RegiÃ³n_Norte_S1_anÃ¡lisis.pdf</em>).
+            <strong>nombre de su región</strong> (ej. <em>Región_Norte_S1_análisis.pdf</em>).
           </p>
         </div>
       </header>
       <div className="entregables-acciones">
         <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer" href={ENLACE_ENTREGABLES}>
-          ðŸ“¤ Subir mi entregable a OneDrive
+          📤 Subir mi entregable a OneDrive
         </a>
-        <p className="nota" style={{ marginTop: 8 }}>Se abre la carpeta compartida en una pestaÃ±a nueva. Sube tu archivo ahÃ­ con el nombre indicado.</p>
+        <p className="nota" style={{ marginTop: 8 }}>Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.</p>
       </div>
     </section>
   )

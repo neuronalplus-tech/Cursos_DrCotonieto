@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import PortadaCurso from './PortadaCurso'
 import { LINEA_COPY } from '../config'
 
@@ -9,7 +9,7 @@ export default function CarruselCursos({ lineas, cursos, onSelect }) {
     const n = enLinea.length
     return {
       linea: l,
-      texto: info?.texto || `${n} ${n === 1 ? 'curso disponible' : 'cursos disponibles'} en esta lÃ­nea.`,
+      texto: info?.texto || `${n} ${n === 1 ? 'curso disponible' : 'cursos disponibles'} en esta línea.`,
       motivo: info?.motivo || enLinea[0]?.caratula || 'espiral'
     }
   })
@@ -64,8 +64,8 @@ export default function CarruselCursos({ lineas, cursos, onSelect }) {
       </div>
       {slides.length > 1 && (
         <>
-          <button type="button" className="carrusel-flecha izq" aria-label="LÃ­nea anterior" onClick={() => irA(indice - 1)}>â€¹</button>
-          <button type="button" className="carrusel-flecha der" aria-label="LÃ­nea siguiente" onClick={() => irA(indice + 1)}>â€º</button>
+          <button type="button" className="carrusel-flecha izq" aria-label="Línea anterior" onClick={() => irA(indice - 1)}>‹</button>
+          <button type="button" className="carrusel-flecha der" aria-label="Línea siguiente" onClick={() => irA(indice + 1)}>›</button>
           <div className="carrusel-puntos">
             {slides.map((s, i) => (
               <button type="button" key={s.linea}
