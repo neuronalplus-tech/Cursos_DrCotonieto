@@ -38,10 +38,6 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
     return () => { vivo = false }
   }, [user])
 
-  useEffect(() => {
-    recargar()
-  }, [cursoId])
-
   const recargar = async () => {
     setCargando(true)
     const { data } = await supabase
@@ -52,6 +48,11 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
     if (data) setHilos(data)
     setCargando(false)
   }
+
+  useEffect(() => {
+    recargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursoId])
 
   const abrirNuevo = () => {
     setEditando(null)
