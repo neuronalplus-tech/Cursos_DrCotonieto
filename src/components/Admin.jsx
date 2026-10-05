@@ -6,10 +6,16 @@ import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib
 import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import AdminExamenes from './AdminExamenes'
 import AdminForo from './AdminForo'
+import { usePermisos } from '../lib/permisos'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
 
-function Admin({ user, esAdmin }) {
+function Admin({ user }) {
+  // Antes `esAdmin` llegaba como prop y arrancaba en false, asi que el
+  // panel pintaba "No tienes permisos" durante el instante que tardaba
+  // la consulta a `admins`. Se usa el hook, que ademas dice CUANDO ya
+  // sabe la respuesta: hasta entonces no se decide nada.
+  const { esAdmin, cargado: permisosCargados } = usePermisos(user)
   const [vista, setVista] = useState('inscripciones')
 
   const [filas, setFilas] = useState([])
@@ -855,6 +861,7 @@ function Admin({ user, esAdmin }) {
   })
 
   if (!user) return null
+  if (!permisosCargados) return <div className="loading">Cargando…</div>
   if (!esAdmin) return <div className="contenedor"><p className="aviso-error">No tienes permisos para ver esta sección.</p></div>
   if (cargando) return <div className="loading">Cargando panel...</div>
   if (error) return <div className="contenedor"><p className="aviso-error">Error: {error}</p></div>

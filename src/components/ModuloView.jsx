@@ -44,6 +44,11 @@ function ModuloView({ user }) {
   useEffect(() => {
     async function load() {
       try {
+        // El efecto se repite cuando llegan los permisos. Sin limpiar el
+        // error, un admin que abriera un modulo no disponible se quedaria
+        // atrapado en el aviso de la primera pasada, cuando todavia no se
+        // sabia que podia verlo.
+        setError(null)
         const { data: m, error: eM } = await supabase.from('modulos').select('*').eq('id', id).maybeSingle()
         if (eM) throw eM
         if (!m) { setError('Este módulo no existe o no tienes acceso a él.'); return }
