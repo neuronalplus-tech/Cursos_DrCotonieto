@@ -8,9 +8,9 @@ import EditorExamen from './EditorExamen'
  * Permite crear/editar un examen a nivel CURSO o a nivel MÓDULO,
  * sin necesidad de entrar a Supabase.
  */
-export default function AdminExamenes() {
+export default function AdminExamenes({ cursoFijo = null }) {
   const [cursos, setCursos] = useState([])
-  const [cursoId, setCursoId] = useState('')
+  const [cursoId, setCursoId] = useState(cursoFijo ? String(cursoFijo) : '')
   const [modulos, setModulos] = useState([])
   const [examenes, setExamenes] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -39,7 +39,7 @@ export default function AdminExamenes() {
         if (!vivo) return
         if (e) throw e
         setCursos(data || [])
-        if (data?.length) setCursoId(String(data[0].id))
+        if (!cursoFijo && data?.length) setCursoId(String(data[0].id))
       } catch (err) {
         if (vivo) setError(err.message)
       } finally {
@@ -47,6 +47,9 @@ export default function AdminExamenes() {
       }
     })()
     return () => { vivo = false }
+    // cursoFijo no cambia mientras el componente vive: lo fija quien
+    // lo monta. Meterlo aqui no aporta y relanzaria la carga.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -88,12 +91,15 @@ export default function AdminExamenes() {
         respuesta corta y emparejar). Los alumnos los resuelven y se califican solos.
       </p>
 
+      {/* Dentro de un curso el selector sobra: ya sabes donde estas. */}
+      {!cursoFijo && (
       <div className="admin-bloque-nuevo">
         <label>Curso</label>
         <select value={cursoId} onChange={e => setCursoId(e.target.value)}>
           {cursos.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
         </select>
       </div>
+      )}
 
       {/* Examen a nivel CURSO */}
       <section className="admin-seccion">

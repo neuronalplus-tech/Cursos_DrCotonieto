@@ -7,6 +7,7 @@ import {
 } from '../lib/helpers'
 import { rutaAcceso, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
+import AdminExamenes from './AdminExamenes'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
@@ -21,6 +22,7 @@ function CursoView({ user }) {
   // El id viene de la URL, asi que el permiso esta resuelto desde el
   // primer render, sin esperar a que cargue el curso.
   const gestiona = usePermisos(user).puedeGestionar(id)
+  const [examenesAbierto, setExamenesAbierto] = useState(false)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [talleres, setTalleres] = useState([])
@@ -468,6 +470,39 @@ function CursoView({ user }) {
           </div>
           <Link to={`/foro/${curso.id}`} className="button secondary">💬 Entrar al foro</Link>
         </section>
+      )}
+
+      {/* Mismo patron que el foro: la gestion vive donde esta el
+          contenido, no en un panel aparte. El panel central sigue
+          existiendo para cuando quieras verlo todo junto. */}
+      {gestiona && (
+        <section className="bloque-foro">
+          <div>
+            <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Exámenes del curso</h2>
+            <p className="nota" style={{ margin: 0 }}>
+              Crea o edita el examen del curso y los de cada módulo.
+            </p>
+          </div>
+          <button type="button" className="button secondary"
+                  onClick={() => setExamenesAbierto(true)}>
+            📝 Administrar exámenes
+          </button>
+        </section>
+      )}
+
+      {examenesAbierto && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setExamenesAbierto(false)}>
+            <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}
+                 style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+              <AdminExamenes cursoFijo={curso.id} />
+              <div className="modal-botones">
+                <button type="button" className="button secondary"
+                        onClick={() => setExamenesAbierto(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {confirmacion && (
