@@ -858,6 +858,21 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Pestaña de facilitadores ------------------------------
+   Se lee por curso: la pregunta real del admin es "quién lleva
+   este curso", no "qué lleva esta persona".
+   ------------------------------------------------------------ */
+.facil-alta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.facil-alta .input { flex: 1 1 220px; }
+.facil-cursos { display: grid; gap: 10px; margin-top: 16px; }
+.facil-curso { padding: 12px 14px; border: 1px solid var(--borde); border-radius: 10px; }
+.facil-curso.con-equipo { border-color: var(--accent); }
+.facil-curso-cab { display: flex; justify-content: space-between;
+  align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.facil-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.facil-lista li { display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; padding: 6px 10px; border-radius: 8px; background: var(--bg-card); }
+
 .gestion-tabla-scroll { overflow-x: auto; margin-top: 10px; }
 .gestion-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .gestion-tabla th { text-align: left; padding: 8px 10px; font-size: 12px;

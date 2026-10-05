@@ -37,6 +37,9 @@ function Admin({ user, esAdmin }) {
   // Se indexa por correo y no por usuario_id porque así está la tabla:
   // permite asignar a quien todavía no tiene cuenta.
   const [facilitaPorEmail, setFacilitaPorEmail] = useState({})
+  const [nuevoFacilEmail, setNuevoFacilEmail] = useState('')
+  const [nuevoFacilCurso, setNuevoFacilCurso] = useState('')
+  const [msgFacil, setMsgFacil] = useState('')
   const [toggling, setToggling] = useState({})
   const [cargandoGestion, setCargandoGestion] = useState(false)
   const [msgGestion, setMsgGestion] = useState('')
@@ -121,7 +124,7 @@ function Admin({ user, esAdmin }) {
   // Las asignaciones de facilitador se cargan aparte de los accesos:
   // son otra tabla y otra llave (correo, no usuario_id).
   useEffect(() => {
-    if (!esAdmin || vista !== 'usuarios') return
+    if (!esAdmin || (vista !== 'usuarios' && vista !== 'facilitadores')) return
     let vivo = true
     supabase.from('facilitadores').select('email, curso_id').then(({ data }) => {
       if (!vivo || !data) return
@@ -572,6 +575,21 @@ function Admin({ user, esAdmin }) {
     setToggling(prev => ({ ...prev, [key]: false }))
   }
 
+  /* Alta desde la pestaña de Facilitadores: correo + curso, sin más. */
+  const anadirFacilitador = async () => {
+    const correo = nuevoFacilEmail.trim().toLowerCase()
+    if (!correo.includes('@')) { setMsgFacil('Escribe un correo válido'); return }
+    if (!nuevoFacilCurso) { setMsgFacil('Elige un curso'); return }
+    const cursoId = Number(nuevoFacilCurso)
+    if (facilitaPorEmail[correo]?.has(cursoId)) {
+      setMsgFacil('Esa persona ya facilita ese curso'); return
+    }
+    setMsgFacil('')
+    await toggleFacilitador(correo, cursoId, false)
+    setNuevoFacilEmail('')
+    setMsgFacil('✓ Asignado')
+  }
+
   const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
     if (tiene) {
       const ok = await new Promise(resolve => {
@@ -853,6 +871,7 @@ function Admin({ user, esAdmin }) {
       <div className="admin-tabs">
         <button type="button" className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`} onClick={() => setVista('inscripciones')}>📋 Inscripciones</button>
         <button type="button" className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`} onClick={() => setVista('usuarios')}>👥 Gestión de usuarios</button>
+        <button type="button" className={`admin-tab ${vista === 'facilitadores' ? 'activa' : ''}`} onClick={() => setVista('facilitadores')}>🛠️ Facilitadores</button>
         <button type="button" className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`} onClick={() => setVista('metricas')}>📊 Métricas</button>
         <button type="button" className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`} onClick={() => setVista('comunicados')}>📧 Comunicados</button>
         <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
@@ -1196,6 +1215,68 @@ function Admin({ user, esAdmin }) {
               )}
             </>
           )}
+        </>
+      )}
+
+      {vista === 'facilitadores' && (
+        <>
+          <p className="seccion-intro">
+            Un facilitador gestiona los cursos que le asignes: abre y modera el foro,
+            crea módulos, sube recursos y edita exámenes. Fuera de esos cursos es un
+            alumno más. Asignar el rol no crea la cuenta: si esa persona todavía no
+            tiene, el rol la estará esperando cuando se registre con ese correo.
+          </p>
+
+          <div className="facil-alta">
+            <input type="email" className="input" value={nuevoFacilEmail}
+                   onChange={e => setNuevoFacilEmail(e.target.value)}
+                   placeholder="correo@ejemplo.com" />
+            <select className="input" value={nuevoFacilCurso}
+                    onChange={e => setNuevoFacilCurso(e.target.value)}>
+              <option value="">Elige un curso…</option>
+              {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+            </select>
+            <button type="button" className="button primary" onClick={anadirFacilitador}>
+              Asignar
+            </button>
+          </div>
+          {msgFacil && <p className={msgFacil.startsWith('✓') ? 'aviso-ok' : 'aviso-error'}>{msgFacil}</p>}
+          {msgGestion && <p className="aviso-ok">{msgGestion}</p>}
+
+          {/* La vista se lee por CURSO, no por persona: la pregunta real es
+              "¿quién lleva este curso?", no "¿qué lleva esta persona?". */}
+          <div className="facil-cursos">
+            {cursosLista.map(c => {
+              const equipo = Object.entries(facilitaPorEmail)
+                .filter(([, cursos]) => cursos.has(c.id))
+                .map(([correo]) => correo)
+                .sort()
+              return (
+                <div key={c.id} className={`facil-curso ${equipo.length ? 'con-equipo' : ''}`}>
+                  <div className="facil-curso-cab">
+                    <strong>{c.titulo}</strong>
+                    <span className="sutil">
+                      {equipo.length === 0 ? 'Sin facilitadores' : `${equipo.length} facilitador(es)`}
+                    </span>
+                  </div>
+                  {equipo.length > 0 && (
+                    <ul className="facil-lista">
+                      {equipo.map(correo => (
+                        <li key={correo}>
+                          <span>{correo}</span>
+                          <button type="button" className="button texto peligro"
+                            disabled={toggling[`facil-${correo}-${c.id}`]}
+                            onClick={() => toggleFacilitador(correo, c.id, true)}>
+                            {toggling[`facil-${correo}-${c.id}`] ? '...' : 'Quitar'}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </>
       )}
 
