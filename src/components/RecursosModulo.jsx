@@ -599,13 +599,13 @@ export function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
   )
 }
 
-export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdmin, onEditar, onDuplicar, onNotificar, onToggleDisponible, esGratuito }) {
+export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gestiona, onEditar, onDuplicar, onNotificar, onToggleDisponible, esGratuito }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const enlaceEmbebible = recurso.tipo === 'enlace' && analizarUrl(recurso.url).embeddable
   const colapsable = ['pdf', 'video', 'autoevaluacion'].includes(recurso.tipo) || enlaceEmbebible
   const videoSinUrl = recurso.tipo === 'video' && (!recurso.url || recurso.url === 'PENDIENTE')
-  const bloqueado = recurso.disponible === false && !esAdmin
+  const bloqueado = recurso.disponible === false && !gestiona
 
   const abrirNuevaPestana = async () => {
     setOcupado(true)
@@ -647,25 +647,25 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, esAdm
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           {visto && <span className="badge ok">✔ Visto</span>}
-          {esAdmin && recurso.disponible === false && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
-          {esAdmin && onToggleDisponible && (
+          {gestiona && recurso.disponible === false && <span className="etiqueta-grupo">🔒 Oculto para alumnos</span>}
+          {gestiona && onToggleDisponible && (
             <button type="button" className={`candado-toggle ${recurso.disponible === false ? 'cerrado' : 'abierto'}`}
                     onClick={() => onToggleDisponible(recurso)}
                     title={recurso.disponible === false ? 'Abrir recurso' : 'Cerrar recurso'}>
               {recurso.disponible === false ? '🔒' : '🔓'}
             </button>
           )}
-          {esAdmin && esGratuito && onNotificar && (
+          {gestiona && esGratuito && onNotificar && (
             <button type="button" className="recurso-edit-btn" onClick={() => onNotificar(recurso)} title="Notificar por correo">
               📧 Notificar
             </button>
           )}
-          {esAdmin && onDuplicar && (
+          {gestiona && onDuplicar && (
             <button type="button" className="recurso-edit-btn" onClick={() => onDuplicar(recurso)} title="Duplicar recurso">
               📋 Duplicar
             </button>
           )}
-          {esAdmin && onEditar && (
+          {gestiona && onEditar && (
             <button type="button" className="recurso-edit-btn"
                     onClick={() => onEditar(recurso)}
                     title="Editar recurso">

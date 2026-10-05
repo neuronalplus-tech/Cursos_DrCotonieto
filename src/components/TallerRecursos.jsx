@@ -132,7 +132,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
   )
 }
 
-export default function TallerRecursos({ curso, user, esAdmin, onActualizado }) {
+export default function TallerRecursos({ curso, user, gestiona, onActualizado }) {
   const [editando, setEditando] = useState(false)
   const [emailLead, setEmailLead] = useState('')
   const [solicitando, setSolicitando] = useState(false)
@@ -184,7 +184,7 @@ export default function TallerRecursos({ curso, user, esAdmin, onActualizado }) 
     <section className="taller-recursos">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <h2 className="titulo-seccion">Material del taller</h2>
-        {esAdmin && (
+        {gestiona && (
           <button type="button" className="button secondary" onClick={() => setEditando(true)}>✏️ Editar taller</button>
         )}
       </div>
@@ -195,7 +195,7 @@ export default function TallerRecursos({ curso, user, esAdmin, onActualizado }) 
             <span className="recurso-icono" aria-hidden="true">📝</span>
             <div><h3>Registro a la sesión en vivo</h3></div>
           </div>
-          {esAdmin && curso.link_registro && (
+          {gestiona && curso.link_registro && (
             <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
                     onClick={toggleRegistroActivo}
                     title={curso.registro_activo === false ? 'Activar botón' : 'Desactivar botón'}>
@@ -236,7 +236,7 @@ export default function TallerRecursos({ curso, user, esAdmin, onActualizado }) 
             <span className="recurso-icono" aria-hidden="true">🎬</span>
             <div><h3>Grabación de la sesión</h3></div>
           </div>
-          {esAdmin && curso.link_grabacion && (
+          {gestiona && curso.link_grabacion && (
             <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
                     onClick={toggleGrabacionActivo}
                     title={curso.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>

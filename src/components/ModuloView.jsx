@@ -6,6 +6,7 @@ import {
   emiteConstancia, analizarUrl, esCursoProblemasContemporaneos,
 } from '../lib/helpers'
 import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, wa } from '../config'
+import { usePermisos } from '../lib/permisos'
 import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
@@ -15,7 +16,7 @@ import {
   ModalNotificarRecurso, RecursoCard, DiapositivasPresentarCaso, Entregables,
 } from './RecursosModulo'
 
-function ModuloView({ user, esAdmin }) {
+function ModuloView({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [modulo, setModulo] = useState(null)
@@ -25,6 +26,13 @@ function ModuloView({ user, esAdmin }) {
   const [progresoRecursos, setProgresoRecursos] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // A diferencia de las pantallas de curso, aqui la URL trae el MODULO,
+  // asi que el curso (y con el, el permiso) no se conoce hasta cargarlo.
+  // `permisosCargados` entra en las dependencias del efecto para que la
+  // carga se repita si los permisos llegan despues del primer render.
+  const { puedeGestionar, cargado: permisosCargados } = usePermisos(user)
+  const gestiona = puedeGestionar(modulo?.curso_id)
 
   // ✨ NUEVO: modal de edición de recurso
   const [editandoRecurso, setEditandoRecurso] = useState(null)
@@ -41,18 +49,22 @@ function ModuloView({ user, esAdmin }) {
         if (!m) { setError('Este módulo no existe o no tienes acceso a él.'); return }
 
         let miGrupo = null
+        // El permiso real de esta pantalla: el curso al que pertenece
+        // el modulo, no el modulo en si.
+        const gestionaCurso = puedeGestionar(m.curso_id)
+
         if (user) {
           const { data: accG } = await supabase.from('acceso')
             .select('grupo').eq('usuario_id', user.id).eq('curso_id', m.curso_id).maybeSingle()
           miGrupo = accG?.grupo || null
         }
 
-        if (!moduloVisible(m, { user, esAdmin, miGrupo })) {
+        if (!moduloVisible(m, { user, gestionaCurso, miGrupo })) {
           setError('Este módulo es privado. Inicia sesión con tu cuenta autorizada para verlo.')
           return
         }
 
-        if (!esAdmin && m.disponible === false) {
+        if (!gestionaCurso && m.disponible === false) {
           setError('Este módulo todavía no está abierto. Te avisaré por WhatsApp cuando esté disponible.')
           return
         }
@@ -67,8 +79,8 @@ function ModuloView({ user, esAdmin }) {
         const { data: mods } = await supabase.from('modulos').select('id, titulo, orden, grupo, oculto, disponible')
           .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
         const modsSidebar = (mods || [])
-          .filter(x => moduloVisible(x, { user, esAdmin, miGrupo }))
-          .filter(x => esAdmin || x.disponible !== false)
+          .filter(x => moduloVisible(x, { user, gestionaCurso, miGrupo }))
+          .filter(x => gestionaCurso || x.disponible !== false)
         setModulosCurso(modsSidebar)
 
         if (user && rs?.length) {
@@ -82,7 +94,11 @@ function ModuloView({ user, esAdmin }) {
       } finally { setLoading(false) }
     }
     load()
-  }, [id, user, esAdmin])
+    // `puedeGestionar` se recrea en cada render: meterla aqui relanzaria
+    // la carga sin motivo. `permisosCargados` ya cubre el unico cambio
+    // que importa, que es la llegada de los permisos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user, permisosCargados])
 
   const bucket = curso?.gratuito ? BUCKET_TALLERES : BUCKET_PAGO
 
@@ -150,7 +166,7 @@ function ModuloView({ user, esAdmin }) {
         { label: modulo.titulo }
       ]} />
 
-      {esAdmin && bloqueadoParaAlumno && (
+      {gestiona && bloqueadoParaAlumno && (
         <div className="admin-banner">
           <strong>Vista de administrador.</strong> Este módulo aún no está visible para alumnos (disponible = false).
           Para abrirlo: <code>update modulos set disponible = true where id = {modulo.id};</code>
@@ -208,7 +224,7 @@ function ModuloView({ user, esAdmin }) {
           <header className="modulo-encabezado">
             <h1>
               {modulo.titulo}
-              {bloqueadoParaAlumno && esAdmin && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
+              {bloqueadoParaAlumno && gestiona && <span className="etiqueta-grupo">🔒 Bloqueado (solo admin)</span>}
               {!bloqueadoParaAlumno && modulo.oculto && <span className="etiqueta-grupo">🔒 Privado</span>}
               {modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}
             </h1>
@@ -238,7 +254,7 @@ function ModuloView({ user, esAdmin }) {
           {mostrarEntregables && <Entregables />}
 
           {/* ✨ NUEVO: botón de "Nuevo recurso" solo para admin */}
-          {esAdmin && (
+          {gestiona && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
               <button type="button" className="button secondary" onClick={() => setEditandoBotonesModulo(true)}>
                 🔗 Botones del módulo
@@ -262,7 +278,7 @@ function ModuloView({ user, esAdmin }) {
                 user={user}
                 visto={!!progresoRecursos[r.id]}
                 onMarcarVisto={marcarVisto}
-                esAdmin={esAdmin}
+                gestiona={gestiona}
                 onEditar={setEditandoRecurso}
                 onDuplicar={setDuplicandoRecurso}
                 onNotificar={setNotificandoRecurso}

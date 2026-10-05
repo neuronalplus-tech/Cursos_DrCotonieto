@@ -3,11 +3,15 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { cursoEspecial } from '../lib/helpers'
 import { rutaAcceso, wa, DETALLES_DUELO } from '../config'
+import { usePermisos } from '../lib/permisos'
 import { Breadcrumb, BandaRedes } from './ui'
 
-function CursoDetalle({ user, esAdmin }) {
+function CursoDetalle({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  // El id de la URL es el del curso, asi que el permiso esta resuelto
+  // desde el primer render.
+  const gestiona = usePermisos(user).puedeGestionar(id)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [miGrupo, setMiGrupo] = useState(null)
@@ -19,7 +23,7 @@ function CursoDetalle({ user, esAdmin }) {
       setCurso(c)
 
       let grupo = null
-      if (!esAdmin && user) {
+      if (!gestiona && user) {
         const { data: acc } = await supabase.from('acceso')
           .select('grupo').eq('usuario_id', user.id).eq('curso_id', id).maybeSingle()
         if (acc) grupo = acc.grupo || null
@@ -33,7 +37,7 @@ function CursoDetalle({ user, esAdmin }) {
       setLoading(false)
     }
     load()
-  }, [id, user, esAdmin])
+  }, [id, user, gestiona])
 
   if (loading) return <div className="loading">Cargando detalles...</div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
@@ -54,7 +58,7 @@ function CursoDetalle({ user, esAdmin }) {
   const { acompanamiento, clinica } = DETALLES_DUELO.rutas
 
   const tieneAccesoAlGrupo = (g) => {
-    if (esAdmin) return true
+    if (gestiona) return true
     if (!user) return false
     if (!g) return true
     return miGrupo === g
@@ -63,7 +67,7 @@ function CursoDetalle({ user, esAdmin }) {
   const RutaCol = ({ ruta }) => {
     const tieneAcceso = tieneAccesoAlGrupo(ruta.grupo)
     const modsRuta = modulos.filter(m => m.grupo === ruta.grupo).sort((a, b) => (a.orden || 0) - (b.orden || 0))
-    const primerModulo = modsRuta.find(m => esAdmin || (m.disponible !== false && tieneAcceso))
+    const primerModulo = modsRuta.find(m => gestiona || (m.disponible !== false && tieneAcceso))
 
     return (
       <article className="ruta-col">
@@ -111,7 +115,7 @@ function CursoDetalle({ user, esAdmin }) {
             💬 Solicitar información
           </a>
           <button className="button secondary ancho" onClick={() => {
-            if (esAdmin || tieneAcceso) {
+            if (gestiona || tieneAcceso) {
               if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
               else navigate(`/curso/${id}`)
             } else if (!user) {
@@ -120,7 +124,7 @@ function CursoDetalle({ user, esAdmin }) {
               alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
             }
           }}>
-            {esAdmin || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
+            {gestiona || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
           </button>
         </div>
       </article>

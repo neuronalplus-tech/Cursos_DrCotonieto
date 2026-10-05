@@ -12,7 +12,7 @@ import PortadaCurso, { motivoDe } from './PortadaCurso'
 import CarruselCursos from './CarruselCursos'
 import CursoCard from './CursoCard'
 
-function Home({ user, esAdmin }) {
+function Home({ user }) {
   const [cursos, setCursos] = useState([])
   const [accesos, setAccesos] = useState(new Set())
   const [loading, setLoading] = useState(true)

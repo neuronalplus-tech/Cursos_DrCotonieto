@@ -213,13 +213,13 @@ function App() {
       <main className="app-main">
         <BarreraErrores key={pathname}>
           <Routes>
-            <Route path="/" element={<Home user={user} esAdmin={esAdmin} />} />
+            <Route path="/" element={<Home user={user} />} />
             <Route path="/acceso" element={<Login message={message} />} />
             <Route path="/perfil" element={<Perfil user={user} />} />
             <Route path="/admin" element={<Admin user={user} esAdmin={esAdmin} />} />
             <Route path="/curso/:id" element={<CursoView user={user} />} />
-            <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} esAdmin={esAdmin} />} />
-            <Route path="/modulo/:id" element={<ModuloView user={user} esAdmin={esAdmin} />} />
+            <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} />} />
+            <Route path="/modulo/:id" element={<ModuloView user={user} />} />
             <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
             <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
             <Route path="/foro/:cursoId" element={<ForoCurso user={user} />} />

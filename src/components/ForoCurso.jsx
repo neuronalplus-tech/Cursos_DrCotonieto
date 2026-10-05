@@ -53,7 +53,7 @@ let CANAL_FORO = 0
 /* ------------------------------------------------------------
    TARJETA DE RESPUESTA
    ------------------------------------------------------------ */
-function Respuesta({ r, propio, esAdmin, deAdmin, tituloHilo, onBorrar }) {
+function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(r.cuerpo || '')
   const [guardando, setGuardando] = useState(false)
@@ -110,7 +110,7 @@ function Respuesta({ r, propio, esAdmin, deAdmin, tituloHilo, onBorrar }) {
           <div className="foro-respuesta-pie">
             {r.editado && <span className="nota">editado</span>}
             {!esTextoPlano(r.cuerpo) && <span className="nota">con formato</span>}
-            {(propio || esAdmin) && (
+            {(propio || gestiona) && (
               <span className="foro-acciones">
                 {propio && (
                   <button type="button" className="enlace-texto" onClick={() => setEditando(true)}>Editar</button>
@@ -490,7 +490,7 @@ export function ForoCurso({ user }) {
                 key={r.id}
                 r={{ ...r, autor_foto: r.autor_id === user.id ? perfil.foto : null }}
                 propio={r.autor_id === user.id}
-                esAdmin={gestionaCurso}
+                gestiona={gestionaCurso}
                 deAdmin={esDeAdmin(r.autor_email)}
                 tituloHilo={hiloActual.titulo}
                 onBorrar={borrarRespuesta}
