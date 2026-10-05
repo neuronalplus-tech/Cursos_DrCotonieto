@@ -862,6 +862,43 @@ a { color: var(--primary); }
    Se lee por curso: la pregunta real del admin es "quién lleva
    este curso", no "qué lleva esta persona".
    ------------------------------------------------------------ */
+/* ---- Barra superior: buzon y menu de cuenta ----------------- */
+.header-icono { position: relative; background: none; border: 0; cursor: pointer;
+  font-size: 19px; line-height: 1; padding: 6px 8px; border-radius: 8px; }
+.header-icono:hover { background: rgba(255,255,255,.12); }
+
+/* El globo del contador se ancla al icono, no al flujo, para que
+   no desplace el resto de la barra al aparecer. */
+.header-globo { position: absolute; top: 0; right: 0; min-width: 17px;
+  padding: 0 4px; border-radius: 999px; background: #D9534F; color: #fff;
+  font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center; }
+
+.header-cuenta { position: relative; }
+.header-cuenta-btn { display: flex; align-items: center; gap: 8px;
+  background: none; border: 0; color: inherit; cursor: pointer;
+  padding: 5px 8px; border-radius: 999px; font: inherit; }
+.header-cuenta-btn:hover { background: rgba(255,255,255,.12); }
+.header-cuenta-nombre { max-width: 170px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.header-avatar { display: grid; place-items: center; width: 30px; height: 30px;
+  border-radius: 50%; background: rgba(255,255,255,.18);
+  font-size: 12px; font-weight: 700; flex-shrink: 0; }
+
+.header-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  min-width: 220px; padding: 6px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--borde);
+  box-shadow: 0 12px 32px rgba(0,0,0,.18); display: grid; gap: 2px; }
+.header-menu button { width: 100%; text-align: left; background: none; border: 0;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--primary); font: inherit; }
+.header-menu button:hover { background: var(--bg-card); }
+.header-menu button.destacado { color: var(--accent); font-weight: 600; }
+.header-menu hr { border: 0; border-top: 1px solid var(--borde); margin: 4px 0; }
+
+@media (max-width: 640px) {
+  .header-cuenta-nombre { display: none; }
+}
+
 .facil-alta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .facil-alta .input { flex: 1 1 220px; }
 .facil-cursos { display: grid; gap: 10px; margin-top: 16px; }
