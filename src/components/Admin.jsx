@@ -31,6 +31,7 @@ function Admin({ user }) {
   const [cursosLista, setCursosLista] = useState([])
   const [cursosSeleccionados, setCursosSeleccionados] = useState([])
   const [rolNuevo, setRolNuevo] = useState('alumno')
+  const [modoAcceso, setModoAcceso] = useState('clave')
   const [creando, setCreando] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -70,6 +71,7 @@ function Admin({ user }) {
   const [passMasivo, setPassMasivo] = useState('')
   const [cursosMasivos, setCursosMasivos] = useState([])
   const [rolMasivo, setRolMasivo] = useState('alumno')
+  const [modoMasivo, setModoMasivo] = useState('clave')
   const [creandoMasivo, setCreandoMasivo] = useState(false)
   const [progresoMasivo, setProgresoMasivo] = useState({ actual: 0, total: 0 })
   const [resultadoMasivo, setResultadoMasivo] = useState(null)
@@ -199,6 +201,33 @@ function Admin({ user }) {
    * El índice único (lower(email), curso_id) impide duplicados, así que
    * reasignar a alguien que ya estaba no da error ni crea basura.
    */
+  /* Contraseña aleatoria para el alta por invitación.
+
+     No se muestra ni se guarda: existe solo porque crear la cuenta
+     exige una, y queda inservible en cuanto la persona elige la suya
+     desde el enlace. Nadie, ni tú, llega a conocerla. */
+  const claveDeUnSoloUso = () => {
+    const b = new Uint8Array(18)
+    crypto.getRandomValues(b)
+    return 'Inv-' + btoa(String.fromCharCode(...b)).replace(/[^A-Za-z0-9]/g, '').slice(0, 20)
+  }
+
+  /* Supabase solo sabe invitar con la clave de servicio, que no puede
+     vivir en el navegador. Esto consigue lo mismo con lo que ya hay:
+     la cuenta se crea con una clave que nadie conoce y acto seguido se
+     manda el enlace para que elija la suya. Para quien lo recibe es
+     una invitación. */
+  const invitar = async (emails) => {
+    const fallos = []
+    for (const correo of emails) {
+      const { error } = await supabase.auth.resetPasswordForEmail(correo, {
+        redirectTo: `${window.location.origin}/recuperar`,
+      })
+      if (error) fallos.push(`${correo}: ${error.message}`)
+    }
+    return fallos
+  }
+
   const asignarFacilitadores = async (emails, cursoIds) => {
     const filas = []
     for (const email of emails) {
@@ -219,8 +248,9 @@ function Admin({ user }) {
     // correo, así que no pide contraseña.
     const soloFacilitador = rolNuevo === 'facilitador'
     if (!nuevoEmail) { setMsg('Error: el correo es obligatorio'); return }
-    if (!soloFacilitador && !nuevoPass) { setMsg('Error: correo y contraseña son obligatorios'); return }
-    if (!soloFacilitador && nuevoPass.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    const porInvitacion = modoAcceso === 'invitacion'
+    if (!soloFacilitador && !porInvitacion && !nuevoPass) { setMsg('Error: correo y contraseña son obligatorios'); return }
+    if (!soloFacilitador && !porInvitacion && nuevoPass.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
     if (cursosSeleccionados.length === 0) { setMsg('Error: selecciona al menos un curso'); return }
 
     setCreando(true)
@@ -250,7 +280,7 @@ function Admin({ user }) {
         },
         body: JSON.stringify({
           email: nuevoEmail,
-          password: nuevoPass,
+          password: porInvitacion ? claveDeUnSoloUso() : nuevoPass,
           curso_ids: cursosSeleccionados
         })
       })
@@ -264,6 +294,12 @@ function Admin({ user }) {
         setMsg(`Error (HTTP ${res.status}): ${errorReal}`)
       } else {
         let extra = ''
+        if (porInvitacion) {
+          const fallos = await invitar([nuevoEmail])
+          extra += fallos.length
+            ? ` (pero no se pudo enviar la invitación: ${fallos[0]})`
+            : '. Le llegó un correo para que elija su contraseña'
+        }
         if (rolNuevo === 'ambos') {
           const r = await asignarFacilitadores([nuevoEmail], cursosSeleccionados)
           extra = r.error ? ` (pero falló el rol de facilitador: ${r.error.message})` : ' y queda como facilitador'
@@ -306,7 +342,8 @@ function Admin({ user }) {
     if (emails.length === 0) { setMsgMasivo('Error: pega al menos un correo válido'); return }
     if (emails.length > 200) { setMsgMasivo(`Error: máximo 200 correos por lote (pegaste ${emails.length})`); return }
     const soloFacilMasivo = rolMasivo === 'facilitador'
-    if (!soloFacilMasivo && (!passMasivo || passMasivo.length < 6)) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    const masivoPorInvitacion = modoMasivo === 'invitacion'
+    if (!soloFacilMasivo && !masivoPorInvitacion && (!passMasivo || passMasivo.length < 6)) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
     if (cursosMasivos.length === 0) { setMsgMasivo('Error: selecciona al menos un curso'); return }
 
     // Asignar el rol no crea cuentas, así que no necesita confirmación
@@ -357,7 +394,7 @@ function Admin({ user }) {
           },
           body: JSON.stringify({
             emails: lote,
-            password: passMasivo,
+            password: masivoPorInvitacion ? claveDeUnSoloUso() : passMasivo,
             curso_ids: cursosMasivos,
           }),
         })
@@ -371,6 +408,16 @@ function Admin({ user }) {
         todosResultados.push(...(json.resultados || []))
 
         setProgresoMasivo({ actual: Math.min(i + BATCH, emails.length), total: emails.length })
+      }
+
+      if (masivoPorInvitacion) {
+        // Van de uno en uno: el servicio de correo tiene un tope por
+        // hora y conviene saber exactamente cuáles no salieron.
+        const fallos = await invitar(emails)
+        if (fallos.length) {
+          setMsgMasivo(`Cuentas creadas, pero ${fallos.length} invitación(es) no salieron. ` +
+            'El correo de Supabase tiene un tope por hora: vuelve a intentarlo luego con el botón 🔑.')
+        }
       }
 
       if (rolMasivo === 'ambos') {
@@ -993,7 +1040,22 @@ function Admin({ user }) {
                   ))}
                 </div>
                 {/* Asignar solo el rol no crea cuenta, así que no pide contraseña. */}
-                {rolNuevo !== 'facilitador' && (
+                <label>Cómo entrará la primera vez</label>
+                <div className="rol-opciones">
+                  {[
+                    ['clave', '🔑 Yo le asigno una contraseña', 'Se la compartes tú. Podrá cambiarla desde Mi perfil.'],
+                    ['invitacion', '✉️ Que la elija él', 'Le llega un correo para crear su propia contraseña. Tú no manejas ninguna.'],
+                  ].map(([v, etiqueta, ayuda]) => (
+                    <label key={v} className={`rol-opcion${modoAcceso === v ? ' activa' : ''}`}>
+                      <input type="radio" name="acceso-individual" value={v}
+                             checked={modoAcceso === v}
+                             onChange={() => setModoAcceso(v)} />
+                      <span className="rol-opcion-titulo">{etiqueta}</span>
+                      <span className="nota">{ayuda}</span>
+                    </label>
+                  ))}
+                </div>
+                {rolNuevo !== 'facilitador' && modoAcceso === 'clave' && (
                   <>
                     <label>Contraseña temporal</label>
                     <input type="text" value={nuevoPass} onChange={e => setNuevoPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
@@ -1051,7 +1113,22 @@ function Admin({ user }) {
                     </label>
                   ))}
                 </div>
-                {rolMasivo !== 'facilitador' && (
+                <label>Cómo entrará la primera vez</label>
+                <div className="rol-opciones">
+                  {[
+                    ['clave', '🔑 Yo le asigno una contraseña', 'Se la compartes tú. Podrá cambiarla desde Mi perfil.'],
+                    ['invitacion', '✉️ Que la elija él', 'Le llega un correo para crear su propia contraseña. Tú no manejas ninguna.'],
+                  ].map(([v, etiqueta, ayuda]) => (
+                    <label key={v} className={`rol-opcion${modoMasivo === v ? ' activa' : ''}`}>
+                      <input type="radio" name="acceso-masivo" value={v}
+                             checked={modoMasivo === v}
+                             onChange={() => setModoMasivo(v)} />
+                      <span className="rol-opcion-titulo">{etiqueta}</span>
+                      <span className="nota">{ayuda}</span>
+                    </label>
+                  ))}
+                </div>
+                {rolMasivo !== 'facilitador' && modoMasivo === 'clave' && (
                   <>
                     <label>Contraseña temporal (misma para todos)</label>
                     <input type="text" value={passMasivo} onChange={e => setPassMasivo(e.target.value)} placeholder="Ej. Curso2026!" />
