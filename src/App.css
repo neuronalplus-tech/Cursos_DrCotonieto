@@ -962,6 +962,8 @@ a { color: var(--primary); }
 .tarea-fila.archivada { opacity: .6; }
 .tarea-fila-datos { flex: 1 1 260px; min-width: 0; }
 .tarea-fila-datos strong { display: block; color: var(--primary); }
+.tarea-recuento { display: flex; align-items: center; gap: 8px;
+  margin-top: 4px; font-size: 12.5px; color: var(--muted); }
 
 .tarea-editor label { display: block; margin-top: 12px; font-size: 13px;
   font-weight: 600; color: var(--primary); }

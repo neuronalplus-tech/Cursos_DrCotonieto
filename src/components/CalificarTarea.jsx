@@ -129,6 +129,32 @@ export default function CalificarTarea({ tarea, onCerrar }) {
     setGuardando(false)
     if (e) return setMsg({ tipo: 'error', texto: 'No se pudo guardar: ' + e.message })
 
+    // Aviso en la bandeja interna. Sin esto, la calificación solo
+    // existe para quien vuelve a entrar a mirar por su cuenta, y el
+    // trabajo de retroalimentar se pierde en una pantalla que nadie
+    // abre.
+    //
+    // Si el aviso falla, la calificación ya quedó guardada: se avisa
+    // del fallo pero no se deshace nada.
+    const { data: yo } = await supabase.auth.getUser()
+    if (yo?.user?.id) {
+      const resumen = retro.trim()
+        ? `Califiqué tu entrega de “${tarea.titulo}”: ${notaFinal} de ${tarea.puntos_max}.
+
+${retro.trim()}`
+        : `Califiqué tu entrega de “${tarea.titulo}”: ${notaFinal} de ${tarea.puntos_max}.`
+      const { error: eMsg } = await supabase.from('mensajes').insert({
+        de_id: yo.user.id,
+        para_id: alumno.id,
+        contenido: resumen,
+      })
+      if (eMsg) {
+        setMsg({ tipo: 'error', texto: 'Calificación guardada, pero no se pudo avisar: ' + eMsg.message })
+        setAlumnos(prev => prev.map(a => (a.id === alumno.id ? { ...a, entrega: data } : a)))
+        return
+      }
+    }
+
     setAlumnos(prev => prev.map(a => (a.id === alumno.id ? { ...a, entrega: data } : a)))
     setMsg({ tipo: 'ok', texto: '✓ Calificación guardada' })
   }

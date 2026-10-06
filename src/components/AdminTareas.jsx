@@ -89,6 +89,9 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const [guardando, setGuardando] = useState(false)
   const [leyendoExcel, setLeyendoExcel] = useState(false)
   const [calificando, setCalificando] = useState(null)
+  // tarea_id -> { entregadas, pendientes }. Se cuenta aquí y no en cada
+  // fila para no disparar una consulta por tarea.
+  const [recuento, setRecuento] = useState({})
 
   const columna = cursoId ? 'curso_id' : 'modulo_id'
   const valor = cursoId || moduloId
@@ -99,6 +102,21 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
       .from('tareas').select('*').eq(columna, valor).order('creado_en')
     if (error) setMsg({ tipo: 'error', texto: 'No se pudieron cargar: ' + error.message })
     else setTareas(data || [])
+
+    const ids = (data || []).map(t => t.id)
+    if (ids.length) {
+      const { data: ents } = await supabase.from('entregas')
+        .select('tarea_id, calificado_en').in('tarea_id', ids)
+      const r = {}
+      for (const e of ents || []) {
+        if (!r[e.tarea_id]) r[e.tarea_id] = { entregadas: 0, pendientes: 0 }
+        r[e.tarea_id].entregadas++
+        if (!e.calificado_en) r[e.tarea_id].pendientes++
+      }
+      setRecuento(r)
+    } else {
+      setRecuento({})
+    }
     setCargando(false)
   }
 
@@ -266,6 +284,16 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                       {t.grupo && ` · ruta ${t.grupo}`}
                       {!t.activo && ' · oculta'}
                     </span>
+                    {recuento[t.id]?.entregadas > 0 && (
+                      <span className="tarea-recuento">
+                        {recuento[t.id].entregadas} entrega(s)
+                        {recuento[t.id].pendientes > 0 && (
+                          <span className="badge rol-alumno">
+                            {recuento[t.id].pendientes} por calificar
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
                   <button type="button" className="button texto"
                           onClick={() => setCalificando(t)}>📊 Calificar</button>
