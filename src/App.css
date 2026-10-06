@@ -2718,6 +2718,16 @@ a { color: var(--primary); }
 .foro-badge-admin { padding: 1px 7px; border-radius: 999px;
   background: var(--accent); color: #fff; letter-spacing: .04em; }
 
+/* ---- Requisitos de la constancia ---------------------------- */
+.constancia-requisitos { list-style: none; margin: 12px 0 0; padding: 0;
+  display: grid; gap: 6px; text-align: left; }
+.constancia-requisitos li { display: grid; grid-template-columns: 20px 1fr auto;
+  gap: 10px; align-items: baseline; padding: 8px 12px;
+  border-radius: 8px; background: var(--bg-card); }
+
+/* Lo cumplido se atenúa: lo que importa leer es lo que falta. */
+.constancia-requisitos li.cumple { opacity: .55; }
+
 /* ---- Foro evaluable ----------------------------------------- */
 .foro-evaluable { display: flex; gap: 10px; align-items: flex-start;
   margin-top: 14px; cursor: pointer; }

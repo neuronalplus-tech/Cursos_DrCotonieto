@@ -13,6 +13,9 @@ function Constancia({ user }) {
   const [generando, setGenerando] = useState(false)
   const [curso, setCurso] = useState(null)
   const [puede, setPuede] = useState(false)
+  // Qué falta, por partes. Un "aún no" sin más obliga a la persona a
+  // adivinar qué le queda, y a ti a responder el mensaje preguntándolo.
+  const [requisitos, setRequisitos] = useState([])
   const [noEmite, setNoEmite] = useState(false)
   const navigate = useNavigate()
 
@@ -29,16 +32,74 @@ function Constancia({ user }) {
         setCargando(false)
         return
       }
-      const { data: mods } = await supabase.from('modulos').select('id, disponible').eq('curso_id', cursoId)
+      const { data: mods } = await supabase.from('modulos')
+        .select('id, disponible').eq('curso_id', cursoId)
       const modsActivos = (mods || []).filter(m => m.disponible !== false)
-      if (modsActivos.length) {
-        const { data: rs } = await supabase.from('recursos').select('id').in('modulo_id', modsActivos.map(m => m.id))
-        if (rs?.length) {
-          const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
-            .eq('usuario_id', user.id).in('recurso_id', rs.map(r => r.id)).eq('completado', true)
-          setPuede((comp?.length || 0) === rs.length)
-        }
+      const idsMod = modsActivos.map(m => m.id)
+      const req = []
+
+      // --- Recursos ---
+      const { data: rs } = idsMod.length
+        ? await supabase.from('recursos').select('id').in('modulo_id', idsMod)
+        : { data: [] }
+      const idsRec = (rs || []).map(r => r.id)
+      if (idsRec.length) {
+        const { data: comp } = await supabase.from('progreso_usuario')
+          .select('recurso_id').eq('usuario_id', user.id)
+          .in('recurso_id', idsRec).eq('completado', true)
+        const hechos = comp?.length || 0
+        req.push({
+          titulo: 'Material del curso',
+          cumple: hechos === idsRec.length,
+          detalle: `${hechos} de ${idsRec.length} recursos`,
+        })
       }
+
+      // --- Tareas: hay que haber entregado Y estar calificado ---
+      const { data: tC } = await supabase.from('tareas')
+        .select('id, titulo').eq('curso_id', cursoId).eq('activo', true)
+      const { data: tM } = idsMod.length
+        ? await supabase.from('tareas').select('id, titulo')
+            .in('modulo_id', idsMod).eq('activo', true)
+        : { data: [] }
+      const tareas = [...(tC || []), ...(tM || [])]
+      if (tareas.length) {
+        const { data: ents } = await supabase.from('entregas')
+          .select('tarea_id, calificado_en').eq('usuario_id', user.id)
+          .in('tarea_id', tareas.map(t => t.id))
+        const calificadas = (ents || []).filter(e => e.calificado_en).length
+        req.push({
+          titulo: 'Entregas',
+          cumple: calificadas === tareas.length,
+          detalle: `${calificadas} de ${tareas.length} calificadas`,
+        })
+      }
+
+      // --- Exámenes: basta un intento aprobado de cada uno ---
+      const { data: exC } = await supabase.from('examenes')
+        .select('id').eq('curso_id', cursoId).eq('activo', true)
+      const { data: exM } = idsMod.length
+        ? await supabase.from('examenes').select('id')
+            .in('modulo_id', idsMod).eq('activo', true)
+        : { data: [] }
+      const examenes = [...(exC || []), ...(exM || [])]
+      if (examenes.length) {
+        const { data: its } = await supabase.from('intentos_examen')
+          .select('examen_id, aprobado').eq('usuario_id', user.id)
+          .in('examen_id', examenes.map(e => e.id))
+        const aprobados = new Set(
+          (its || []).filter(x => x.aprobado).map(x => x.examen_id)).size
+        req.push({
+          titulo: 'Exámenes',
+          cumple: aprobados === examenes.length,
+          detalle: `${aprobados} de ${examenes.length} aprobados`,
+        })
+      }
+
+      setRequisitos(req)
+      // Sin requisitos no hay nada que exigir: un curso sin material ni
+      // evaluaciones no debe bloquear la constancia por un tecnicismo.
+      setPuede(req.length === 0 || req.every(r => r.cumple))
       setCargando(false)
     }
     load()
@@ -129,7 +190,23 @@ function Constancia({ user }) {
                 {generando ? 'Generando...' : 'Descargar constancia'}
               </button>
             </>
-          : <p className="sutil">Aún no marcas todos los recursos como vistos. Al completarlos podrás descargar tu constancia.</p>}
+          : (
+            <>
+              {/* El desglose evita el mensaje más inútil de cualquier
+                  plataforma: "aún no cumples los requisitos", sin decir
+                  cuáles. */}
+              <p className="sutil">Para descargar tu constancia falta:</p>
+              <ul className="constancia-requisitos">
+                {requisitos.map(r => (
+                  <li key={r.titulo} className={r.cumple ? 'cumple' : ''}>
+                    <span>{r.cumple ? '✔' : '○'}</span>
+                    <span>{r.titulo}</span>
+                    <span className="nota">{r.detalle}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
       </div>
       <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
       <BandaRedes />
