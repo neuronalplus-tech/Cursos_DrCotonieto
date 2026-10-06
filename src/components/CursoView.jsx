@@ -23,6 +23,7 @@ function CursoView({ user }) {
   // primer render, sin esperar a que cargue el curso.
   const gestiona = usePermisos(user).puedeGestionar(id)
   const [examenesAbierto, setExamenesAbierto] = useState(false)
+  const [borrandoModulo, setBorrandoModulo] = useState(null)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [talleres, setTalleres] = useState([])
@@ -272,6 +273,26 @@ function CursoView({ user }) {
     }
   }
 
+  /* Borrar un modulo es menos grave que borrar un curso: es una unidad
+     de trabajo y equivocarse creando uno es comun. La red de seguridad
+     es la bitacora, que guarda la fila completa al borrarla. */
+  const borrarModulo = async (m) => {
+    const { count } = await supabase.from('recursos')
+      .select('id', { count: 'exact', head: true }).eq('modulo_id', m.id)
+    const aviso = count
+      ? `El modulo "${m.titulo}" tiene ${count} recurso(s). Al borrarlo se van tambien.
+
+¿Seguro?`
+      : `¿Eliminar el modulo "${m.titulo}"?`
+    if (!window.confirm(aviso)) return
+
+    setBorrandoModulo(m.id)
+    const { error } = await supabase.from('modulos').delete().eq('id', m.id)
+    setBorrandoModulo(null)
+    if (error) { window.alert('No se pudo eliminar: ' + error.message); return }
+    setModulos(prev => prev.filter(x => x.id !== m.id))
+  }
+
   const renderModulo = (m, i) => {
     const bloqueado = esModuloBloqueado(m)
     const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !gestiona
@@ -308,6 +329,12 @@ function CursoView({ user }) {
           disabled={notificando === m.id}
           title={m.disponible ? 'Cerrar módulo' : 'Abrir módulo'}>
           {notificando === m.id ? '⏳' : (m.disponible ? '🔓' : '🔒')}
+        </button>
+        <button type="button" className="modulo-borrar"
+          onClick={() => borrarModulo(m)}
+          disabled={borrandoModulo === m.id}
+          title="Eliminar este módulo">
+          {borrandoModulo === m.id ? '⏳' : '🗑️'}
         </button>
       </div>
     )

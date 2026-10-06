@@ -43,6 +43,7 @@ export default function AdminCursos() {
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState(null)
   const [verTaller, setVerTaller] = useState(false)
+  const [duplicando, setDuplicando] = useState(null)
 
   const recargar = async () => {
     setCargando(true)
@@ -102,6 +103,31 @@ export default function AdminCursos() {
     await recargar()
     setEditando(null)
     setMsg({ tipo: 'ok', texto: editando === 'nuevo' ? 'Curso creado.' : 'Cambios guardados.' })
+  }
+
+  /* La copia la arma una funcion de Postgres, no este componente:
+     son decenas de inserciones encadenadas y asi ocurren todas
+     dentro de una transaccion. Un fallo a mitad no deja un curso
+     copiado por la mitad. */
+  const duplicar = async (c) => {
+    const titulo = window.prompt(
+      `Titulo de la copia de "${c.titulo}":`,
+      `${c.titulo} (copia)`)
+    if (titulo === null) return
+    setDuplicando(c.id)
+    setMsg(null)
+    const { data, error } = await supabase.rpc('duplicar_curso', {
+      p_curso: c.id, p_titulo: titulo,
+    })
+    setDuplicando(null)
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo duplicar: ' + error.message })
+    await recargar()
+    setMsg({ tipo: 'ok', texto: `Copia creada y archivada. Revisala y activala cuando este lista.` })
+    // Se abre la copia para editarla: casi siempre lo primero que se
+    // quiere es cambiarle algo antes de activarla.
+    const { data: creado } = await supabase.from('cursos')
+      .select('*').eq('id', data).maybeSingle()
+    if (creado) abrirEdicion(creado)
   }
 
   const alternarArchivo = async (c) => {
@@ -244,6 +270,11 @@ export default function AdminCursos() {
                 </button>
                 <button type="button" className="button texto" onClick={() => alternarArchivo(c)}>
                   {c.activo ? '📦 Archivar' : '↩️ Reactivar'}
+                </button>
+                <button type="button" className="button texto"
+                        onClick={() => duplicar(c)} disabled={duplicando === c.id}
+                        title="Crea una copia con sus modulos, recursos y examenes">
+                  {duplicando === c.id ? 'Duplicando…' : '📄 Duplicar'}
                 </button>
               </div>
             </div>
