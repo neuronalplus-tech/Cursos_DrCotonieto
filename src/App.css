@@ -2728,6 +2728,28 @@ a { color: var(--primary); }
 /* Lo cumplido se atenúa: lo que importa leer es lo que falta. */
 .constancia-requisitos li.cumple { opacity: .55; }
 
+/* ---- Ramas del foro ----------------------------------------- */
+/* La sangría se corta al tercer nivel: más allá, en un móvil la
+   conversación acabaría en una columna de dos palabras. Los datos
+   siguen anidados; solo deja de dibujarse más adentro. */
+.foro-respuesta.nivel-1 { margin-left: 22px; }
+.foro-respuesta.nivel-2 { margin-left: 44px; }
+.foro-respuesta.nivel-3 { margin-left: 60px; }
+
+/* La línea vertical es lo que hace legible el anidamiento: sin
+   ella, la sangría sola no dice de quién cuelga cada cosa. */
+.foro-respuesta.nivel-1, .foro-respuesta.nivel-2, .foro-respuesta.nivel-3 {
+  border-left: 2px solid var(--borde); padding-left: 14px; }
+
+.foro-respondiendo { display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap; padding: 8px 12px; margin-bottom: 10px;
+  border-radius: 8px; background: var(--bg-card); font-size: 14px; }
+
+@media (max-width: 640px) {
+  .foro-respuesta.nivel-1 { margin-left: 10px; }
+  .foro-respuesta.nivel-2, .foro-respuesta.nivel-3 { margin-left: 20px; }
+}
+
 /* ---- Foro evaluable ----------------------------------------- */
 .foro-evaluable { display: flex; gap: 10px; align-items: flex-start;
   margin-top: 14px; cursor: pointer; }

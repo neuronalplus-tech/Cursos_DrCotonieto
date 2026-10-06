@@ -53,7 +53,7 @@ let CANAL_FORO = 0
 /* ------------------------------------------------------------
    TARJETA DE RESPUESTA
    ------------------------------------------------------------ */
-function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar, hilo, onCalificar }) {
+function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar, hilo, onCalificar, nivel = 0, onResponderA }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(r.cuerpo || '')
   const [guardando, setGuardando] = useState(false)
@@ -77,7 +77,7 @@ function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar, hilo, o
   }
 
   return (
-    <article className="foro-respuesta">
+    <article className={`foro-respuesta nivel-${Math.min(nivel, 3)}`}>
       <header className="foro-respuesta-cab">
         {r.autor_foto
           ? <img className="foro-avatar" src={r.autor_foto} alt="" />
@@ -129,6 +129,13 @@ function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar, hilo, o
                   {califando ? '…' : 'Guardar nota'}
                 </button>
               </span>
+            )}
+            {/* Responder a una aportación concreta, no al tema. Solo se
+                ofrece si el tema sigue abierto: en uno cerrado el botón
+                llevaría a un editor que luego rechaza el envío. */}
+            {onResponderA && !hilo?.cerrado && !r.borrada && (
+              <button type="button" className="enlace-texto"
+                      onClick={() => onResponderA(r)}>Responder</button>
             )}
             {r.editado && <span className="nota">editado</span>}
             {!esTextoPlano(r.cuerpo) && <span className="nota">con formato</span>}
@@ -229,6 +236,9 @@ export function ForoCurso({ user }) {
   const [error, setError] = useState(null)
   const [perfil, setPerfil] = useState({ nombre: '', email: '', foto: null })
   const [adminForoAbierto, setAdminForoAbierto] = useState(false)
+  // La aportación a la que se está respondiendo, o null para responder
+  // al tema. Se guarda la fila entera para poder enseñar a quién.
+  const [respondiendoA, setRespondiendoA] = useState(null)
   // Quién firma como "Administración". Misma fuente que el resto de la app:
   // la tabla `admins`, por correo. Si RLS no deja leerla desde una cuenta de
   // alumno queda vacía, y se cae al invariante del foro: quien abre un tema
@@ -391,6 +401,7 @@ export function ForoCurso({ user }) {
     setAviso(null)
     const { error } = await supabase.from('foro_respuestas').insert({
       hilo_id: hiloId,
+      responde_a: respondiendoA?.id ?? null,
       autor_id: user.id,
       autor_nombre: perfil.nombre,
       autor_email: perfil.email,
@@ -402,6 +413,7 @@ export function ForoCurso({ user }) {
       return
     }
     setNuevo('')
+    setRespondiendoA(null)
     setAviso({ tipo: 'ok', texto: 'Respuesta publicada.' })
     finRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -450,6 +462,23 @@ export function ForoCurso({ user }) {
   // ya cargadas: no hace falta otra consulta. Las borradas no cuentan,
   // porque si no se podría bajar el promedio de alguien borrándole su
   // mejor aportación.
+  // Las respuestas en árbol. Las huérfanas (su padre se borró y la
+  // columna quedó en null) suben al primer nivel en vez de
+  // desaparecer: se pierde el hilo de la charla, no el contenido.
+  const hijosDe = (() => {
+    const mapa = {}
+    const ids = new Set(delHilo.map(r => r.id))
+    for (const r of delHilo) {
+      const padre = r.responde_a && ids.has(r.responde_a) ? r.responde_a : 0
+      if (!mapa[padre]) mapa[padre] = []
+      mapa[padre].push(r)
+    }
+    for (const k of Object.keys(mapa)) {
+      mapa[k].sort((a, b) => String(a.creado_en).localeCompare(String(b.creado_en)))
+    }
+    return mapa
+  })()
+
   // Sin useMemo: `delHilo` es un filtro nuevo en cada render, asi que
   // memorizar sobre el no evitaba ningun recalculo. Son pocas filas.
   const promedios = (() => {
@@ -479,6 +508,30 @@ export function ForoCurso({ user }) {
     // la tabla `admins` no se haya podido leer.
     return c === String(hiloActual?.autor_email || '').toLowerCase()
   }
+
+  /* Pinta una aportación y, debajo, las que le respondieron. La
+     recursión es la forma natural de recorrer un árbol, y aquí no hay
+     riesgo de desbordar: la profundidad real son dos o tres niveles. */
+  const pintarRama = (r, nivel = 0) => (
+    <div key={r.id} className="foro-rama">
+      <Respuesta
+        r={{ ...r, autor_foto: r.autor_id === user.id ? perfil.foto : null }}
+        propio={r.autor_id === user.id}
+        gestiona={gestionaCurso}
+        deAdmin={esDeAdmin(r.autor_email)}
+        tituloHilo={hiloActual.titulo}
+        hilo={hiloActual}
+        nivel={nivel}
+        onCalificar={calificarRespuesta}
+        onBorrar={borrarRespuesta}
+        onResponderA={(x) => {
+          setRespondiendoA(x)
+          finRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }}
+      />
+      {(hijosDe[r.id] || []).map((h) => pintarRama(h, nivel + 1))}
+    </div>
+  )
 
   if (!user) return null
   if (cargando) return <div className="loading">Cargando…</div>
@@ -541,19 +594,7 @@ export function ForoCurso({ user }) {
           <h2 className="foro-sub">{delHilo.filter((r) => !r.borrada).length} respuesta(s)</h2>
 
           <div className="foro-respuestas">
-            {delHilo.map((r) => (
-              <Respuesta
-                key={r.id}
-                r={{ ...r, autor_foto: r.autor_id === user.id ? perfil.foto : null }}
-                propio={r.autor_id === user.id}
-                gestiona={gestionaCurso}
-                deAdmin={esDeAdmin(r.autor_email)}
-                tituloHilo={hiloActual.titulo}
-                hilo={hiloActual}
-                onCalificar={calificarRespuesta}
-                onBorrar={borrarRespuesta}
-              />
-            ))}
+            {(hijosDe[0] || []).map((r) => pintarRama(r))}
             {!delHilo.length && <p className="nota">Aún no hay respuestas. Sé el primero.</p>}
           </div>
           {hiloActual.califica && promedios.length > 0 && (
@@ -580,6 +621,13 @@ export function ForoCurso({ user }) {
           <div ref={finRef} />
 
           <div className="foro-responder">
+            {respondiendoA && (
+              <div className="foro-respondiendo">
+                <span>Respondiendo a <strong>{respondiendoA.autor_nombre}</strong></span>
+                <button type="button" className="enlace-texto"
+                        onClick={() => setRespondiendoA(null)}>Responder al tema</button>
+              </div>
+            )}
             <h3>{hiloActual.cerrado ? 'Este tema está cerrado' : 'Responder'}</h3>
             {hiloActual.cerrado ? (
               <p className="nota">No se pueden agregar respuestas a un tema cerrado.</p>
