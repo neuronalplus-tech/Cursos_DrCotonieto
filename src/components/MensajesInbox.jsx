@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Breadcrumb, BandaRedes, ModalPortal, EmbedFrame } from './ui'
 import { rutaAcceso, FOTO_PERFIL } from '../config'
+import { usePermisos } from '../lib/permisos'
 
 /* ============================================================
    MENSAJES - bandeja (Supabase Realtime) + pagina completa
@@ -18,6 +19,9 @@ let CANAL_INBOX = 0
    MENSAJES · INBOX (Supabase Realtime)
    ============================================================ */
 export default function MensajesInbox({ user, esAdmin }) {
+  // El admin ve a todos; el facilitador, a los inscritos de los cursos
+  // que gestiona. Ambos necesitan poder iniciar una conversacion.
+  const { esFacilitador, cursosGestionados } = usePermisos(user)
   const [conversaciones, setConversaciones] = useState([])
   const [chatCon, setChatCon] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -90,8 +94,51 @@ export default function MensajesInbox({ user, esAdmin }) {
   }, [esAdmin, user, mensajes.length])
 
   useEffect(() => {
-    if (!esAdmin || !user || vistaSidebar !== 'contactos') return
+    if ((!esAdmin && !esFacilitador) || !user || vistaSidebar !== 'contactos') return
     async function load() {
+      setCargandoContactos(true)
+
+      // Facilitador: se arma desde `acceso`, cuyo RLS ya lo acota a los
+      // cursos que gestiona. No se usa la vista de admin a proposito:
+      // una vista puede ejecutarse con los permisos de su dueño y
+      // saltarse RLS, y entonces enseñaria la plataforma entera.
+      if (!esAdmin) {
+        const ids = [...cursosGestionados]
+        if (!ids.length) { setContactos([]); setCargandoContactos(false); return }
+        const { data: insc } = await supabase.from('acceso')
+          .select('usuario_id, curso_id').in('curso_id', ids)
+        const personas = [...new Set((insc || []).map(a => a.usuario_id))]
+        if (!personas.length) { setContactos([]); setCargandoContactos(false); return }
+
+        const { data: perfs } = await supabase.from('perfiles')
+          .select('id, nombre_completo').in('id', personas)
+        const { data: curs } = await supabase.from('cursos')
+          .select('id, titulo').in('id', ids)
+        const nombrePorId = Object.fromEntries((perfs || []).map(p => [p.id, p.nombre_completo]))
+        const tituloPorCurso = Object.fromEntries((curs || []).map(c => [c.id, c.titulo]))
+
+        const porPersona = {}
+        for (const a of insc || []) {
+          if (a.usuario_id === user.id) continue
+          if (!porPersona[a.usuario_id]) {
+            porPersona[a.usuario_id] = {
+              usuario_id: a.usuario_id,
+              email: nombrePorId[a.usuario_id] || '(sin nombre)',
+              nombre: nombrePorId[a.usuario_id],
+              cursos: [], curso_ids: [],
+            }
+          }
+          const t = tituloPorCurso[a.curso_id]
+          if (t && !porPersona[a.usuario_id].cursos.includes(t)) {
+            porPersona[a.usuario_id].cursos.push(t)
+            porPersona[a.usuario_id].curso_ids.push(a.curso_id)
+          }
+        }
+        setContactos(Object.values(porPersona))
+        setCargandoContactos(false)
+        return
+      }
+
       setCargandoContactos(true)
       const { data, error } = await supabase
         .from('vista_admin_inscripciones')
@@ -116,7 +163,7 @@ export default function MensajesInbox({ user, esAdmin }) {
       setCargandoContactos(false)
     }
     load()
-  }, [esAdmin, user, vistaSidebar])
+  }, [esAdmin, esFacilitador, cursosGestionados, user, vistaSidebar])
 
   useEffect(() => {
     if (!user || !chatCon || modoEnvioMultiple) return
@@ -401,7 +448,10 @@ export default function MensajesInbox({ user, esAdmin }) {
 
   if (!user) return null
 
-  if (!esAdmin) {
+  // La vista simplificada (un solo hilo contigo) es la del ALUMNO. El
+  // facilitador necesita la bandeja completa: tiene un grupo al que
+  // escribir, no una sola conversacion.
+  if (!esAdmin && !esFacilitador) {
     return (
       <div className="inbox-simple">
         <header className="inbox-simple-header">
