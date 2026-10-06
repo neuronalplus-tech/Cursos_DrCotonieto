@@ -858,6 +858,34 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Avance del grupo --------------------------------------- */
+.progreso-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px; margin: 14px 0; }
+.progreso-resumen div { padding: 12px; border-radius: 10px; background: var(--bg-card);
+  text-align: center; }
+.progreso-resumen strong { display: block; font-size: 22px; color: var(--primary); }
+.progreso-resumen span { font-size: 12px; color: var(--muted); }
+
+.progreso-orden { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.progreso-orden .input { max-width: 260px; }
+
+.progreso-tabla-scroll { overflow-x: auto; }
+.progreso-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.progreso-tabla th { text-align: left; padding: 8px 10px; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  border-bottom: 1px solid var(--borde); white-space: nowrap; }
+.progreso-tabla td { padding: 10px; border-bottom: 1px solid var(--borde); vertical-align: middle; }
+.progreso-tabla .celda-sub { display: block; font-size: 11.5px; color: var(--muted); }
+
+/* La barra hace que el atraso se vea de un vistazo, sin leer cifras. */
+.progreso-barra { width: 120px; height: 7px; border-radius: 999px;
+  background: var(--borde); overflow: hidden; }
+.progreso-barra span { display: block; height: 100%; background: var(--accent); }
+
+/* "Nunca" entró es la señal mas accionable de la tabla. */
+.progreso-nunca { color: #9B2C20; font-weight: 600; }
+.badge.no-aprobado { background: #FBEDEA; color: #9B2C20; }
+
 /* ---- Categorías dentro de la pestaña de cursos -------------- */
 .cat-seccion { margin-top: 20px; }
 .cat-cuerpo { margin-top: 10px; padding: 14px; border-radius: 12px;

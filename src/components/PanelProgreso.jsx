@@ -1,0 +1,220 @@
+/* ============================================================
+   PROGRESO DEL GRUPO
+   ------------------------------------------------------------
+   Las métricas del panel son globales: cuántos alumnos hay, cuánta
+   finalización en total. Eso sirve para mirar el negocio, no para
+   dar clase. Quien acompaña a un grupo necesita otra cosa: quién
+   va atrasado, quién no ha entrado, quién reprobó un examen.
+
+   Vive dentro del curso y no en el panel central a propósito: es
+   información de ESE grupo, y un facilitador no entra al panel.
+
+   Lo que se ve aquí lo decide RLS (ROLES_4_ALUMNOS.sql): el admin
+   ve todo, el facilitador solo los inscritos de sus cursos.
+   ============================================================ */
+
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+function cuando(fecha) {
+  if (!fecha) return 'Nunca'
+  const d = new Date(fecha)
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000)
+  if (dias === 0) return 'Hoy'
+  if (dias === 1) return 'Ayer'
+  if (dias < 30) return `Hace ${dias} días`
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+export default function PanelProgreso({ cursoId }) {
+  const [filas, setFilas] = useState([])
+  const [examenes, setExamenes] = useState([])
+  const [totalRecursos, setTotalRecursos] = useState(0)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(null)
+  const [orden, setOrden] = useState('avance')
+
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      setCargando(true)
+      setError(null)
+      try {
+        const curso = Number(cursoId)
+
+        // --- Qué hay que completar en este curso ---
+        const { data: mods } = await supabase
+          .from('modulos').select('id').eq('curso_id', curso).eq('activo', true)
+        const idsMod = (mods || []).map(m => m.id)
+
+        // `.in()` con una lista vacía genera un filtro mal formado que
+        // Postgres rechaza. Se comprueba antes en cada consulta.
+        const { data: recs } = idsMod.length
+          ? await supabase.from('recursos').select('id').in('modulo_id', idsMod)
+          : { data: [] }
+        const idsRec = (recs || []).map(r => r.id)
+
+        // --- Quién está inscrito ---
+        const { data: insc } = await supabase
+          .from('acceso').select('usuario_id').eq('curso_id', curso)
+        const idsAlumno = [...new Set((insc || []).map(a => a.usuario_id))]
+
+        if (!idsAlumno.length) {
+          if (vivo) { setFilas([]); setTotalRecursos(idsRec.length); setCargando(false) }
+          return
+        }
+
+        const { data: perfs } = await supabase
+          .from('perfiles').select('id, nombre_completo').in('id', idsAlumno)
+        const nombre = Object.fromEntries((perfs || []).map(p => [p.id, p.nombre_completo]))
+
+        // --- Qué ha completado cada quien ---
+        const { data: prog } = idsRec.length
+          ? await supabase.from('progreso_usuario')
+              .select('usuario_id, recurso_id, ultimo_acceso')
+              .in('recurso_id', idsRec).eq('completado', true)
+          : { data: [] }
+
+        // --- Exámenes del curso y de sus módulos ---
+        const { data: exCurso } = await supabase
+          .from('examenes').select('id, titulo').eq('curso_id', curso)
+        const { data: exMod } = idsMod.length
+          ? await supabase.from('examenes').select('id, titulo').in('modulo_id', idsMod)
+          : { data: [] }
+        const exs = [...(exCurso || []), ...(exMod || [])]
+        const idsEx = exs.map(e => e.id)
+
+        const { data: intentos } = idsEx.length
+          ? await supabase.from('intentos_examen')
+              .select('usuario_id, examen_id, calificacion, aprobado')
+              .in('examen_id', idsEx)
+          : { data: [] }
+
+        // --- Se cruza todo por alumno ---
+        const porAlumno = {}
+        for (const id of idsAlumno) {
+          porAlumno[id] = {
+            id,
+            nombre: nombre[id] || '(sin nombre)',
+            hechos: 0,
+            ultimo: null,
+            // Del examen interesa el MEJOR intento: es el que cuenta
+            // para la constancia y el que refleja lo que acabó sabiendo.
+            mejor: {},
+          }
+        }
+        for (const p of prog || []) {
+          const a = porAlumno[p.usuario_id]
+          if (!a) continue
+          a.hechos++
+          if (!a.ultimo || (p.ultimo_acceso && p.ultimo_acceso > a.ultimo)) a.ultimo = p.ultimo_acceso
+        }
+        for (const it of intentos || []) {
+          const a = porAlumno[it.usuario_id]
+          if (!a) continue
+          const previo = a.mejor[it.examen_id]
+          if (!previo || (it.calificacion ?? 0) > (previo.calificacion ?? 0)) {
+            a.mejor[it.examen_id] = it
+          }
+        }
+
+        if (!vivo) return
+        setTotalRecursos(idsRec.length)
+        setExamenes(exs)
+        setFilas(Object.values(porAlumno))
+      } catch (e) {
+        if (vivo) setError(e.message || String(e))
+      } finally {
+        if (vivo) setCargando(false)
+      }
+    })()
+    return () => { vivo = false }
+  }, [cursoId])
+
+  const pct = (f) => (totalRecursos ? Math.round((f.hechos / totalRecursos) * 100) : 0)
+
+  const ordenadas = [...filas].sort((a, b) => {
+    if (orden === 'nombre') return a.nombre.localeCompare(b.nombre)
+    if (orden === 'inactivo') return (a.ultimo || '').localeCompare(b.ultimo || '')
+    return pct(a) - pct(b)   // por defecto: los más atrasados primero
+  })
+
+  const sinEmpezar = filas.filter(f => f.hechos === 0).length
+  const terminados = filas.filter(f => totalRecursos && f.hechos >= totalRecursos).length
+  const promedio = filas.length
+    ? Math.round(filas.reduce((s, f) => s + pct(f), 0) / filas.length)
+    : 0
+
+  if (cargando) return <p className="nota">Cargando el avance del grupo…</p>
+  if (error) return <p className="aviso-error">No se pudo cargar: {error}</p>
+  if (!filas.length) return <p className="nota">Todavía no hay nadie inscrito en este curso.</p>
+
+  return (
+    <div className="progreso-panel">
+      <div className="progreso-resumen">
+        <div><strong>{filas.length}</strong><span>inscritos</span></div>
+        <div><strong>{promedio}%</strong><span>avance medio</span></div>
+        <div><strong>{sinEmpezar}</strong><span>sin empezar</span></div>
+        <div><strong>{terminados}</strong><span>completaron</span></div>
+      </div>
+
+      <div className="progreso-orden">
+        <label>Ordenar por</label>
+        <select className="input" value={orden} onChange={e => setOrden(e.target.value)}>
+          <option value="avance">Menor avance primero</option>
+          <option value="inactivo">Hace más que no entran</option>
+          <option value="nombre">Nombre</option>
+        </select>
+      </div>
+
+      <div className="progreso-tabla-scroll">
+        <table className="progreso-tabla">
+          <thead>
+            <tr>
+              <th>Alumno</th>
+              <th>Avance</th>
+              <th>Última actividad</th>
+              {examenes.map(e => <th key={e.id}>{e.titulo}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {ordenadas.map(f => {
+              const p = pct(f)
+              return (
+                <tr key={f.id}>
+                  <td>{f.nombre}</td>
+                  <td>
+                    <div className="progreso-barra" title={`${f.hechos} de ${totalRecursos}`}>
+                      <span style={{ width: `${p}%` }} />
+                    </div>
+                    <span className="celda-sub">{p}% · {f.hechos}/{totalRecursos}</span>
+                  </td>
+                  <td className={!f.ultimo ? 'progreso-nunca' : ''}>{cuando(f.ultimo)}</td>
+                  {examenes.map(e => {
+                    const it = f.mejor[e.id]
+                    return (
+                      <td key={e.id}>
+                        {!it ? <span className="sutil">—</span> : (
+                          <span className={it.aprobado ? 'badge ok' : 'badge no-aprobado'}>
+                            {it.calificacion ?? '?'}
+                          </span>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {!totalRecursos && (
+        <p className="nota">
+          Este curso todavía no tiene recursos, así que el avance no se puede
+          calcular. Agrega material a sus módulos y aparecerá aquí.
+        </p>
+      )}
+    </div>
+  )
+}
