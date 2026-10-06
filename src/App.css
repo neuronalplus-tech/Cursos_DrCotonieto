@@ -858,6 +858,30 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Bitácora ---------------------------------------------- */
+.bitacora-barra { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+.bitacora-barra .input { max-width: 240px; }
+.bitacora-lista { display: grid; gap: 8px; }
+.bitacora-fila { padding: 10px 14px; border: 1px solid var(--borde); border-radius: 10px; }
+.bitacora-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.bitacora-que { flex: 1 1 240px; color: var(--primary); }
+
+/* El verbo lleva color porque "eliminó" y "creó" no se leen igual
+   de rápido si van en el mismo tono que el resto. */
+.bitacora-op { font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; }
+.op-alta   { background: #E6F4EA; color: #1E6C35; }
+.op-cambio { background: var(--bg-card); color: var(--primary); }
+.op-baja   { background: #FBEDEA; color: #9B2C20; }
+
+.bitacora-campos { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.bitacora-detalle { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 13px; }
+.bitacora-detalle th { text-align: left; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); padding: 6px 8px; }
+.bitacora-detalle td { padding: 6px 8px; border-top: 1px solid var(--borde);
+  vertical-align: top; word-break: break-word; }
+.bitacora-detalle td:first-child { font-weight: 600; white-space: nowrap; }
+
 /* ---- Pestaña de cursos ------------------------------------- */
 .curso-editor { margin: 14px 0 20px; padding: 16px;
   border: 1px solid var(--accent); border-radius: 12px; }

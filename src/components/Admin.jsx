@@ -7,6 +7,7 @@ import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import AdminExamenes from './AdminExamenes'
 import AdminForo from './AdminForo'
 import AdminCursos from './AdminCursos'
+import AdminBitacora from './AdminBitacora'
 import { usePermisos } from '../lib/permisos'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
@@ -886,6 +887,7 @@ function Admin({ user }) {
         <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
         <button type="button" className={`admin-tab ${vista === 'examenes' ? 'activa' : ''}`} onClick={() => setVista('examenes')}>📝 Exámenes</button>
         <button type="button" className={`admin-tab ${vista === 'foro' ? 'activa' : ''}`} onClick={() => setVista('foro')}>💬 Foro</button>
+        <button type="button" className={`admin-tab ${vista === 'bitacora' ? 'activa' : ''}`} onClick={() => setVista('bitacora')}>🧾 Bitácora</button>
       </div>
 
       {vista === 'inscripciones' && (
@@ -1228,6 +1230,7 @@ function Admin({ user }) {
       )}
 
       {vista === 'cursos' && <AdminCursos />}
+      {vista === 'bitacora' && <AdminBitacora />}
 
       {vista === 'facilitadores' && (
         <>
