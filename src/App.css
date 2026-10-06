@@ -858,6 +858,38 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Tareas y rúbrica --------------------------------------- */
+.tareas-lista { display: grid; gap: 8px; margin-top: 14px; }
+.tarea-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 14px; border: 1px solid var(--borde); border-radius: 10px; }
+.tarea-fila.archivada { opacity: .6; }
+.tarea-fila-datos { flex: 1 1 260px; min-width: 0; }
+.tarea-fila-datos strong { display: block; color: var(--primary); }
+
+.tarea-editor label { display: block; margin-top: 12px; font-size: 13px;
+  font-weight: 600; color: var(--primary); }
+.tarea-editor .input { width: 100%; }
+.tarea-editor-fila { display: grid; grid-template-columns: 1.4fr .6fr 1fr; gap: 12px; }
+
+.rubrica-bloque { margin-top: 20px; padding: 14px; border-radius: 12px;
+  background: var(--bg-card); }
+.rubrica-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rubrica-cab h4 { margin: 0; color: var(--primary); }
+.rubrica-acciones { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+
+/* El input de archivo va oculto tras una etiqueta con aspecto de
+   botón: el control nativo no se puede estilar y desentona. */
+.rubrica-excel { cursor: pointer; display: inline-flex; align-items: center; }
+
+.rubrica-criterios { display: grid; gap: 8px; }
+.rubrica-criterio { display: grid; grid-template-columns: 1.2fr 80px 2fr auto;
+  gap: 8px; align-items: center; }
+.rubrica-peso { text-align: right; }
+
+@media (max-width: 720px) {
+  .tarea-editor-fila, .rubrica-criterio { grid-template-columns: 1fr; }
+}
+
 /* ---- Avance del grupo --------------------------------------- */
 .progreso-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 10px; margin: 14px 0; }

@@ -9,6 +9,7 @@ import { rutaAcceso, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
 import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
+import AdminTareas from './AdminTareas'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
@@ -25,6 +26,7 @@ function CursoView({ user }) {
   const gestiona = usePermisos(user).puedeGestionar(id)
   const [examenesAbierto, setExamenesAbierto] = useState(false)
   const [progresoAbierto, setProgresoAbierto] = useState(false)
+  const [tareasAbierto, setTareasAbierto] = useState(false)
   const [borrandoModulo, setBorrandoModulo] = useState(null)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
@@ -535,6 +537,37 @@ function CursoView({ user }) {
             📊 Ver avance
           </button>
         </section>
+      )}
+
+      {gestiona && (
+        <section className="bloque-foro">
+          <div>
+            <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Tareas del curso</h2>
+            <p className="nota" style={{ margin: 0 }}>
+              Entregas que el alumno sube aquí y tú calificas, con rúbrica o sin ella.
+            </p>
+          </div>
+          <button type="button" className="button secondary"
+                  onClick={() => setTareasAbierto(true)}>
+            📥 Administrar tareas
+          </button>
+        </section>
+      )}
+
+      {tareasAbierto && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setTareasAbierto(false)}>
+            <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}
+                 style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+              <h2>Tareas · {curso.titulo}</h2>
+              <AdminTareas cursoId={curso.id} />
+              <div className="modal-botones">
+                <button type="button" className="button secondary"
+                        onClick={() => setTareasAbierto(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {progresoAbierto && (

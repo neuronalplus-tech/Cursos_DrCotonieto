@@ -1,0 +1,350 @@
+/* ============================================================
+   TAREAS · crear el apartado de entrega y su rúbrica
+   ------------------------------------------------------------
+   Convive con la forma que ya tenías de pedir entregables: un
+   botón con enlace público (OneDrive, Forms…). Esa sigue ahí y no
+   se toca. Esta es la otra opción, para cuando quieras que el
+   archivo viva en la plataforma y se califique dentro.
+
+   Tú decides cuál usar en cada módulo; el facilitador, en los
+   cursos que tenga asignados.
+   ============================================================ */
+
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+const VACIA = {
+  titulo: '', instrucciones: '', fecha_limite: '',
+  puntos_max: 100, permite_reentrega: true, grupo: '', activo: true,
+}
+
+/* Una fila de rúbrica recién creada. */
+const criterioVacio = () => ({
+  _nuevo: Math.random().toString(36).slice(2),
+  titulo: '', descripcion: '', peso: 0,
+})
+
+/* ------------------------------------------------------------
+   LECTURA DE LA RÚBRICA DESDE EXCEL
+   ------------------------------------------------------------
+   Se buscan las columnas por su encabezado en vez de exigir un
+   orden fijo: tus rúbricas no tienen por qué estar hechas para
+   esta plataforma. Si ningún encabezado coincide, se cae a la
+   suposición razonable (A: criterio, B: peso, C: descripción).
+
+   En ningún caso se guarda directo: siempre se enseña lo leído
+   para corregirlo antes de aceptar.
+   ------------------------------------------------------------ */
+function filasACriterios(filas) {
+  if (!filas?.length) return []
+
+  const encabezado = (filas[0] || []).map(c => String(c ?? '').toLowerCase().trim())
+  const buscar = (re) => encabezado.findIndex(h => re.test(h))
+
+  let iTitulo = buscar(/criterio|rubro|aspecto|indicador/)
+  let iPeso = buscar(/peso|porcentaje|punt|valor|%/)
+  let iDesc = buscar(/descrip|detalle|evidencia|desempe/)
+
+  // Sin encabezados reconocibles se asume el orden más común y se
+  // leen TODAS las filas, porque la primera ya no es un título.
+  const hayEncabezado = iTitulo >= 0 || iPeso >= 0
+  if (!hayEncabezado) { iTitulo = 0; iPeso = 1; iDesc = 2 }
+
+  const cuerpo = hayEncabezado ? filas.slice(1) : filas
+
+  return cuerpo
+    .map(f => ({
+      _nuevo: Math.random().toString(36).slice(2),
+      titulo: String(f[iTitulo] ?? '').trim(),
+      descripcion: iDesc >= 0 ? String(f[iDesc] ?? '').trim() : '',
+      // "20%" y "20" valen igual; se queda solo con el número.
+      peso: Number(String(f[iPeso] ?? '').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0,
+    }))
+    .filter(c => c.titulo)
+}
+
+export default function AdminTareas({ cursoId = null, moduloId = null }) {
+  const [tareas, setTareas] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [msg, setMsg] = useState(null)
+
+  const [editando, setEditando] = useState(null)   // id | 'nueva' | null
+  const [form, setForm] = useState(VACIA)
+  const [criterios, setCriterios] = useState([])
+  const [guardando, setGuardando] = useState(false)
+  const [leyendoExcel, setLeyendoExcel] = useState(false)
+
+  const columna = cursoId ? 'curso_id' : 'modulo_id'
+  const valor = cursoId || moduloId
+
+  const recargar = async () => {
+    setCargando(true)
+    const { data, error } = await supabase
+      .from('tareas').select('*').eq(columna, valor).order('creado_en')
+    if (error) setMsg({ tipo: 'error', texto: 'No se pudieron cargar: ' + error.message })
+    else setTareas(data || [])
+    setCargando(false)
+  }
+
+  useEffect(() => { if (valor) recargar() }, [valor])
+
+  const abrirNueva = () => {
+    setForm(VACIA)
+    setCriterios([])
+    setEditando('nueva')
+    setMsg(null)
+  }
+
+  const abrirEdicion = async (t) => {
+    setForm({
+      titulo: t.titulo || '',
+      instrucciones: t.instrucciones || '',
+      // datetime-local no entiende el formato con zona que da Postgres.
+      fecha_limite: t.fecha_limite ? t.fecha_limite.slice(0, 16) : '',
+      puntos_max: t.puntos_max ?? 100,
+      permite_reentrega: !!t.permite_reentrega,
+      grupo: t.grupo || '',
+      activo: !!t.activo,
+    })
+    const { data } = await supabase
+      .from('rubrica_criterios').select('*').eq('tarea_id', t.id).order('orden')
+    setCriterios((data || []).map(c => ({ ...c })))
+    setEditando(t.id)
+    setMsg(null)
+  }
+
+  const campo = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const campoCriterio = (idx, k, v) =>
+    setCriterios(cs => cs.map((c, i) => (i === idx ? { ...c, [k]: v } : c)))
+
+  const importarExcel = async (archivo) => {
+    if (!archivo) return
+    setLeyendoExcel(true)
+    setMsg(null)
+    try {
+      // La subruta /browser es obligatoria: el paquete no expone una
+      // entrada raiz, solo sus variantes (browser, node, web-worker).
+      // Carga diferida: la librería son cientos de kB y casi ningún
+      // visitante va a importar una rúbrica. Así no la paga quien
+      // solo entra a ver un curso.
+      const { default: leerExcel } = await import('read-excel-file/browser')
+      const filas = await leerExcel(archivo)
+      const leidos = filasACriterios(filas)
+      if (!leidos.length) {
+        setMsg({ tipo: 'error', texto: 'No encontré criterios en ese archivo. Revisa que la primera columna tenga el nombre de cada criterio.' })
+      } else {
+        setCriterios(leidos)
+        setMsg({ tipo: 'ok', texto: `Leí ${leidos.length} criterio(s). Revísalos y corrige lo que haga falta antes de guardar.` })
+      }
+    } catch (e) {
+      setMsg({ tipo: 'error', texto: 'No se pudo leer el archivo: ' + (e.message || e) })
+    } finally {
+      setLeyendoExcel(false)
+    }
+  }
+
+  const sumaPesos = criterios.reduce((s, c) => s + (Number(c.peso) || 0), 0)
+
+  const guardar = async () => {
+    if (!form.titulo.trim()) return setMsg({ tipo: 'error', texto: 'El título es obligatorio.' })
+    setGuardando(true)
+
+    const payload = {
+      [columna]: valor,
+      titulo: form.titulo.trim(),
+      instrucciones: form.instrucciones.trim() || null,
+      fecha_limite: form.fecha_limite || null,
+      puntos_max: Number(form.puntos_max) || 100,
+      permite_reentrega: !!form.permite_reentrega,
+      grupo: form.grupo.trim() || null,
+      activo: !!form.activo,
+    }
+
+    let tareaId = editando
+    if (editando === 'nueva') {
+      const { data, error } = await supabase.from('tareas').insert(payload).select('id').single()
+      if (error) { setGuardando(false); return setMsg({ tipo: 'error', texto: 'No se pudo crear: ' + error.message }) }
+      tareaId = data.id
+    } else {
+      const { error } = await supabase.from('tareas').update(payload).eq('id', editando)
+      if (error) { setGuardando(false); return setMsg({ tipo: 'error', texto: 'No se pudo guardar: ' + error.message }) }
+    }
+
+    // La rúbrica se reemplaza entera en vez de ir calculando altas y
+    // bajas: son pocas filas y así no hay forma de dejarla a medias.
+    await supabase.from('rubrica_criterios').delete().eq('tarea_id', tareaId)
+    const limpios = criterios.filter(c => c.titulo.trim())
+    if (limpios.length) {
+      const { error } = await supabase.from('rubrica_criterios').insert(
+        limpios.map((c, i) => ({
+          tarea_id: tareaId,
+          titulo: c.titulo.trim(),
+          descripcion: c.descripcion?.trim() || null,
+          peso: Number(c.peso) || 0,
+          orden: (i + 1) * 10,
+        })))
+      if (error) { setGuardando(false); return setMsg({ tipo: 'error', texto: 'La tarea se guardó, pero la rúbrica no: ' + error.message }) }
+    }
+
+    setGuardando(false)
+    await recargar()
+    setEditando(null)
+    setMsg({ tipo: 'ok', texto: 'Tarea guardada.' })
+  }
+
+  const borrar = async (t) => {
+    if (!window.confirm(`¿Eliminar "${t.titulo}"? Se borran también las entregas y calificaciones de esta tarea.`)) return
+    const { error } = await supabase.from('tareas').delete().eq('id', t.id)
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo eliminar: ' + error.message })
+    await recargar()
+    setMsg({ tipo: 'ok', texto: 'Tarea eliminada.' })
+  }
+
+  return (
+    <div className="tareas-admin">
+      <p className="nota">
+        Un apartado donde el alumno sube su documento y tú lo calificas dentro de
+        la plataforma. Si prefieres pedir el entregable con un enlace externo,
+        sigue estando el botón de siempre: esto no lo sustituye.
+      </p>
+
+      {msg && <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'}>{msg.texto}</p>}
+
+      {editando === null && (
+        <>
+          <button type="button" className="button primary" onClick={abrirNueva}>
+            ➕ Nueva tarea
+          </button>
+
+          {cargando ? <p className="nota">Cargando…</p> : (
+            <div className="tareas-lista">
+              {tareas.map(t => (
+                <div key={t.id} className={`tarea-fila ${t.activo ? '' : 'archivada'}`}>
+                  <div className="tarea-fila-datos">
+                    <strong>{t.titulo}</strong>
+                    <span className="celda-sub">
+                      {t.puntos_max} puntos
+                      {t.fecha_limite && ` · entrega hasta ${new Date(t.fecha_limite).toLocaleDateString('es-MX')}`}
+                      {t.grupo && ` · ruta ${t.grupo}`}
+                      {!t.activo && ' · oculta'}
+                    </span>
+                  </div>
+                  <button type="button" className="button texto" onClick={() => abrirEdicion(t)}>✏️ Editar</button>
+                  <button type="button" className="button texto peligro" onClick={() => borrar(t)}>🗑️</button>
+                </div>
+              ))}
+              {!tareas.length && <p className="nota">Todavía no hay tareas en este apartado.</p>}
+            </div>
+          )}
+        </>
+      )}
+
+      {editando !== null && (
+        <div className="tarea-editor">
+          <h3>{editando === 'nueva' ? 'Nueva tarea' : 'Editar tarea'}</h3>
+
+          <label>Título</label>
+          <input className="input" value={form.titulo} autoFocus
+                 onChange={e => campo('titulo', e.target.value)}
+                 placeholder="Ej. Análisis de caso · Semana 4" />
+
+          <label>Instrucciones</label>
+          <textarea className="input" rows="4" value={form.instrucciones}
+                    onChange={e => campo('instrucciones', e.target.value)}
+                    placeholder="Qué tiene que entregar y bajo qué criterios se evalúa" />
+
+          <div className="tarea-editor-fila">
+            <div>
+              <label>Fecha límite</label>
+              <input className="input" type="datetime-local" value={form.fecha_limite}
+                     onChange={e => campo('fecha_limite', e.target.value)} />
+            </div>
+            <div>
+              <label>Puntos</label>
+              <input className="input" type="number" value={form.puntos_max}
+                     onChange={e => campo('puntos_max', e.target.value)} />
+            </div>
+            <div>
+              <label>Ruta (opcional)</label>
+              <input className="input" value={form.grupo}
+                     onChange={e => campo('grupo', e.target.value)}
+                     placeholder="Vacío = todo el curso" />
+            </div>
+          </div>
+
+          <div className="curso-editor-casillas">
+            <label>
+              <input type="checkbox" checked={form.permite_reentrega}
+                     onChange={e => campo('permite_reentrega', e.target.checked)} />
+              <span>Permitir reentrega <em className="nota">(puede reemplazar su archivo)</em></span>
+            </label>
+            <label>
+              <input type="checkbox" checked={form.activo}
+                     onChange={e => campo('activo', e.target.checked)} />
+              <span>Visible <em className="nota">(si no, solo la ves tú)</em></span>
+            </label>
+          </div>
+
+          {/* ---- Rúbrica ---- */}
+          <div className="rubrica-bloque">
+            <div className="rubrica-cab">
+              <h4>Rúbrica</h4>
+              <span className="nota">
+                Opcional. Sin criterios, la tarea se califica con una nota simple.
+              </span>
+            </div>
+
+            <div className="rubrica-acciones">
+              <button type="button" className="button secondary"
+                      onClick={() => setCriterios(cs => [...cs, criterioVacio()])}>
+                ➕ Añadir criterio
+              </button>
+              <label className="button secondary rubrica-excel">
+                {leyendoExcel ? 'Leyendo…' : '📊 Importar de Excel'}
+                <input type="file" accept=".xlsx,.xls" hidden disabled={leyendoExcel}
+                       onChange={e => { importarExcel(e.target.files?.[0]); e.target.value = '' }} />
+              </label>
+            </div>
+
+            {criterios.length > 0 && (
+              <>
+                <div className="rubrica-criterios">
+                  {criterios.map((c, i) => (
+                    <div key={c.id || c._nuevo} className="rubrica-criterio">
+                      <input className="input" value={c.titulo}
+                             onChange={e => campoCriterio(i, 'titulo', e.target.value)}
+                             placeholder="Criterio" />
+                      <input className="input rubrica-peso" type="number" value={c.peso}
+                             onChange={e => campoCriterio(i, 'peso', e.target.value)}
+                             placeholder="Peso" />
+                      <input className="input" value={c.descripcion || ''}
+                             onChange={e => campoCriterio(i, 'descripcion', e.target.value)}
+                             placeholder="Qué se espera para obtener el puntaje" />
+                      <button type="button" className="button texto peligro"
+                              onClick={() => setCriterios(cs => cs.filter((_, j) => j !== i))}>🗑️</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* El aviso solo aparece si no cuadra: no hay que obligar a
+                    que sume exacto, pero sí avisar cuando no lo hace. */}
+                <p className={sumaPesos === Number(form.puntos_max) ? 'nota' : 'aviso-error'}>
+                  Los criterios suman <strong>{sumaPesos}</strong> de {form.puntos_max} puntos.
+                  {sumaPesos !== Number(form.puntos_max) && ' Revisa los pesos si querías que cuadrara.'}
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="modal-botones" style={{ marginTop: 16 }}>
+            <button type="button" className="button secondary"
+                    onClick={() => { setEditando(null); setMsg(null) }}>Cancelar</button>
+            <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+              {guardando ? 'Guardando…' : 'Guardar tarea'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

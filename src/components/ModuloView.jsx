@@ -10,6 +10,7 @@ import { usePermisos } from '../lib/permisos'
 import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
+import AdminTareas from './AdminTareas'
 import { ModalEditarBotonesModulo } from './AdminModales'
 import {
   Autoevaluacion, ModalEditarRecurso, ModalDuplicarModulo, ModalDuplicarRecurso,
@@ -37,6 +38,7 @@ function ModuloView({ user }) {
   // ✨ NUEVO: modal de edición de recurso
   const [editandoRecurso, setEditandoRecurso] = useState(null)
   const [duplicando, setDuplicando] = useState(false)
+  const [tareasAbierto, setTareasAbierto] = useState(false)
   const [editandoBotonesModulo, setEditandoBotonesModulo] = useState(false)
   const [duplicandoRecurso, setDuplicandoRecurso] = useState(null)
   const [notificandoRecurso, setNotificandoRecurso] = useState(null)
@@ -267,11 +269,30 @@ function ModuloView({ user }) {
               <button type="button" className="button secondary" onClick={() => setDuplicando(true)}>
                 📋 Duplicar módulo
               </button>
+              <button type="button" className="button secondary" onClick={() => setTareasAbierto(true)}>
+                📥 Tareas del módulo
+              </button>
               <button type="button" className="button primary"
                       onClick={() => setEditandoRecurso({})}>
                 ➕ Nuevo recurso
               </button>
             </div>
+          )}
+
+          {tareasAbierto && (
+            <ModalPortal>
+              <div className="modal-overlay" onClick={() => setTareasAbierto(false)}>
+                <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}
+                     style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+                  <h2>Tareas · {modulo.titulo}</h2>
+                  <AdminTareas moduloId={modulo.id} />
+                  <div className="modal-botones">
+                    <button type="button" className="button secondary"
+                            onClick={() => setTareasAbierto(false)}>Cerrar</button>
+                  </div>
+                </div>
+              </div>
+            </ModalPortal>
           )}
 
           <div className="recursos-list">
