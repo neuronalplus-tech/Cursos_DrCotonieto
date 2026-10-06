@@ -45,6 +45,7 @@ function Admin({ user }) {
   // Se indexa por correo y no por usuario_id porque así está la tabla:
   // permite asignar a quien todavía no tiene cuenta.
   const [facilitaPorEmail, setFacilitaPorEmail] = useState({})
+  const [enviandoEnlace, setEnviandoEnlace] = useState(null)
   const [categoriasLista, setCategoriasLista] = useState([])
   // correo -> Set de categoria_id. Va aparte del mapa por curso
   // porque son dos formas distintas de asignar, no una sola.
@@ -566,6 +567,26 @@ function Admin({ user }) {
   }
 
   /* Pone o quita el rol de facilitador de UN curso concreto. */
+  /* Las contraseñas no se pueden consultar: Supabase guarda un hash
+     bcrypt, que es irreversible. Lo que sí se puede es mandarle a la
+     persona un enlace para que elija una nueva.
+
+     Va con la clave pública, igual que si lo pidiera ella desde la
+     pantalla de acceso. Asignarle una contraseña directamente exigiria
+     la clave de servicio, que no puede vivir en el navegador. */
+  const enviarEnlaceClave = async (email) => {
+    if (!window.confirm(`¿Mandar a ${email} un enlace para crear una contraseña nueva?`)) return
+    setEnviandoEnlace(email)
+    setMsgGestion('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/recuperar`,
+    })
+    setEnviandoEnlace(null)
+    setMsgGestion(error
+      ? 'No se pudo enviar: ' + error.message
+      : `✓ Enlace enviado a ${email}`)
+  }
+
   const toggleFacilitador = async (email, curso_id, esFacil) => {
     const correo = String(email || '').toLowerCase()
     const key = `facil-${correo}-${curso_id}`
@@ -1233,6 +1254,12 @@ function Admin({ user }) {
                             <button type="button" className="button texto" title="Nota interna"
                               onClick={() => setModalNotas({ usuario_id: u.usuario_id, email: u.email, texto: u.notas_admin || '' })}>
                               {u.notas_admin ? 'Nota ✏️' : 'Nota'}
+                            </button>
+                            <button type="button" className="button texto"
+                              title="Enviarle un enlace para crear una contraseña nueva"
+                              disabled={enviandoEnlace === u.email}
+                              onClick={() => enviarEnlaceClave(u.email)}>
+                              {enviandoEnlace === u.email ? '…' : '🔑'}
                             </button>
                             <button type="button" className="gestion-expandir-btn" onClick={() => toggleExpandido(u.usuario_id)}>
                               {expandido ? '▲ Cursos' : '▼ Cursos'}

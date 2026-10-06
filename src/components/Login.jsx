@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { LOGO_CLARO, wa } from '../config'
 import { WhatsAppFlotante } from './ui'
+import CampoContrasena from './CampoContrasena'
 
 function Login({ message }) {
   const [email, setEmail] = useState('')
@@ -37,8 +38,7 @@ function Login({ message }) {
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Correo electrónico</label>
           <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <label htmlFor="password">Contraseña</label>
-          <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <CampoContrasena valor={password} onChange={setPassword} />
           <button type="submit" disabled={loading} className="button primary ancho">
             {loading ? 'Verificando...' : 'Entrar al aula'}
           </button>
@@ -46,6 +46,9 @@ function Login({ message }) {
         {(error || message) && <p className="aviso-error">{error || message}</p>}
         <div className="login-pie">
           <button className="enlace-texto" onClick={() => navigate('/')}>← Volver al inicio</button>
+          <button className="enlace-texto" onClick={() => navigate('/recuperar')}>
+            Olvidé mi contraseña
+          </button>
           <a className="enlace-texto" href={wa('Hola, no puedo entrar al aula virtual. ¿Me ayudas con mi acceso?')}
              target="_blank" rel="noopener noreferrer">¿Problemas para entrar?</a>
         </div>

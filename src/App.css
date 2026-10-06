@@ -858,6 +858,21 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Campo de contraseña con ojo ---------------------------- */
+.campo-contrasena { position: relative; display: block; }
+.campo-contrasena input { width: 100%; padding-right: 44px; }
+
+/* El ojo va dentro del campo, no al lado: al lado empujaria el
+   input y rompería la alineación del formulario. */
+.campo-contrasena-ojo { position: absolute; right: 6px; top: 50%;
+  transform: translateY(-50%); background: none; border: 0;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 6px;
+  border-radius: 6px; opacity: .65; }
+.campo-contrasena-ojo:hover { opacity: 1; }
+
+.perfil-clave { margin-top: 32px; padding-top: 24px;
+  border-top: 1px solid var(--borde); }
+
 /* ---- Entregas: lo que ve el alumno -------------------------- */
 .tareas-alumno { margin-top: 28px; }
 .tarea-alumno { padding: 16px; margin-bottom: 12px; border-radius: 12px;

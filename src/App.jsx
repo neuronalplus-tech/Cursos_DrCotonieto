@@ -29,6 +29,7 @@ import PortadaCurso from './components/PortadaCurso'
 import Admin from './components/Admin'
 import Home from './components/Home'
 import Login from './components/Login'
+import Recuperar from './components/Recuperar'
 import Perfil from './components/Perfil'
 import CursoDetalle from './components/CursoDetalle'
 import Constancia from './components/Constancia'
@@ -215,6 +216,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route path="/acceso" element={<Login message={message} />} />
+            <Route path="/recuperar" element={<Recuperar />} />
             <Route path="/perfil" element={<Perfil user={user} />} />
             <Route path="/admin" element={<Admin user={user} />} />
             <Route path="/curso/:id" element={<CursoView user={user} />} />

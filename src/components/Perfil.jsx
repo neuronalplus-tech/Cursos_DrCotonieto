@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { AVATAR_BUCKET, REDES, rutaAcceso } from '../config'
 import { Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
+import CampoContrasena from './CampoContrasena'
 
 function Perfil({ user }) {
   const [perfil, setPerfil] = useState({ nombre_completo: '', profesion: '', descripcion: '', ubicacion: '', avatar_url: '' })
@@ -10,6 +11,10 @@ function Perfil({ user }) {
   const [cargando, setCargando] = useState(true)
   const [subiendo, setSubiendo] = useState(false)
   const [msg, setMsg] = useState('')
+  const [clave, setClave] = useState('')
+  const [claveRepetida, setClaveRepetida] = useState('')
+  const [cambiandoClave, setCambiandoClave] = useState(false)
+  const [msgClave, setMsgClave] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -58,6 +63,26 @@ function Perfil({ user }) {
   if (!user) return null
   if (cargando) return <div className="loading">Cargando perfil...</div>
 
+  /* El cambio lo hace Supabase sobre la sesión abierta: no hace falta
+     la contraseña anterior porque ya demostraste ser tú al entrar. */
+  const cambiarClave = async (e) => {
+    e.preventDefault()
+    if (clave.length < 6) {
+      return setMsgClave({ tipo: 'error', texto: 'La contraseña necesita al menos 6 caracteres.' })
+    }
+    if (clave !== claveRepetida) {
+      return setMsgClave({ tipo: 'error', texto: 'Las dos contraseñas no coinciden.' })
+    }
+    setCambiandoClave(true)
+    const { error } = await supabase.auth.updateUser({ password: clave })
+    setCambiandoClave(false)
+    if (error) {
+      return setMsgClave({ tipo: 'error', texto: 'No se pudo cambiar: ' + error.message })
+    }
+    setClave(''); setClaveRepetida('')
+    setMsgClave({ tipo: 'ok', texto: 'Contraseña actualizada. La siguiente vez entra con la nueva.' })
+  }
+
   return (
     <section className="contenedor estrecho">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Mi perfil' }]} />
@@ -98,6 +123,25 @@ function Perfil({ user }) {
           ? <ul className="lista-cursos">{misCursos.map((c) => <li key={c.id}><Link to={`/curso/${c.id}`}>{c.titulo}</Link></li>)}</ul>
           : <p className="sutil">Aún no estás inscrito en ningún curso.</p>}
       </div>
+      <section className="perfil-clave">
+        <h2 className="titulo-seccion">Cambiar mi contraseña</h2>
+        <p className="nota">
+          Elige una que recuerdes. Puedes pulsar el ojo para ver lo que escribes.
+        </p>
+        <form onSubmit={cambiarClave}>
+          <CampoContrasena etiqueta="Contraseña nueva" valor={clave} onChange={setClave}
+                           autoComplete="new-password" ayuda="Mínimo 6 caracteres." />
+          <CampoContrasena etiqueta="Repítela" valor={claveRepetida}
+                           onChange={setClaveRepetida} autoComplete="new-password" />
+          {msgClave && (
+            <p className={msgClave.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'}>{msgClave.texto}</p>
+          )}
+          <button type="submit" className="button primary" disabled={cambiandoClave}>
+            {cambiandoClave ? 'Guardando…' : 'Cambiar contraseña'}
+          </button>
+        </form>
+      </section>
+
       <BandaRedes />
     </section>
   )
