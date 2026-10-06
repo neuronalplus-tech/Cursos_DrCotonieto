@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const VACIO = {
-  titulo: '', descripcion: '', linea: '', orden: 100,
+  titulo: '', descripcion: '', linea: '', categoria_id: '', orden: 100,
   activo: true, gratuito: false, proximamente: false,
   caratula: '', info_curso: '',
   fecha_sesion: '', link_registro: '', registro_texto: '',
@@ -44,6 +44,10 @@ export default function AdminCursos() {
   const [msg, setMsg] = useState(null)
   const [verTaller, setVerTaller] = useState(false)
   const [duplicando, setDuplicando] = useState(null)
+  const [categorias, setCategorias] = useState([])
+  const [catAbierto, setCatAbierto] = useState(false)
+  const [catNueva, setCatNueva] = useState('')
+  const [catEditando, setCatEditando] = useState(null)
 
   const recargar = async () => {
     setCargando(true)
@@ -52,6 +56,10 @@ export default function AdminCursos() {
       .from('cursos').select('*').order('orden').order('titulo')
     if (error) setMsg({ tipo: 'error', texto: 'No se pudieron cargar: ' + error.message })
     else setCursos(data || [])
+
+    const { data: cats } = await supabase.from('categorias')
+      .select('*').order('orden').order('nombre')
+    setCategorias(cats || [])
     setCargando(false)
   }
 
@@ -92,6 +100,12 @@ export default function AdminCursos() {
     }
     payload.titulo = form.titulo.trim()
     payload.orden = parseInt(form.orden, 10) || 100
+    // `linea` sigue siendo lo que la portada usa para agrupar, asi que
+    // se mantiene sincronizada con la categoria elegida. Una sola
+    // decision en la interfaz, dos columnas coherentes en la base.
+    const cat = categorias.find(k => String(k.id) === String(form.categoria_id))
+    payload.categoria_id = cat ? cat.id : null
+    payload.linea = cat ? cat.nombre : null
 
     const { error } = editando === 'nuevo'
       ? await supabase.from('cursos').insert(payload)
@@ -128,6 +142,46 @@ export default function AdminCursos() {
     const { data: creado } = await supabase.from('cursos')
       .select('*').eq('id', data).maybeSingle()
     if (creado) abrirEdicion(creado)
+  }
+
+  const crearCategoria = async () => {
+    const nombre = catNueva.trim()
+    if (!nombre) return setMsg({ tipo: 'error', texto: 'Escribe un nombre.' })
+    const { error } = await supabase.from('categorias').insert({ nombre })
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo crear: ' + error.message })
+    setCatNueva('')
+    await recargar()
+    setMsg({ tipo: 'ok', texto: 'Categoría creada.' })
+  }
+
+  const guardarCategoria = async () => {
+    if (!catEditando) return
+    const { error } = await supabase.from('categorias')
+      .update({
+        nombre: catEditando.nombre.trim(),
+        descripcion: catEditando.descripcion?.trim() || null,
+      })
+      .eq('id', catEditando.id)
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo guardar: ' + error.message })
+    setCatEditando(null)
+    await recargar()
+    setMsg({ tipo: 'ok', texto: 'Categoría actualizada.' })
+  }
+
+  /* Borrar una categoria NO borra sus cursos: la columna es
+     `on delete set null`, asi que quedan sin clasificar. Se avisa
+     con el numero exacto para que la decision sea informada. */
+  const borrarCategoria = async (k, nCursos) => {
+    const aviso = nCursos
+      ? `"${k.nombre}" tiene ${nCursos} curso(s). No se borran, pero quedan sin categoría.
+
+¿Continuar?`
+      : `¿Eliminar la categoría "${k.nombre}"?`
+    if (!window.confirm(aviso)) return
+    const { error } = await supabase.from('categorias').delete().eq('id', k.id)
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo eliminar: ' + error.message })
+    await recargar()
+    setMsg({ tipo: 'ok', texto: 'Categoría eliminada.' })
   }
 
   const alternarArchivo = async (c) => {
@@ -172,18 +226,16 @@ export default function AdminCursos() {
 
           <div className="curso-editor-fila">
             <div>
-              <label>Línea temática</label>
-              <input className="input" value={form.linea}
-                     onChange={e => campo('linea', e.target.value)}
-                     list="lineas-existentes"
-                     placeholder="Ej. Duelo y pérdida" />
-              {/* Se ofrecen las que ya usas para no acabar con
-                  "Duelo y perdida" y "Duelo y pérdida" como dos. */}
-              <datalist id="lineas-existentes">
-                {[...new Set(cursos.map(c => c.linea).filter(Boolean))].map(l => (
-                  <option key={l} value={l} />
+              <label>Categoría</label>
+              {/* Desplegable y no texto libre: escribirla a mano acababa
+                  creando "Duelo y perdida" y "Duelo y pérdida" como dos. */}
+              <select className="input" value={form.categoria_id || ''}
+                      onChange={e => campo('categoria_id', e.target.value)}>
+                <option value="">Sin categoría</option>
+                {categorias.map(k => (
+                  <option key={k.id} value={k.id}>{k.nombre}</option>
                 ))}
-              </datalist>
+              </select>
             </div>
             <div>
               <label>Orden</label>
@@ -246,6 +298,74 @@ export default function AdminCursos() {
           </div>
         </div>
       )}
+
+      {/* Las categorías viven aquí y no en su propia pestaña porque
+          solo se tocan al reorganizar el catálogo, que es algo que
+          se hace mientras se editan los cursos. */}
+      <div className="cat-seccion">
+        <button type="button" className="enlace-texto"
+                onClick={() => setCatAbierto(v => !v)}>
+          {catAbierto ? '▲ Ocultar categorías' : `▼ Categorías (${categorias.length})`}
+        </button>
+
+        {catAbierto && (
+          <div className="cat-cuerpo">
+            <p className="nota">
+              Agrupan los cursos en la portada y permiten asignar un facilitador
+              a toda una línea de golpe: los cursos que entren después quedan
+              cubiertos sin tener que acordarse.
+            </p>
+
+            <div className="cat-alta">
+              <input className="input" value={catNueva}
+                     onChange={e => setCatNueva(e.target.value)}
+                     placeholder="Nombre de la categoría" />
+              <button type="button" className="button secondary" onClick={crearCategoria}>
+                Añadir
+              </button>
+            </div>
+
+            <div className="cat-lista">
+              {categorias.map(k => {
+                const nCursos = cursos.filter(c => c.categoria_id === k.id).length
+                const enEdicion = catEditando?.id === k.id
+                return (
+                  <div key={k.id} className="cat-fila">
+                    {enEdicion ? (
+                      <>
+                        <input className="input" value={catEditando.nombre}
+                               onChange={e => setCatEditando({ ...catEditando, nombre: e.target.value })} />
+                        <input className="input" value={catEditando.descripcion || ''}
+                               onChange={e => setCatEditando({ ...catEditando, descripcion: e.target.value })}
+                               placeholder="Descripción que se ve en la portada" />
+                        <button type="button" className="button texto" onClick={guardarCategoria}>
+                          Guardar
+                        </button>
+                        <button type="button" className="button texto" onClick={() => setCatEditando(null)}>
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="cat-fila-datos">
+                          <strong>{k.nombre}</strong>
+                          {k.descripcion && <span className="celda-sub">{k.descripcion}</span>}
+                        </div>
+                        <span className="badge neutro">{nCursos} curso(s)</span>
+                        <button type="button" className="button texto"
+                                onClick={() => setCatEditando({ ...k })}>✏️ Editar</button>
+                        <button type="button" className="button texto peligro"
+                                onClick={() => borrarCategoria(k, nCursos)}>🗑️</button>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+              {!categorias.length && <p className="nota">Todavía no hay categorías.</p>}
+            </div>
+          </div>
+        )}
+      </div>
 
       {cargando ? (
         <p className="nota">Cargando cursos…</p>

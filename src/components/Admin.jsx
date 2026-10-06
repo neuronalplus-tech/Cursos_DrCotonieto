@@ -45,6 +45,10 @@ function Admin({ user }) {
   // Se indexa por correo y no por usuario_id porque así está la tabla:
   // permite asignar a quien todavía no tiene cuenta.
   const [facilitaPorEmail, setFacilitaPorEmail] = useState({})
+  const [categoriasLista, setCategoriasLista] = useState([])
+  // correo -> Set de categoria_id. Va aparte del mapa por curso
+  // porque son dos formas distintas de asignar, no una sola.
+  const [facilitaCategoria, setFacilitaCategoria] = useState({})
   const [nuevoFacilEmail, setNuevoFacilEmail] = useState('')
   const [nuevoFacilCurso, setNuevoFacilCurso] = useState('')
   const [msgFacil, setMsgFacil] = useState('')
@@ -134,16 +138,25 @@ function Admin({ user }) {
   useEffect(() => {
     if (!esAdmin || (vista !== 'usuarios' && vista !== 'facilitadores')) return
     let vivo = true
-    supabase.from('facilitadores').select('email, curso_id').then(({ data }) => {
+    supabase.from('facilitadores').select('email, curso_id, categoria_id').then(({ data }) => {
       if (!vivo || !data) return
       const mapa = {}
+      const porCat = {}
       for (const fila of data) {
         const k = String(fila.email || '').toLowerCase()
-        if (!mapa[k]) mapa[k] = new Set()
-        mapa[k].add(Number(fila.curso_id))
+        if (fila.categoria_id != null) {
+          if (!porCat[k]) porCat[k] = new Set()
+          porCat[k].add(Number(fila.categoria_id))
+        } else if (fila.curso_id != null) {
+          if (!mapa[k]) mapa[k] = new Set()
+          mapa[k].add(Number(fila.curso_id))
+        }
       }
       setFacilitaPorEmail(mapa)
+      setFacilitaCategoria(porCat)
     })
+    supabase.from('categorias').select('id, nombre').order('orden').order('nombre')
+      .then(({ data }) => { if (vivo) setCategoriasLista(data || []) })
     return () => { vivo = false }
   }, [esAdmin, vista, usuarios.length])
 
@@ -587,15 +600,55 @@ function Admin({ user }) {
   const anadirFacilitador = async () => {
     const correo = nuevoFacilEmail.trim().toLowerCase()
     if (!correo.includes('@')) { setMsgFacil('Escribe un correo válido'); return }
-    if (!nuevoFacilCurso) { setMsgFacil('Elige un curso'); return }
-    const cursoId = Number(nuevoFacilCurso)
-    if (facilitaPorEmail[correo]?.has(cursoId)) {
-      setMsgFacil('Esa persona ya facilita ese curso'); return
-    }
+    if (!nuevoFacilCurso) { setMsgFacil('Elige un curso o una categoría'); return }
+
+    // "cat:12" o "curso:36": el prefijo evita confundir un id de
+    // categoría con uno de curso, que son secuencias distintas.
+    const [tipo, idTexto] = nuevoFacilCurso.split(':')
+    const id = Number(idTexto)
+    const esCat = tipo === 'cat'
+
+    const yaEsta = esCat
+      ? facilitaCategoria[correo]?.has(id)
+      : facilitaPorEmail[correo]?.has(id)
+    if (yaEsta) { setMsgFacil('Esa persona ya lo tiene asignado'); return }
+
     setMsgFacil('')
-    await toggleFacilitador(correo, cursoId, false)
+    const { error } = await supabase.from('facilitadores').insert(
+      esCat ? { email: correo, categoria_id: id } : { email: correo, curso_id: id })
+    if (error) { setMsgFacil('Error al asignar: ' + error.message); return }
+
+    if (esCat) {
+      setFacilitaCategoria(prev => {
+        const n = { ...prev }
+        n[correo] = new Set(n[correo] || []).add(id)
+        return n
+      })
+    } else {
+      setFacilitaPorEmail(prev => {
+        const n = { ...prev }
+        n[correo] = new Set(n[correo] || []).add(id)
+        return n
+      })
+    }
     setNuevoFacilEmail('')
     setMsgFacil('✓ Asignado')
+  }
+
+  /* Quitar una asignación de categoría. La de curso ya la maneja
+     toggleFacilitador, que vive en Gestión de usuarios. */
+  const quitarCategoria = async (correo, categoria_id) => {
+    const { error } = await supabase.from('facilitadores')
+      .delete().eq('categoria_id', categoria_id).ilike('email', correo)
+    if (error) { setMsgFacil('No se pudo quitar: ' + error.message); return }
+    setFacilitaCategoria(prev => {
+      const n = { ...prev }
+      const s = new Set(n[correo] || [])
+      s.delete(Number(categoria_id))
+      n[correo] = s
+      return n
+    })
+    setMsgFacil('✓ Quitado')
   }
 
   const toggleAcceso = async (usuario_id, curso_id, tiene, email) => {
@@ -1247,8 +1300,19 @@ function Admin({ user }) {
                    placeholder="correo@ejemplo.com" />
             <select className="input" value={nuevoFacilCurso}
                     onChange={e => setNuevoFacilCurso(e.target.value)}>
-              <option value="">Elige un curso…</option>
-              {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+              <option value="">Elige un curso o una categoría…</option>
+              {/* Las categorías van primero: asignar una cubre también
+                  los cursos que entren después en esa línea. */}
+              <optgroup label="Categorías completas">
+                {categoriasLista.map(k => (
+                  <option key={`c${k.id}`} value={`cat:${k.id}`}>{k.nombre}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Un curso suelto">
+                {cursosLista.map(c => (
+                  <option key={c.id} value={`curso:${c.id}`}>{c.titulo}</option>
+                ))}
+              </optgroup>
             </select>
             <button type="button" className="button primary" onClick={anadirFacilitador}>
               Asignar
@@ -1256,6 +1320,37 @@ function Admin({ user }) {
           </div>
           {msgFacil && <p className={msgFacil.startsWith('✓') ? 'aviso-ok' : 'aviso-error'}>{msgFacil}</p>}
           {msgGestion && <p className="aviso-ok">{msgGestion}</p>}
+
+          {/* Las asignaciones por categoría van primero y aparte: cubren
+              varios cursos a la vez, asi que mezclarlas con las sueltas
+              haria pensar que alguien gestiona menos de lo que gestiona. */}
+          {categoriasLista.some(k => Object.values(facilitaCategoria).some(s => s.has(k.id))) && (
+            <div className="facil-cursos" style={{ marginTop: 16 }}>
+              {categoriasLista.map(k => {
+                const equipo = Object.entries(facilitaCategoria)
+                  .filter(([, cats]) => cats.has(k.id))
+                  .map(([correo]) => correo).sort()
+                if (!equipo.length) return null
+                return (
+                  <div key={`cat${k.id}`} className="facil-curso con-equipo">
+                    <div className="facil-curso-cab">
+                      <strong>📂 {k.nombre}</strong>
+                      <span className="sutil">toda la categoría · {equipo.length} facilitador(es)</span>
+                    </div>
+                    <ul className="facil-lista">
+                      {equipo.map(correo => (
+                        <li key={correo}>
+                          <span>{correo}</span>
+                          <button type="button" className="button texto peligro"
+                                  onClick={() => quitarCategoria(correo, k.id)}>Quitar</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* La vista se lee por CURSO, no por persona: la pregunta real es
               "¿quién lleva este curso?", no "¿qué lleva esta persona?". */}

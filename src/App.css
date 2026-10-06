@@ -858,6 +858,19 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Categorías dentro de la pestaña de cursos -------------- */
+.cat-seccion { margin-top: 20px; }
+.cat-cuerpo { margin-top: 10px; padding: 14px; border-radius: 12px;
+  background: var(--bg-card); }
+.cat-alta { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.cat-alta .input { flex: 1 1 240px; }
+.cat-lista { display: grid; gap: 6px; }
+.cat-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 8px; background: var(--bg); }
+.cat-fila-datos { flex: 1 1 220px; min-width: 0; }
+.cat-fila-datos strong { display: block; color: var(--primary); }
+.cat-fila .input { flex: 1 1 180px; }
+
 /* ---- Bitácora ---------------------------------------------- */
 .bitacora-barra { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
 .bitacora-barra .input { max-width: 240px; }
