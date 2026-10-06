@@ -858,6 +858,60 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Entregas: lo que ve el alumno -------------------------- */
+.tareas-alumno { margin-top: 28px; }
+.tarea-alumno { padding: 16px; margin-bottom: 12px; border-radius: 12px;
+  border: 1px solid var(--borde); }
+.tarea-alumno h3 { margin: 0 0 6px; color: var(--primary); }
+.tarea-alumno-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.tarea-instrucciones { margin: 12px 0; line-height: 1.7; }
+.tarea-rubrica { margin: 10px 0; }
+.tarea-rubrica summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.tarea-rubrica ul { margin: 10px 0 0; padding-left: 20px; }
+.tarea-rubrica li { margin-bottom: 8px; }
+.tarea-entregado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px; margin: 12px 0; border-radius: 10px; background: var(--bg-card); }
+.tarea-retro { padding: 12px; margin: 12px 0; border-radius: 10px;
+  border-left: 3px solid var(--accent); background: var(--bg-card); }
+.tarea-retro p { margin: 6px 0 0; line-height: 1.7; }
+.tarea-comentario-lbl { display: block; margin: 12px 0 4px; font-size: 13px;
+  font-weight: 600; color: var(--primary); }
+.tarea-subir { display: inline-flex; align-items: center; cursor: pointer; margin-top: 12px; }
+
+/* ---- Calificar ---------------------------------------------- */
+.calificar-envoltorio { margin-bottom: 10px; }
+
+/* Dos columnas: la lista a la izquierda se queda fija mientras se
+   califica, para poder saltar de alumno sin perder el sitio. */
+.calificar-cuerpo { display: grid; grid-template-columns: 240px 1fr; gap: 16px;
+  margin-top: 12px; }
+.calificar-lista { display: grid; gap: 4px; align-content: start;
+  max-height: 60vh; overflow-y: auto; }
+.calificar-alumno { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px;
+  background: none; cursor: pointer; text-align: left; font: inherit;
+  color: var(--primary); }
+.calificar-alumno:hover { background: var(--bg-card); }
+.calificar-alumno.activo { background: var(--bg-card); font-weight: 600; }
+.calificar-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.calificar-detalle label { display: block; margin-top: 14px; font-size: 13px;
+  font-weight: 600; color: var(--primary); }
+.calificar-detalle .input { width: 100%; }
+.calificar-archivo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px; border-radius: 10px; background: var(--bg-card); margin: 10px 0; }
+.calificar-rubrica { display: grid; gap: 10px; margin-top: 14px; }
+.calificar-criterio { display: grid; grid-template-columns: 1fr 90px; gap: 12px;
+  align-items: start; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--borde); }
+.calificar-criterio .input { width: 100%; text-align: right; }
+.calificar-total { margin: 4px 0 0; text-align: right; font-size: 15px; }
+
+@media (max-width: 760px) {
+  .calificar-cuerpo { grid-template-columns: 1fr; }
+  .calificar-lista { max-height: 200px; }
+}
+
 /* ---- Tareas y rúbrica --------------------------------------- */
 .tareas-lista { display: grid; gap: 8px; margin-top: 14px; }
 .tarea-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;

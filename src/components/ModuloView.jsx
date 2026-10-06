@@ -11,6 +11,7 @@ import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
 import AdminTareas from './AdminTareas'
+import TareasAlumno from './TareasAlumno'
 import { ModalEditarBotonesModulo } from './AdminModales'
 import {
   Autoevaluacion, ModalEditarRecurso, ModalDuplicarModulo, ModalDuplicarRecurso,
@@ -39,6 +40,9 @@ function ModuloView({ user }) {
   const [editandoRecurso, setEditandoRecurso] = useState(null)
   const [duplicando, setDuplicando] = useState(false)
   const [tareasAbierto, setTareasAbierto] = useState(false)
+  // La ruta del alumno se calculaba dentro del efecto y se perdia.
+  // Las tareas la necesitan para filtrar las que son de una ruta.
+  const [miGrupo, setMiGrupo] = useState(null)
   const [editandoBotonesModulo, setEditandoBotonesModulo] = useState(false)
   const [duplicandoRecurso, setDuplicandoRecurso] = useState(null)
   const [notificandoRecurso, setNotificandoRecurso] = useState(null)
@@ -64,6 +68,7 @@ function ModuloView({ user }) {
           const { data: accG } = await supabase.from('acceso')
             .select('grupo').eq('usuario_id', user.id).eq('curso_id', m.curso_id).maybeSingle()
           miGrupo = accG?.grupo || null
+          setMiGrupo(miGrupo)
         }
 
         if (!moduloVisible(m, { user, gestionaCurso, miGrupo })) {
@@ -315,6 +320,8 @@ function ModuloView({ user }) {
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
           </div>
           <ExamenModulo moduloId={modulo.id} user={user} />
+
+          <TareasAlumno moduloId={modulo.id} user={user} miGrupo={miGrupo} />
           <nav className="navegacion-modulos">
             {prev
               ? <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>

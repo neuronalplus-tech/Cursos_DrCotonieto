@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import CalificarTarea from './CalificarTarea'
 
 const VACIA = {
   titulo: '', instrucciones: '', fecha_limite: '',
@@ -73,6 +74,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const [criterios, setCriterios] = useState([])
   const [guardando, setGuardando] = useState(false)
   const [leyendoExcel, setLeyendoExcel] = useState(false)
+  const [calificando, setCalificando] = useState(null)
 
   const columna = cursoId ? 'curso_id' : 'modulo_id'
   const valor = cursoId || moduloId
@@ -210,7 +212,16 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
 
       {msg && <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'}>{msg.texto}</p>}
 
-      {editando === null && (
+      {calificando && (
+        <div className="calificar-envoltorio">
+          <button type="button" className="enlace-texto"
+                  onClick={() => setCalificando(null)}>← Volver a las tareas</button>
+          <h3>{calificando.titulo}</h3>
+          <CalificarTarea tarea={calificando} />
+        </div>
+      )}
+
+      {editando === null && !calificando && (
         <>
           <button type="button" className="button primary" onClick={abrirNueva}>
             ➕ Nueva tarea
@@ -229,6 +240,8 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                       {!t.activo && ' · oculta'}
                     </span>
                   </div>
+                  <button type="button" className="button texto"
+                          onClick={() => setCalificando(t)}>📊 Calificar</button>
                   <button type="button" className="button texto" onClick={() => abrirEdicion(t)}>✏️ Editar</button>
                   <button type="button" className="button texto peligro" onClick={() => borrar(t)}>🗑️</button>
                 </div>

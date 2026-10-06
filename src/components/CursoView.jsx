@@ -10,6 +10,7 @@ import { usePermisos } from '../lib/permisos'
 import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
 import AdminTareas from './AdminTareas'
+import TareasAlumno from './TareasAlumno'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
@@ -501,6 +502,10 @@ function CursoView({ user }) {
           </div>
           <Link to={`/foro/${curso.id}`} className="button secondary">💬 Entrar al foro</Link>
         </section>
+      )}
+
+      {user && tieneAcceso && (
+        <TareasAlumno cursoId={curso.id} user={user} miGrupo={miGrupo} />
       )}
 
       {/* Mismo patron que el foro: la gestion vive donde esta el
