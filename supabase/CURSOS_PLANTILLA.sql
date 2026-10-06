@@ -49,6 +49,11 @@ create policy "modulos_delete_gestion" on public.modulos
 --    La copia nace SIEMPRE archivada (`activo = false`), para que
 --    no aparezca en la portada antes de que la revises.
 --
+--    OJO con la forma: cuando se copia un CONJUNTO de filas hay
+--    que usar `cross join lateral`. Escribirlo como
+--    "select * from jsonb_populate_record(...) from tabla" es un
+--    error de sintaxis: no se pueden encadenar dos `from`.
+--
 --    La técnica: se pasa cada fila a jsonb, se le quita el `id`,
 --    se le pone uno nuevo de la secuencia y se vuelve a convertir
 --    en fila. Así no hay que enumerar columnas, y añadir un campo
@@ -98,39 +103,42 @@ begin
     insert into public.modulos select * from jsonb_populate_record(null::public.modulos, v_fila);
 
     insert into public.recursos
-    select * from jsonb_populate_record(
+    select nuevo.*
+    from public.recursos rec
+    cross join lateral jsonb_populate_record(
       null::public.recursos,
       to_jsonb(rec) || jsonb_build_object(
         'id', nextval(pg_get_serial_sequence('public.recursos', 'id')),
         'modulo_id', v_nuevo_mod
       )
-    )
-    from public.recursos rec
+    ) as nuevo
     where rec.modulo_id = r.id;
 
     -- Exámenes colgados de ESTE módulo.
     insert into public.examenes
-    select * from jsonb_populate_record(
+    select nuevo.*
+    from public.examenes ex
+    cross join lateral jsonb_populate_record(
       null::public.examenes,
       to_jsonb(ex) || jsonb_build_object(
         'id', nextval(pg_get_serial_sequence('public.examenes', 'id')),
         'modulo_id', v_nuevo_mod
       )
-    )
-    from public.examenes ex
+    ) as nuevo
     where ex.modulo_id = r.id;
   end loop;
 
   -- --- Exámenes del curso (los que no cuelgan de un módulo) ---
   insert into public.examenes
-  select * from jsonb_populate_record(
+  select nuevo.*
+  from public.examenes ex
+  cross join lateral jsonb_populate_record(
     null::public.examenes,
     to_jsonb(ex) || jsonb_build_object(
       'id', nextval(pg_get_serial_sequence('public.examenes', 'id')),
       'curso_id', v_nuevo_curso
     )
-  )
-  from public.examenes ex
+  ) as nuevo
   where ex.curso_id = p_curso and ex.modulo_id is null;
 
   return v_nuevo_curso;
