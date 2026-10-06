@@ -195,6 +195,29 @@ export default function CalificarTarea({ tarea, onCerrar }) {
                         <strong>{c.titulo}</strong>
                         <span className="nota"> · hasta {c.peso} pts</span>
                         {c.descripcion && <div className="nota">{c.descripcion}</div>}
+
+                        {/* Con niveles se elige; sin ellos se teclea. Elegir
+                            es mas rapido y, sobre todo, mide a todos con la
+                            misma vara: el descriptor esta a la vista. */}
+                        {(c.niveles || []).length > 0 && (
+                          <div className="calificar-niveles">
+                            {c.niveles.map((n, j) => {
+                              const elegido = String(puntos[c.id]) === String(n.puntos)
+                              return (
+                                <button key={j} type="button"
+                                        className={`calificar-nivel ${elegido ? 'activo' : ''}`}
+                                        title={n.descripcion || undefined}
+                                        onClick={() => setPuntos(p => ({ ...p, [c.id]: n.puntos }))}>
+                                  <span>{n.etiqueta}</span>
+                                  <span className="nota">{n.puntos} pts</span>
+                                  {n.descripcion && (
+                                    <span className="calificar-nivel-desc">{n.descripcion}</span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                       <input className="input" type="number" min="0" max={c.peso}
                              value={puntos[c.id] ?? ''}

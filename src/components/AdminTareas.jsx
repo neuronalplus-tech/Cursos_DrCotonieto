@@ -20,6 +20,20 @@ const VACIA = {
 }
 
 /* Una fila de rúbrica recién creada. */
+/* Cuatro niveles repartiendo el peso del criterio. Son un punto de
+   partida para editar, no una propuesta pedagogica: casi nadie
+   quiere escribir la escala entera desde cero. */
+function nivelesPorDefecto(peso) {
+  const p = Number(peso) || 0
+  const r = (x) => Math.round(x * 100) / 100
+  return [
+    { etiqueta: 'Excelente',     puntos: r(p),        descripcion: '' },
+    { etiqueta: 'Satisfactorio', puntos: r(p * 0.75), descripcion: '' },
+    { etiqueta: 'Suficiente',    puntos: r(p * 0.5),  descripcion: '' },
+    { etiqueta: 'Insuficiente',  puntos: 0,           descripcion: '' },
+  ]
+}
+
 const criterioVacio = () => ({
   _nuevo: Math.random().toString(36).slice(2),
   titulo: '', descripcion: '', peso: 0,
@@ -119,6 +133,12 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const campoCriterio = (idx, k, v) =>
     setCriterios(cs => cs.map((c, i) => (i === idx ? { ...c, [k]: v } : c)))
 
+  const campoNivel = (idx, nivelIdx, k, v) =>
+    setCriterios(cs => cs.map((c, i) => (i !== idx ? c : {
+      ...c,
+      niveles: (c.niveles || []).map((n, j) => (j === nivelIdx ? { ...n, [k]: v } : n)),
+    })))
+
   const importarExcel = async (archivo) => {
     if (!archivo) return
     setLeyendoExcel(true)
@@ -183,6 +203,13 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
           titulo: c.titulo.trim(),
           descripcion: c.descripcion?.trim() || null,
           peso: Number(c.peso) || 0,
+          niveles: (c.niveles || [])
+            .filter(n => (n.etiqueta || "").trim())
+            .map(n => ({
+              etiqueta: n.etiqueta.trim(),
+              puntos: Number(n.puntos) || 0,
+              descripcion: (n.descripcion || "").trim() || null,
+            })),
           orden: (i + 1) * 10,
         })))
       if (error) { setGuardando(false); return setMsg({ tipo: 'error', texto: 'La tarea se guardó, pero la rúbrica no: ' + error.message }) }
@@ -323,18 +350,65 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
               <>
                 <div className="rubrica-criterios">
                   {criterios.map((c, i) => (
-                    <div key={c.id || c._nuevo} className="rubrica-criterio">
-                      <input className="input" value={c.titulo}
-                             onChange={e => campoCriterio(i, 'titulo', e.target.value)}
-                             placeholder="Criterio" />
-                      <input className="input rubrica-peso" type="number" value={c.peso}
-                             onChange={e => campoCriterio(i, 'peso', e.target.value)}
-                             placeholder="Peso" />
-                      <input className="input" value={c.descripcion || ''}
-                             onChange={e => campoCriterio(i, 'descripcion', e.target.value)}
-                             placeholder="Qué se espera para obtener el puntaje" />
-                      <button type="button" className="button texto peligro"
-                              onClick={() => setCriterios(cs => cs.filter((_, j) => j !== i))}>🗑️</button>
+                    <div key={c.id || c._nuevo} className="rubrica-criterio-caja">
+                      <div className="rubrica-criterio">
+                        <input className="input" value={c.titulo}
+                               onChange={e => campoCriterio(i, 'titulo', e.target.value)}
+                               placeholder="Criterio" />
+                        <input className="input rubrica-peso" type="number" value={c.peso}
+                               onChange={e => campoCriterio(i, 'peso', e.target.value)}
+                               placeholder="Peso" />
+                        <input className="input" value={c.descripcion || ''}
+                               onChange={e => campoCriterio(i, 'descripcion', e.target.value)}
+                               placeholder="Qué se espera para obtener el puntaje" />
+                        <button type="button" className="button texto peligro"
+                                onClick={() => setCriterios(cs => cs.filter((_, j) => j !== i))}>🗑️</button>
+                      </div>
+
+                      {/* Los niveles son opcionales. Sin ellos se califica
+                          escribiendo el puntaje; con ellos se elige de una
+                          lista, que es mas rapido y mas consistente entre
+                          alumnos porque todos se miden con la misma vara. */}
+                      <div className="rubrica-niveles-pie">
+                        {!(c.niveles || []).length ? (
+                          <button type="button" className="enlace-texto"
+                                  onClick={() => campoCriterio(i, 'niveles', nivelesPorDefecto(c.peso))}>
+                            + Añadir niveles de desempeño
+                          </button>
+                        ) : (
+                          <>
+                            <div className="rubrica-niveles">
+                              {(c.niveles || []).map((n, j) => (
+                                <div key={j} className="rubrica-nivel">
+                                  <input className="input" value={n.etiqueta || ''}
+                                         onChange={e => campoNivel(i, j, 'etiqueta', e.target.value)}
+                                         placeholder="Nivel" />
+                                  <input className="input rubrica-peso" type="number" value={n.puntos ?? ''}
+                                         onChange={e => campoNivel(i, j, 'puntos', e.target.value)}
+                                         placeholder="Pts" />
+                                  <input className="input" value={n.descripcion || ''}
+                                         onChange={e => campoNivel(i, j, 'descripcion', e.target.value)}
+                                         placeholder="Qué tiene que hacer para quedar en este nivel" />
+                                  <button type="button" className="button texto peligro"
+                                          onClick={() => campoCriterio(i, 'niveles',
+                                            (c.niveles || []).filter((_, k) => k !== j))}>✕</button>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="rubrica-niveles-acciones">
+                              <button type="button" className="enlace-texto"
+                                      onClick={() => campoCriterio(i, 'niveles',
+                                        [...(c.niveles || []), { etiqueta: '', puntos: 0, descripcion: '' }])}>
+                                + Otro nivel
+                              </button>
+                              <button type="button" className="enlace-texto"
+                                      onClick={() => campoCriterio(i, 'niveles', [])}>
+                                Quitar los niveles
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

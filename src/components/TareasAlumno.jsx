@@ -135,6 +135,20 @@ function UnaTarea({ tarea, user }) {
               <li key={c.id}>
                 <strong>{c.titulo}</strong> <span className="nota">({c.peso} pts)</span>
                 {c.descripcion && <div className="nota">{c.descripcion}</div>}
+                {/* Los niveles son lo mas util que puede leer antes de
+                    entregar: le dicen que separa un trabajo suficiente
+                    de uno excelente, con palabras concretas. */}
+                {(c.niveles || []).length > 0 && (
+                  <ul className="tarea-niveles">
+                    {c.niveles.map((n, j) => (
+                      <li key={j}>
+                        <strong>{n.etiqueta}</strong>
+                        <span className="nota"> ({n.puntos} pts)</span>
+                        {n.descripcion && <> — {n.descripcion}</>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
