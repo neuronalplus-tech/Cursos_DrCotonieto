@@ -2,9 +2,12 @@ import { useEffect, useState, useRef } from 'react'
 import PortadaCurso from './PortadaCurso'
 import { LINEA_COPY } from '../config'
 
-export default function CarruselCursos({ lineas, cursos, onSelect }) {
+/* `copia` llega de la tabla `categorias`. LINEA_COPY se queda como
+   repliegue: si la tabla aun no existe (o la consulta falla), el
+   carrusel sigue mostrando sus textos en vez de quedarse mudo. */
+export default function CarruselCursos({ lineas, cursos, onSelect, copia = {} }) {
   const slides = lineas.map((l) => {
-    const info = LINEA_COPY[l]
+    const info = copia[l] || LINEA_COPY[l]
     const enLinea = cursos.filter((c) => c.linea === l)
     const n = enLinea.length
     return {

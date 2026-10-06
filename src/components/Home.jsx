@@ -18,6 +18,19 @@ function Home({ user }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lineaActiva, setLineaActiva] = useState('todas')
+  const [copiaLineas, setCopiaLineas] = useState({})
+
+  useEffect(() => {
+    let vivo = true
+    supabase.from('categorias').select('nombre, descripcion, motivo')
+      .then(({ data }) => {
+        if (!vivo || !data) return
+        const mapa = {}
+        for (const k of data) mapa[k.nombre] = { texto: k.descripcion, motivo: k.motivo }
+        setCopiaLineas(mapa)
+      })
+    return () => { vivo = false }
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -64,7 +77,7 @@ function Home({ user }) {
             </a>
           </div>
         </div>
-        {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} />}
+        {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} copia={copiaLineas} />}
       </section>
 
       <section className="seccion" id="cursos">
