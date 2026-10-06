@@ -2718,6 +2718,27 @@ a { color: var(--primary); }
 .foro-badge-admin { padding: 1px 7px; border-radius: 999px;
   background: var(--accent); color: #fff; letter-spacing: .04em; }
 
+/* ---- Foro evaluable ----------------------------------------- */
+.foro-evaluable { display: flex; gap: 10px; align-items: flex-start;
+  margin-top: 14px; cursor: pointer; }
+.foro-evaluable span { display: grid; gap: 2px; }
+.foro-evaluable em { font-style: normal; }
+
+/* El campo va junto a las acciones de la respuesta, no en una
+   pantalla aparte: se califica leyendo, no después. */
+.foro-calificar { display: inline-flex; align-items: center; gap: 6px; }
+.foro-calificar .input { width: 72px; text-align: right; padding: 4px 8px; }
+
+.foro-promedios { margin-top: 22px; padding: 14px 16px; border-radius: 12px;
+  background: var(--bg-card); }
+.foro-promedios h3 { margin: 0 0 4px; color: var(--primary); }
+.foro-promedios ul { list-style: none; margin: 12px 0 0; padding: 0;
+  display: grid; gap: 6px; }
+.foro-promedios li { display: grid; grid-template-columns: 1fr auto auto;
+  gap: 12px; align-items: baseline; padding: 7px 10px;
+  border-radius: 8px; background: var(--bg); }
+.foro-promedios strong { font-size: 16px; color: var(--primary); }
+
 .foro-texto { margin-top: 12px; font-size: 15.5px; line-height: 1.75; color: var(--primary); }
 .foro-texto p { margin: 0 0 10px; }
 .foro-texto p:last-child { margin-bottom: 0; }

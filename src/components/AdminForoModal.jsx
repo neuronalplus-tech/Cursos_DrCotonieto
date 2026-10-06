@@ -20,6 +20,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
   const [editando, setEditando] = useState(null)
   const [titulo, setTitulo] = useState('')
   const [cuerpo, setCuerpo] = useState('')
+  const [califica, setCalifica] = useState(false)
+  const [puntosMax, setPuntosMax] = useState(10)
   const [guardando, setGuardando] = useState(false)
   const [autor, setAutor] = useState(null)
 
@@ -58,6 +60,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
     setEditando(null)
     setTitulo('')
     setCuerpo('')
+    setCalifica(false)
+    setPuntosMax(10)
     setMsg(null)
     setFormAbierto(true)
   }
@@ -66,6 +70,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
     setEditando(h)
     setTitulo(h.titulo || '')
     setCuerpo(h.cuerpo || '')
+    setCalifica(!!h.califica)
+    setPuntosMax(h.puntos_max ?? 10)
     setMsg(null)
     setFormAbierto(true)
   }
@@ -80,6 +86,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
       curso_id: Number(cursoId),
       titulo: titulo.trim(),
       cuerpo: sanear(contenido),
+      califica,
+      puntos_max: Number(puntosMax) || 10,
       actualizado_en: new Date().toISOString(),
     }
 
@@ -198,6 +206,26 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
               <input className="input" value={titulo} onChange={(e) => setTitulo(e.target.value)}
                      placeholder="Ej. Duda sobre el caso del módulo 2" autoFocus />
 
+              {/* Sin rúbrica desplegable a propósito: lo que se espera se
+                  escribe en el cuerpo del tema, que es donde el alumno ya
+                  está mirando cuando va a responder. */}
+              <label className="foro-evaluable">
+                <input type="checkbox" checked={califica}
+                       onChange={(e) => setCalifica(e.target.checked)} />
+                <span>
+                  <strong>Calificar las aportaciones</strong>
+                  <em className="nota">
+                    La nota de cada quien será el promedio de sus aportaciones.
+                  </em>
+                </span>
+              </label>
+              {califica && (
+                <>
+                  <label style={{ marginTop: 10 }}>Puntaje máximo por aportación</label>
+                  <input className="input" type="number" min="1" value={puntosMax}
+                         onChange={(e) => setPuntosMax(e.target.value)} />
+                </>
+              )}
               <label style={{ marginTop: 14 }}>Contenido</label>
               <EditorForo valor={cuerpo} onChange={setCuerpo} minAlto={120} onGuardar={guardar} />
 

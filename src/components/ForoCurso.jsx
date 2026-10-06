@@ -53,10 +53,12 @@ let CANAL_FORO = 0
 /* ------------------------------------------------------------
    TARJETA DE RESPUESTA
    ------------------------------------------------------------ */
-function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar }) {
+function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar, hilo, onCalificar }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(r.cuerpo || '')
   const [guardando, setGuardando] = useState(false)
+  const [nota, setNota] = useState(r.calificacion ?? '')
+  const [califando, setCalifando] = useState(false)
   // `sanear()` recorre el DOM: se memoriza por respuesta para no repetirlo
   // en cada tecla que se escribe en el editor de abajo. Sin esto, con un
   // tema pesado cada pulsación re-saneaba TODAS las respuestas y la vista
@@ -108,6 +110,26 @@ function Respuesta({ r, propio, gestiona, deAdmin, tituloHilo, onBorrar }) {
         <>
           <div className="foro-texto" dangerouslySetInnerHTML={{ __html: cuerpoSano }} />
           <div className="foro-respuesta-pie">
+            {/* La nota se ve siempre que exista: el alumno tiene derecho a
+                saber cómo quedó su aportación sin tener que preguntar. */}
+            {hilo?.califica && r.calificacion != null && (
+              <span className="badge ok">{r.calificacion} / {hilo.puntos_max ?? 10}</span>
+            )}
+            {hilo?.califica && gestiona && !r.borrada && (
+              <span className="foro-calificar">
+                <input className="input" type="number" min="0" max={hilo.puntos_max ?? 10}
+                       value={nota} placeholder="Nota"
+                       onChange={(e) => setNota(e.target.value)} />
+                <button type="button" className="button texto" disabled={califando}
+                        onClick={async () => {
+                          setCalifando(true)
+                          await onCalificar(r, nota === '' ? null : Number(nota))
+                          setCalifando(false)
+                        }}>
+                  {califando ? '…' : 'Guardar nota'}
+                </button>
+              </span>
+            )}
             {r.editado && <span className="nota">editado</span>}
             {!esTextoPlano(r.cuerpo) && <span className="nota">con formato</span>}
             {(propio || gestiona) && (
@@ -384,6 +406,21 @@ export function ForoCurso({ user }) {
     finRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  /* La nota la impone un disparador en la base: aunque alguien llame a
+     la API directamente, solo quien gestiona el curso puede escribir
+     estas columnas. Aquí solo se pinta el botón. */
+  const calificarRespuesta = async (r, valor) => {
+    const { data: yo } = await supabase.auth.getUser()
+    const { error } = await supabase.from('foro_respuestas').update({
+      calificacion: valor,
+      calificado_por: valor == null ? null : yo?.user?.id || null,
+      calificado_en: valor == null ? null : new Date().toISOString(),
+    }).eq('id', r.id)
+    if (error) { setAviso({ tipo: 'error', texto: 'No se pudo calificar: ' + error.message }); return }
+    setRespuestas(prev => prev.map(x => (x.id === r.id ? { ...x, calificacion: valor } : x)))
+    setAviso({ tipo: 'ok', texto: 'Nota guardada.' })
+  }
+
   const borrarRespuesta = async (r) => {
     if (!window.confirm('¿Eliminar esta respuesta? No se puede deshacer.')) return
     setBorrando(true)
@@ -409,6 +446,25 @@ export function ForoCurso({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hiloId, cuerpoDelHilo],
   )
+  // Promedio por persona en el tema abierto. Se deriva de las respuestas
+  // ya cargadas: no hace falta otra consulta. Las borradas no cuentan,
+  // porque si no se podría bajar el promedio de alguien borrándole su
+  // mejor aportación.
+  // Sin useMemo: `delHilo` es un filtro nuevo en cada render, asi que
+  // memorizar sobre el no evitaba ningun recalculo. Son pocas filas.
+  const promedios = (() => {
+    const acc = {}
+    for (const r of delHilo) {
+      if (r.borrada || r.calificacion == null) continue
+      if (!acc[r.autor_id]) acc[r.autor_id] = { nombre: r.autor_nombre, suma: 0, n: 0 }
+      acc[r.autor_id].suma += Number(r.calificacion)
+      acc[r.autor_id].n++
+    }
+    return Object.entries(acc).map(([id, v]) => ({
+      id, nombre: v.nombre, media: Math.round((v.suma / v.n) * 100) / 100, n: v.n,
+    })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  })()
+
   const conteo = {}
   for (const r of respuestas) {
     if (r.borrada) continue
@@ -493,11 +549,34 @@ export function ForoCurso({ user }) {
                 gestiona={gestionaCurso}
                 deAdmin={esDeAdmin(r.autor_email)}
                 tituloHilo={hiloActual.titulo}
+                hilo={hiloActual}
+                onCalificar={calificarRespuesta}
                 onBorrar={borrarRespuesta}
               />
             ))}
             {!delHilo.length && <p className="nota">Aún no hay respuestas. Sé el primero.</p>}
           </div>
+          {hiloActual.califica && promedios.length > 0 && (
+            <div className="foro-promedios">
+              <h3>Calificación del tema</h3>
+              <p className="nota">
+                Es el promedio de las aportaciones calificadas de cada quien,
+                sobre {hiloActual.puntos_max ?? 10}.
+              </p>
+              <ul>
+                {promedios
+                  .filter(p => gestionaCurso || p.id === user.id)
+                  .map(p => (
+                    <li key={p.id}>
+                      <span>{p.id === user.id ? `${p.nombre} (tú)` : p.nombre}</span>
+                      <span className="nota">{p.n} aportación(es)</span>
+                      <strong>{p.media}</strong>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
           <div ref={finRef} />
 
           <div className="foro-responder">
