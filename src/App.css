@@ -858,6 +858,32 @@ a { color: var(--primary); }
    Una fila por persona. Las tarjetas anteriores gastaban media
    pantalla por usuario y obligaban a desplazarse para comparar.
    ------------------------------------------------------------ */
+/* ---- Pestaña de cursos ------------------------------------- */
+.curso-editor { margin: 14px 0 20px; padding: 16px;
+  border: 1px solid var(--accent); border-radius: 12px; }
+.curso-editor label { display: block; margin-top: 12px; font-size: 13px;
+  font-weight: 600; color: var(--primary); }
+.curso-editor .input, .curso-editor textarea.input { width: 100%; }
+.curso-editor-fila { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+
+/* Cada casilla lleva su aclaración: "gratuito" y "proximamente"
+   no significan lo mismo para quien no construyó esto. */
+.curso-editor-casillas { display: grid; gap: 8px; margin-top: 14px; }
+.curso-editor-casillas label { display: flex; align-items: baseline; gap: 8px;
+  margin-top: 0; font-weight: 400; }
+.curso-editor-casillas em { font-style: normal; }
+.curso-editor-taller { display: grid; gap: 4px; margin-top: 10px;
+  padding: 12px; border-radius: 10px; background: var(--bg-card); }
+
+.curso-lista { display: grid; gap: 8px; margin-top: 18px; }
+.curso-fila { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 14px; border: 1px solid var(--borde); border-radius: 10px; }
+.curso-fila.archivado { opacity: .6; }
+.curso-fila-datos { flex: 1 1 260px; min-width: 0; }
+.curso-fila-datos strong { display: block; color: var(--primary); }
+.curso-fila-marcas { display: flex; gap: 6px; flex-wrap: wrap; }
+.curso-fila-acciones { display: flex; gap: 4px; margin-left: auto; }
+
 /* ---- Pestaña de facilitadores ------------------------------
    Se lee por curso: la pregunta real del admin es "quién lleva
    este curso", no "qué lleva esta persona".

@@ -6,6 +6,7 @@ import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib
 import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import AdminExamenes from './AdminExamenes'
 import AdminForo from './AdminForo'
+import AdminCursos from './AdminCursos'
 import { usePermisos } from '../lib/permisos'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
@@ -876,6 +877,7 @@ function Admin({ user }) {
       <h1>Panel de administración</h1>
 
       <div className="admin-tabs">
+        <button type="button" className={`admin-tab ${vista === 'cursos' ? 'activa' : ''}`} onClick={() => setVista('cursos')}>📚 Cursos</button>
         <button type="button" className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`} onClick={() => setVista('inscripciones')}>📋 Inscripciones</button>
         <button type="button" className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`} onClick={() => setVista('usuarios')}>👥 Gestión de usuarios</button>
         <button type="button" className={`admin-tab ${vista === 'facilitadores' ? 'activa' : ''}`} onClick={() => setVista('facilitadores')}>🛠️ Facilitadores</button>
@@ -1224,6 +1226,8 @@ function Admin({ user }) {
           )}
         </>
       )}
+
+      {vista === 'cursos' && <AdminCursos />}
 
       {vista === 'facilitadores' && (
         <>
