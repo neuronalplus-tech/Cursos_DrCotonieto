@@ -29,6 +29,7 @@ function cuando(fecha) {
 export default function PanelProgreso({ cursoId }) {
   const [filas, setFilas] = useState([])
   const [examenes, setExamenes] = useState([])
+  const [tareas, setTareas] = useState([])
   const [totalRecursos, setTotalRecursos] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -90,6 +91,21 @@ export default function PanelProgreso({ cursoId }) {
               .in('examen_id', idsEx)
           : { data: [] }
 
+        // --- Tareas: las del curso y las de sus módulos ---
+        const { data: tCurso } = await supabase
+          .from('tareas').select('id, titulo, puntos_max').eq('curso_id', curso)
+        const { data: tMod } = idsMod.length
+          ? await supabase.from('tareas').select('id, titulo, puntos_max').in('modulo_id', idsMod)
+          : { data: [] }
+        const tds = [...(tCurso || []), ...(tMod || [])]
+        const idsTarea = tds.map(t => t.id)
+
+        const { data: entregas } = idsTarea.length
+          ? await supabase.from('entregas')
+              .select('usuario_id, tarea_id, calificacion, calificado_en')
+              .in('tarea_id', idsTarea)
+          : { data: [] }
+
         // --- Se cruza todo por alumno ---
         const porAlumno = {}
         for (const id of idsAlumno) {
@@ -101,6 +117,8 @@ export default function PanelProgreso({ cursoId }) {
             // Del examen interesa el MEJOR intento: es el que cuenta
             // para la constancia y el que refleja lo que acabó sabiendo.
             mejor: {},
+            // tarea_id -> { calificacion, calificado_en } | ausente si no entregó
+            entregas: {},
           }
         }
         for (const p of prog || []) {
@@ -108,6 +126,10 @@ export default function PanelProgreso({ cursoId }) {
           if (!a) continue
           a.hechos++
           if (!a.ultimo || (p.ultimo_acceso && p.ultimo_acceso > a.ultimo)) a.ultimo = p.ultimo_acceso
+        }
+        for (const en of entregas || []) {
+          const a = porAlumno[en.usuario_id]
+          if (a) a.entregas[en.tarea_id] = en
         }
         for (const it of intentos || []) {
           const a = porAlumno[it.usuario_id]
@@ -121,6 +143,7 @@ export default function PanelProgreso({ cursoId }) {
         if (!vivo) return
         setTotalRecursos(idsRec.length)
         setExamenes(exs)
+        setTareas(tds)
         setFilas(Object.values(porAlumno))
       } catch (e) {
         if (vivo) setError(e.message || String(e))
@@ -139,6 +162,10 @@ export default function PanelProgreso({ cursoId }) {
     return pct(a) - pct(b)   // por defecto: los más atrasados primero
   })
 
+  // Entregas esperando calificación. Es el unico numero del resumen
+  // que señala trabajo TUYO, no de ellos, por eso va aparte.
+  const porCalificar = filas.reduce(
+    (n, f) => n + Object.values(f.entregas || {}).filter(e => !e.calificado_en).length, 0)
   const sinEmpezar = filas.filter(f => f.hechos === 0).length
   const terminados = filas.filter(f => totalRecursos && f.hechos >= totalRecursos).length
   const promedio = filas.length
@@ -156,6 +183,11 @@ export default function PanelProgreso({ cursoId }) {
         <div><strong>{promedio}%</strong><span>avance medio</span></div>
         <div><strong>{sinEmpezar}</strong><span>sin empezar</span></div>
         <div><strong>{terminados}</strong><span>completaron</span></div>
+        {tareas.length > 0 && (
+          <div className={porCalificar ? 'progreso-pendiente' : ''}>
+            <strong>{porCalificar}</strong><span>por calificar</span>
+          </div>
+        )}
       </div>
 
       <div className="progreso-orden">
@@ -175,6 +207,7 @@ export default function PanelProgreso({ cursoId }) {
               <th>Avance</th>
               <th>Última actividad</th>
               {examenes.map(e => <th key={e.id}>{e.titulo}</th>)}
+              {tareas.map(t => <th key={`t${t.id}`}>📥 {t.titulo}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -199,6 +232,21 @@ export default function PanelProgreso({ cursoId }) {
                             {it.calificacion ?? '?'}
                           </span>
                         )}
+                      </td>
+                    )
+                  })}
+
+                  {/* Tres estados distintos y no dos: "no entregó" y
+                      "entregó y está sin calificar" piden cosas opuestas
+                      (escribirle a él, o sentarte tú a calificar). */}
+                  {tareas.map(t => {
+                    const en = f.entregas[t.id]
+                    return (
+                      <td key={`t${t.id}`}>
+                        {!en ? <span className="sutil">—</span>
+                          : !en.calificado_en
+                            ? <span className="badge rol-alumno">Por calificar</span>
+                            : <span className="badge ok">{en.calificacion}</span>}
                       </td>
                     )
                   })}
