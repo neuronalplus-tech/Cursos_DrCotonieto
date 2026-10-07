@@ -2,147 +2,178 @@
 --  DIAGNÓSTICO: ¿DE QUÉ NOTAS SALE LA CALIFICACIÓN DE UN CURSO?
 --
 --  PARA QUÉ SIRVE
---  Comprobar que la rejilla del facilitador y "Mis calificaciones"
---  del alumno están mirando LO MISMO. Te enseña, alumno por alumno,
---  cada nota que entra en el cálculo y con qué máximo.
---
---  POR QUÉ NO CALCULA AQUÍ LA NOTA FINAL
---  Porque sería una TERCERA implementación del mismo número, y
---  entonces no sabrías a cuál creerle. Si esta consulta dijera 88 y
---  la pantalla 85, el primer sospechoso sería la pantalla, cuando
---  igual la equivocada es la consulta.
---
---  Lo que hace es enseñarte las ENTRADAS. Si las dos pantallas
---  parten de aquí y dan números distintos, el problema está en el
---  cálculo. Si una pantalla ignora alguna de estas filas, el
---  problema está en lo que esa pantalla carga. Y la aritmética de
---  una sola fila la puedes comprobar a mano en treinta segundos.
+--  Comprobar que la rejilla del facilitador (Panel de progreso) y
+--  "Mis calificaciones" del alumno están mirando LO MISMO. Te
+--  enseña, alumno por alumno, cada nota que entra en el cálculo,
+--  con qué máximo, y cuánto da el promedio.
 --
 --  CÓMO USARLO
+--  Supabase -> SQL Editor -> New query -> pega esto -> Run.
+--  No hay nada que editar: sale el repaso de TODOS tus cursos.
 --
---  PASO 1. Averigua el ID DEL CURSO. Es un NÚMERO, no un correo
---  ni un título. Corre esta consulta aparte:
---
---      select id, titulo, ponderacion from public.cursos order by id;
---
---  También sale en la dirección cuando entras al curso:
---  .../curso/7  ->  el id es 7
---
---  PASO 2. Escribe ese número en la línea marcada más abajo,
---  donde ahora dice 12. Debe quedar así, con el número suelto:
---
---      select 7::bigint as curso
---
---  PASO 3. Supabase -> SQL Editor -> pega esto -> Run.
+--  Si tienes muchos alumnos y quieres mirar uno solo, cambia el
+--  `null` de la línea marcada por el id del curso. Ese id sale en
+--  la dirección cuando entras al curso (.../curso/7 -> 7) y también
+--  en la columna `curso_id` de este mismo resultado.
 --
 --  Solo lee. No modifica nada.
 -- =============================================================
 
 with parametros as (
-  select 12::bigint as curso   -- <<< PON AQUÍ EL ID DEL CURSO (un número)
+  -- null = todos los cursos. Un número = solo ese curso.
+  select null::bigint as curso
 ),
 
--- Los módulos del curso, porque exámenes y tareas pueden colgar del
--- curso o de un módulo suyo.
+cursos_sel as (
+  select c.id, c.titulo, c.ponderacion
+  from public.cursos c, parametros p
+  where p.curso is null or c.id = p.curso
+),
+
+-- Exámenes y tareas pueden colgar del curso o de uno de sus
+-- módulos, así que hace falta saber a qué curso pertenece cada
+-- módulo para no perder la mitad de las notas.
 mods as (
-  select m.id from public.modulos m, parametros p
-  where m.curso_id = p.curso and coalesce(m.activo, true)
+  select m.id, m.curso_id
+  from public.modulos m
+  join cursos_sel c on c.id = m.curso_id
+  where coalesce(m.activo, true)
 ),
 
-inscritos as (
-  select distinct ac.usuario_id from public.acceso ac, parametros p
-  where ac.curso_id = p.curso
+examenes_sel as (
+  select e.id, e.titulo, coalesce(e.curso_id, m.curso_id) as curso_id
+  from public.examenes e
+  left join mods m on m.id = e.modulo_id
+  where coalesce(e.curso_id, m.curso_id) in (select id from cursos_sel)
 ),
 
 -- Del examen cuenta el MEJOR intento: es el que ve el alumno y el
 -- que cuenta para la constancia.
-mejor_examen as (
+notas_examen as (
   select distinct on (i.usuario_id, i.examen_id)
-    i.usuario_id, e.titulo, i.calificacion
+    i.usuario_id,
+    es.curso_id,
+    'Examen'::text as tipo,
+    es.titulo,
+    i.calificacion::numeric as obtenida,
+    100::numeric as maximo
   from public.intentos_examen i
-  join public.examenes e on e.id = i.examen_id, parametros p
-  where (e.curso_id = p.curso or e.modulo_id in (select id from mods))
-    and i.calificacion is not null
+  join examenes_sel es on es.id = i.examen_id
+  where i.calificacion is not null
   order by i.usuario_id, i.examen_id, i.calificacion desc
 ),
 
-tareas_calificadas as (
-  select en.usuario_id, t.titulo, en.calificacion,
-         coalesce(t.puntos_max, 100) as maximo
+tareas_sel as (
+  select t.id, t.titulo,
+         coalesce(t.curso_id, m.curso_id) as curso_id,
+         coalesce(t.puntos_max, 100)::numeric as maximo
+  from public.tareas t
+  left join mods m on m.id = t.modulo_id
+  where coalesce(t.curso_id, m.curso_id) in (select id from cursos_sel)
+),
+
+notas_tarea as (
+  select
+    en.usuario_id,
+    ts.curso_id,
+    'Tarea'::text as tipo,
+    ts.titulo,
+    en.calificacion::numeric as obtenida,
+    ts.maximo
   from public.entregas en
-  join public.tareas t on t.id = en.tarea_id, parametros p
-  where (t.curso_id = p.curso or t.modulo_id in (select id from mods))
-    and en.calificado_en is not null
+  join tareas_sel ts on ts.id = en.tarea_id
+  where en.calificado_en is not null
     and en.calificacion is not null
 ),
 
 -- Se promedia DENTRO de cada hilo: quien escribió diez veces en el
--- mismo hilo no debe pesar diez veces más.
-foro as (
-  select r.autor_id as usuario_id, h.titulo,
-         round(avg(r.calificacion), 2) as calificacion,
-         coalesce(h.puntos_max, 10) as maximo
+-- mismo hilo no debe pesar diez veces más que quien escribió una.
+notas_foro as (
+  select
+    r.autor_id as usuario_id,
+    h.curso_id,
+    'Foro'::text as tipo,
+    h.titulo,
+    round(avg(r.calificacion), 2) as obtenida,
+    coalesce(h.puntos_max, 10)::numeric as maximo
   from public.foro_respuestas r
-  join public.foro_hilos h on h.id = r.hilo_id, parametros p
-  where h.curso_id = p.curso
+  join public.foro_hilos h on h.id = r.hilo_id
+  where h.curso_id in (select id from cursos_sel)
     and h.califica
     and not coalesce(r.borrada, false)
     and r.calificacion is not null
-  group by r.autor_id, h.titulo, h.puntos_max
+  group by r.autor_id, h.curso_id, h.titulo, h.puntos_max
 ),
 
 todo as (
-  select i.usuario_id, 'Examen' as tipo, me.titulo, me.calificacion, 100::numeric as maximo
-  from inscritos i join mejor_examen me on me.usuario_id = i.usuario_id
-  union all
-  select i.usuario_id, 'Tarea', tc.titulo, tc.calificacion, tc.maximo::numeric
-  from inscritos i join tareas_calificadas tc on tc.usuario_id = i.usuario_id
-  union all
-  select i.usuario_id, 'Foro', f.titulo, f.calificacion, f.maximo::numeric
-  from inscritos i join foro f on f.usuario_id = i.usuario_id
+  select * from notas_examen
+  union all select * from notas_tarea
+  union all select * from notas_foro
+),
+
+con_base as (
+  select
+    t.*,
+    round((t.obtenida / nullif(t.maximo, 0)) * 100, 1) as en_base_100
+  from todo t
 )
 
 select
+  c.id as curso_id,
+  c.titulo as curso,
   coalesce(pe.nombre_completo, '(sin nombre)') as alumno,
-  t.tipo,
-  t.titulo,
-  t.calificacion as obtenida,
-  t.maximo,
-  round((t.calificacion / nullif(t.maximo, 0)) * 100, 1) as en_base_100
-from todo t
-left join public.perfiles pe on pe.id = t.usuario_id
-order by alumno, t.tipo, t.titulo;
+  b.tipo,
+  b.titulo as actividad,
+  b.obtenida,
+  b.maximo,
+  b.en_base_100,
+  -- Promedio simple de las filas de ESE alumno en ESE curso.
+  -- Solo coincide con la pantalla si el curso NO tiene ponderación.
+  round(avg(b.en_base_100) over (partition by b.usuario_id, b.curso_id), 1)
+    as promedio_simple,
+  count(*) over (partition by b.usuario_id, b.curso_id) as notas,
+  case when c.ponderacion is null then 'promedio simple'
+       else c.ponderacion::text end as como_califica_el_curso
+from con_base b
+join cursos_sel c on c.id = b.curso_id
+left join public.perfiles pe on pe.id = b.usuario_id
+order by c.titulo, alumno, b.tipo, b.titulo;
 
 -- =============================================================
 --  CÓMO LEERLO
 --
---  1. La columna `en_base_100` es la que entra en el promedio. Todo
---     se normaliza antes de promediar porque un examen sobre 10 y
---     una tarea sobre 100 no se pueden promediar crudos.
+--  · en_base_100 es lo que entra en el promedio. Todo se normaliza
+--    antes, porque un examen sobre 10 y una tarea sobre 100 no se
+--    pueden promediar crudos.
 --
---  2. SIN PONDERAR, la nota del curso es el promedio simple de
---     TODOS los `en_base_100` de ese alumno. Toma un alumno, suma su
---     columna, divide entre el numero de filas que tiene, y compara
---     con lo que dicen las dos pantallas. Los tres numeros deben
---     coincidir.
+--  · promedio_simple se repite en todas las filas del mismo alumno
+--    y del mismo curso: es el promedio de su columna en_base_100.
+--    Cuando como_califica_el_curso dice "promedio simple", ESE
+--    numero es el que deben enseñar las dos pantallas.
 --
---  3. PONDERADO, primero se promedia dentro de cada tipo (Examen,
---     Tarea, Foro) y luego se aplican los pesos del curso, saltando
---     los tipos que ese alumno no tenga.
+--  · Si como_califica_el_curso trae un JSON con pesos, el curso esta
+--    ponderado y promedio_simple NO aplica: ahi se promedia primero
+--    dentro de cada tipo (Examen, Tarea, Foro) y luego se aplican
+--    los pesos, saltando los tipos que ese alumno no tenga.
 --
---  4. Lo que NO aparece aqui NO cuenta. Una tarea entregada pero sin
---     calificar no sale, y eso es a proposito: a mitad de curso,
---     contarla como cero daria un numero que no significa nada.
+--  · Lo que NO aparece aqui NO cuenta. Una tarea entregada pero sin
+--    calificar no sale, y eso es a proposito: a mitad de curso,
+--    contarla como cero daria un numero que no significa nada.
+--
+--  LA COMPROBACION QUE IMPORTA
+--  Toma un alumno de un curso SIN ponderacion. Su promedio_simple
+--  tiene que ser identico a lo que dice la columna Calificacion del
+--  panel de progreso Y a lo que ese alumno ve en Mis calificaciones.
+--  Los tres numeros, iguales.
 --
 --  QUE HACER SI ALGO NO CUADRA
---  · Las dos pantallas dan numeros distintos -> mandamelo, es un
---    error y es justo el que esto venia a eliminar.
---  · Falta una nota que si pusiste -> fijate si la entrega quedo sin
---    `calificado_en`, o si la respuesta del foro esta en un hilo que
---    no tiene activada la casilla de calificar.
---  · No sale ninguna fila -> ese curso todavia no tiene nada
---    calificado, o cambiaste mal el id del curso arriba.
---
---  PARA VER LA PONDERACION DEL CURSO
---    select id, titulo, ponderacion from public.cursos where id = 12;
+--  · Las dos pantallas dan numeros distintos entre si -> mandamelo.
+--    Es un error, y es justo el que esto venia a eliminar.
+--  · Falta una nota que si pusiste -> mira si la entrega quedo sin
+--    `calificado_en` (se guardo pero no se califico), o si la
+--    respuesta del foro esta en un hilo sin la casilla de calificar.
+--  · No sale ninguna fila -> todavia no hay nada calificado en
+--    ningun curso.
+--  · Sale lentisimo o son demasiadas filas -> pon el id de un curso
+--    en la linea del `null`, arriba.
 -- =============================================================
