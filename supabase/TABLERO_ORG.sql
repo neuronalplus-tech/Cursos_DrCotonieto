@@ -229,26 +229,51 @@ notify pgrst, 'reload schema';
 -- -------------------------------------------------------------
 -- 3) COMPROBACIÓN
 --
---    Se ejecuta sobre TU organización, así que además de confirmar
---    que las funciones existen te enseña tus propios números.
+--    OJO: aquí NO se llama a las funciones a propósito.
+--
+--    El editor SQL de Supabase ejecuta como `postgres` y SIN sesión
+--    de usuario, así que `auth.jwt()` es nulo, `es_admin()` responde
+--    que no y la función aborta con "No administras esa
+--    organización". Eso no es un fallo de permisos tuyo: es que ahí
+--    dentro no eres nadie.
+--
+--    Y como el editor envuelve todo el script en UNA transacción, un
+--    error en esta última consulta deshace también los CREATE de
+--    arriba. Por eso la comprobación solo mira que las funciones
+--    existan: tus cifras se ven en la aplicación, que sí va con tu
+--    sesión.
 -- -------------------------------------------------------------
-select * from public.tablero_organizacion(
-  (select id from public.organizaciones where slug = 'cotonieto')
-);
+select 'tablero_organizacion' as funcion,
+  (select count(*)::text from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'tablero_organizacion') as existe
+union all
+select 'tablero_cursos',
+  (select count(*)::text from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'tablero_cursos')
+union all
+select 'tu organizacion (id)',
+  (select coalesce(max(id)::text, 'NO EXISTE')
+     from public.organizaciones where slug = 'cotonieto')
+union all
+select 'cursos sin organizacion asignada',
+  (select count(*)::text from public.cursos where organizacion_id is null);
 
 -- =============================================================
 --  RESULTADO ESPERADO
---  Una fila con tus cifras. Lo que conviene mirar:
+--  · tablero_organizacion = 1
+--  · tablero_cursos       = 1
+--  · tu organizacion (id) = un numero (normalmente 1)
+--  · cursos sin organizacion asignada = 0
 --
---  · alumnos        = personas distintas con acceso a algo tuyo
---  · alumnos_activos= las que tocaron algo en 30 dias
---  · avance_medio   = promedio del avance de cada inscripcion
---  · por_calificar  = entregas que esperan tu calificacion
+--  Si el ultimo sale mayor que 0, esos cursos no apareceran en el
+--  tablero: corre ORGANIZACIONES_1_BASE.sql otra vez, que es
+--  idempotente y los asigna.
 --
---  Si "alumnos" sale 0 y sabes que tienes alumnos, lo mas probable
---  es que tus cursos no tengan organizacion_id: corre
---  ORGANIZACIONES_1_BASE.sql otra vez, que es idempotente y los
---  asigna.
+--  DONDE SE VEN LAS CIFRAS
+--  Panel de administracion -> pestaña 📈 Tablero. Ahi si vas con tu
+--  sesion, asi que las funciones te reconocen como administrador.
 --
 --  UNA LIMITACION HONESTA
 --  "Activo" y "avance" se miden sobre `progreso_usuario`, que se
