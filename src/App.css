@@ -2922,3 +2922,33 @@ a { color: var(--primary); }
 
   .progreso-resumen { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---- Mis calificaciones -------------------------------------
+   Un bloque por curso, y dentro solo las secciones que ese curso
+   tiene. Una lista de "exámenes: ninguno" no le dice nada a nadie.
+   ------------------------------------------------------------- */
+.mis-curso { padding: 20px; margin-bottom: 16px;
+  border: 1px solid var(--borde); border-radius: 14px; }
+.mis-curso-cab { display: flex; justify-content: space-between;
+  align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.mis-curso-cab h2 { margin: 0 0 2px; font-size: 19px; }
+.mis-curso-cab h2 a { color: var(--primary); text-decoration: none; }
+.mis-curso-cab h2 a:hover { color: var(--accent); }
+
+.mis-curso .progreso-barra { height: 8px; margin-bottom: 4px; }
+
+.mis-bloque { margin-top: 18px; }
+.mis-bloque h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted); }
+
+.mis-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mis-lista li { display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 9px 12px;
+  border-radius: 8px; background: var(--bg-card); }
+.mis-lista a { color: var(--primary); }
+
+/* La retroalimentación ocupa la fila entera: es texto para leer,
+   no una etiqueta, y comprimida junto a la nota no se lee. */
+.mis-retro { flex-basis: 100%; margin: 6px 0 0; padding-left: 12px;
+  border-left: 2px solid var(--accent); font-size: 13.5px;
+  line-height: 1.6; color: var(--primary); }

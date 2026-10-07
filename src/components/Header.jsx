@@ -109,6 +109,9 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
                 {cuentaAbierta && (
                   <div className="header-menu" role="menu">
                     <button role="menuitem" onClick={() => ir('/perfil')}>Mi perfil</button>
+                    <button role="menuitem" onClick={() => ir('/mis-calificaciones')}>
+                      Mis calificaciones
+                    </button>
                     <button role="menuitem" onClick={() => ir('/mensajes')}>
                       Mensajes{sinLeer > 0 ? ` (${sinLeer})` : ''}
                     </button>
