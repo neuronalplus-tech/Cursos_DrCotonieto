@@ -5,6 +5,53 @@ import { LOGO_CLARO, wa } from '../config'
 import { WhatsAppFlotante } from './ui'
 import CampoContrasena from './CampoContrasena'
 
+/* ------------------------------------------------------------
+   POR QUÉ NO BASTA CON "CORREO O CONTRASEÑA INCORRECTOS"
+   ------------------------------------------------------------
+   Ese texto se enseñaba ante CUALQUIER fallo, así que una cuenta
+   sin confirmar, un correo deshabilitado y una contraseña mal
+   escrita se veían exactamente igual. Quien administra no podía
+   distinguirlos, y quien entra se quedaba intentando lo mismo una
+   y otra vez.
+
+   Se traduce la causa real, no se inventa. Lo que no se reconozca
+   se enseña tal cual: un mensaje en inglés es feo, pero es
+   infinitamente más útil que uno bonito y equivocado.
+
+   SOBRE LOS ESPACIOS
+   La contraseña NO se recorta: hay quien la tiene con un espacio a
+   propósito y recortarla en silencio le cerraría la puerta. Lo que
+   se hace es avisar, que es lo que resuelve el caso real: el
+   espacio que se cuela al copiar y pegar.
+   ------------------------------------------------------------ */
+function mensajeDeError(error, password) {
+  const bruto = String(error?.message || '')
+  const m = bruto.toLowerCase()
+
+  if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+    return 'Esta cuenta existe pero todavía no está confirmada. ' +
+      'Escríbele a quien te dio el acceso para que la active, o usa "Olvidé mi contraseña".'
+  }
+  if (m.includes('invalid login credentials') || m.includes('invalid credentials')) {
+    const sobra = password !== password.trim()
+    return 'Correo o contraseña incorrectos.' +
+      (sobra
+        ? ' Ojo: tu contraseña empieza o termina con un espacio; si lo copiaste y pegaste, bórralo.'
+        : ' Revisa que no haya espacios de más y que las mayúsculas sean las mismas.')
+  }
+  if (m.includes('email logins are disabled') || m.includes('signups not allowed')) {
+    return 'El acceso con correo está desactivado en este momento. Avísame para revisarlo.'
+  }
+  if (m.includes('rate limit') || m.includes('too many')) {
+    return 'Demasiados intentos seguidos. Espera un minuto y vuelve a probar.'
+  }
+  if (m.includes('failed to fetch') || m.includes('network')) {
+    return 'No se pudo conectar. Revisa tu conexión y vuelve a intentarlo.'
+  }
+  // Sin traducción conocida: se enseña el original para poder reportarlo.
+  return 'No se pudo entrar: ' + (bruto || 'error desconocido')
+}
+
 function Login({ message }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,7 +67,7 @@ function Login({ message }) {
     e.preventDefault()
     setLoading(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
-    if (error) { setError('Correo o contraseña incorrectos. Revisa que no haya espacios de más.'); setLoading(false) }
+    if (error) { setError(mensajeDeError(error, password)); setLoading(false) }
     else { localStorage.setItem('login_time', String(Date.now())); navigate(destino, { replace: true }) }
   }
 

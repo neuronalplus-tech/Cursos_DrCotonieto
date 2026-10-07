@@ -270,11 +270,22 @@ function Admin({ user }) {
     setMsg('')
     // Solo facilitador no crea cuenta: es una asignación de rol por
     // correo, así que no pide contraseña.
+    /* El correo se guarda como lo escribiste, pero al iniciar sesión
+       se envía en minúsculas y sin espacios. Si aquí entra con una
+       mayúscula o un espacio pegado, la cuenta queda creada con una
+       dirección que nadie va a poder teclear igual. Se normaliza
+       aquí, que es donde todavía se puede.
+
+       La contraseña se recorta por el mismo motivo: un espacio al
+       final, invisible y casi siempre heredado de un copiar y pegar,
+       convierte el alta en una cuenta inaccesible. */
+    const correoLimpio = nuevoEmail.trim().toLowerCase()
+    const claveLimpia = nuevoPass.trim()
     const soloFacilitador = rolNuevo === 'facilitador'
-    if (!nuevoEmail) { setMsg('Error: el correo es obligatorio'); return }
+    if (!correoLimpio) { setMsg('Error: el correo es obligatorio'); return }
     const porInvitacion = modoAcceso === 'invitacion'
-    if (!soloFacilitador && !porInvitacion && !nuevoPass) { setMsg('Error: correo y contraseña son obligatorios'); return }
-    if (!soloFacilitador && !porInvitacion && nuevoPass.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    if (!soloFacilitador && !porInvitacion && !claveLimpia) { setMsg('Error: correo y contraseña son obligatorios'); return }
+    if (!soloFacilitador && !porInvitacion && claveLimpia.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
     if (cursosSeleccionados.length === 0) { setMsg('Error: selecciona al menos un curso'); return }
 
     setCreando(true)
@@ -303,8 +314,8 @@ function Admin({ user }) {
           'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
         },
         body: JSON.stringify({
-          email: nuevoEmail,
-          password: porInvitacion ? claveDeUnSoloUso() : nuevoPass,
+          email: correoLimpio,
+          password: porInvitacion ? claveDeUnSoloUso() : claveLimpia,
           curso_ids: cursosSeleccionados
         })
       })
@@ -319,13 +330,13 @@ function Admin({ user }) {
       } else {
         let extra = ''
         if (porInvitacion) {
-          const fallos = await invitar([nuevoEmail])
+          const fallos = await invitar([correoLimpio])
           extra += fallos.length
             ? ` (pero no se pudo enviar la invitación: ${fallos[0]})`
             : '. Le llegó un correo para que elija su contraseña'
         }
         if (rolNuevo === 'ambos') {
-          const r = await asignarFacilitadores([nuevoEmail], cursosSeleccionados)
+          const r = await asignarFacilitadores([correoLimpio], cursosSeleccionados)
           extra = r.error ? ` (pero falló el rol de facilitador: ${r.error.message})` : ' y queda como facilitador'
         }
         setMsg(`✅ Usuario ${json.email} creado y asignado a ${cursosSeleccionados.length} curso(s)` + extra)
@@ -373,7 +384,10 @@ function Admin({ user }) {
     if (emails.length > 200) { setMsgMasivo(`Error: máximo 200 correos por lote (pegaste ${emails.length})`); return }
     const soloFacilMasivo = rolMasivo === 'facilitador'
     const masivoPorInvitacion = modoMasivo === 'invitacion'
-    if (!soloFacilMasivo && !masivoPorInvitacion && (!passMasivo || passMasivo.length < 6)) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    // Mismo recorte que en el alta individual: un espacio final,
+    // invisible, deja a todo el lote sin poder entrar.
+    const claveLote = passMasivo.trim()
+    if (!soloFacilMasivo && !masivoPorInvitacion && (!claveLote || claveLote.length < 6)) { setMsgMasivo('Error: la contraseña debe tener al menos 6 caracteres'); return }
     if (cursosMasivos.length === 0) { setMsgMasivo('Error: selecciona al menos un curso'); return }
 
     // Asignar el rol no crea cuentas, así que no necesita confirmación
@@ -424,7 +438,7 @@ function Admin({ user }) {
           },
           body: JSON.stringify({
             emails: lote,
-            password: masivoPorInvitacion ? claveDeUnSoloUso() : passMasivo,
+            password: masivoPorInvitacion ? claveDeUnSoloUso() : claveLote,
             curso_ids: cursosMasivos,
           }),
         })
