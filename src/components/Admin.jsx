@@ -9,6 +9,7 @@ import AdminForo from './AdminForo'
 import AdminCursos from './AdminCursos'
 import AdminBitacora from './AdminBitacora'
 import AdminOrganizaciones from './AdminOrganizaciones'
+import AdminSuscripciones, { ResumenPlan } from './AdminSuscripciones'
 import { usePermisos } from '../lib/permisos'
 import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
@@ -1063,7 +1064,16 @@ function Admin({ user }) {
         {esAdminPlataforma && (
           <button type="button" className={`admin-tab ${vista === 'organizaciones' ? 'activa' : ''}`} onClick={() => setVista('organizaciones')}>🏢 Organizaciones</button>
         )}
+        {esAdminPlataforma && (
+          <button type="button" className={`admin-tab ${vista === 'suscripciones' ? 'activa' : ''}`} onClick={() => setVista('suscripciones')}>💳 Suscripciones</button>
+        )}
       </div>
+
+      {/* El cliente ve su plan y su consumo; tú no, porque tu aula está
+          exenta y la franja no se pinta. Va fuera de las pestañas a
+          propósito: si está a punto de quedarse sin alumnos disponibles,
+          enterarse no debería depender de abrir la pestaña correcta. */}
+      {!esAdminPlataforma && <ResumenPlan organizacionId={organizacion?.id} />}
 
       {vista === 'inscripciones' && (
         <>
@@ -1452,6 +1462,7 @@ function Admin({ user }) {
       {vista === 'cursos' && <AdminCursos />}
       {vista === 'bitacora' && <AdminBitacora />}
       {vista === 'organizaciones' && esAdminPlataforma && <AdminOrganizaciones />}
+      {vista === 'suscripciones' && esAdminPlataforma && <AdminSuscripciones />}
 
       {vista === 'facilitadores' && (
         <>
