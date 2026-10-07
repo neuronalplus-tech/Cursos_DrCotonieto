@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { LOGO_BLANCO } from '../config'
 import { supabase } from '../lib/supabase'
+import { useOrganizacion } from '../lib/organizacion'
 
 /* ============================================================
    BARRA SUPERIOR
@@ -21,6 +22,12 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const [sinLeer, setSinLeer] = useState(0)
   const cajaCuenta = useRef(null)
+  const { organizacion } = useOrganizacion()
+
+  // La marca de quien hospeda, con la de casa como repliegue: una
+  // organización sin logo propio no debe quedarse sin cabecera.
+  const marcaNombre = organizacion?.nombre || 'Dr. Ernesto Cotonieto'
+  const marcaLogo = organizacion?.logo_url || LOGO_BLANCO
 
 
   const ir = (ruta) => {
@@ -65,8 +72,8 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
       <div className="header-content">
         <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
              onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
-          <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="logo-header" />
-          <span className="brand-name">Dr. Ernesto Cotonieto</span>
+          <img src={marcaLogo} alt={marcaNombre} className="logo-header" />
+          <span className="brand-name">{marcaNombre}</span>
         </div>
 
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>

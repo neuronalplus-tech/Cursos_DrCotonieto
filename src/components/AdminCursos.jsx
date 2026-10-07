@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useOrganizacion } from '../lib/organizacion'
 
 const VACIO = {
   titulo: '', descripcion: '', linea: '', categoria_id: '', orden: 100,
@@ -44,6 +45,7 @@ export default function AdminCursos() {
   const [msg, setMsg] = useState(null)
   const [verTaller, setVerTaller] = useState(false)
   const [duplicando, setDuplicando] = useState(null)
+  const { organizacion } = useOrganizacion()
   const [categorias, setCategorias] = useState([])
   const [catAbierto, setCatAbierto] = useState(false)
   const [catNueva, setCatNueva] = useState('')
@@ -52,8 +54,9 @@ export default function AdminCursos() {
   const recargar = async () => {
     setCargando(true)
     // Sin filtrar por `activo`: aquí se gestionan también los archivados.
-    const { data, error } = await supabase
-      .from('cursos').select('*').order('orden').order('titulo')
+    let q = supabase.from('cursos').select('*').order('orden').order('titulo')
+    if (organizacion?.id) q = q.eq('organizacion_id', organizacion.id)
+    const { data, error } = await q
     if (error) setMsg({ tipo: 'error', texto: 'No se pudieron cargar: ' + error.message })
     else setCursos(data || [])
 
@@ -63,7 +66,7 @@ export default function AdminCursos() {
     setCargando(false)
   }
 
-  useEffect(() => { recargar() }, [])
+  useEffect(() => { recargar() }, [organizacion])
 
   const abrirNuevo = () => {
     const siguiente = cursos.length ? Math.max(...cursos.map(c => c.orden || 0)) + 10 : 100
@@ -106,6 +109,9 @@ export default function AdminCursos() {
     const cat = categorias.find(k => String(k.id) === String(form.categoria_id))
     payload.categoria_id = cat ? cat.id : null
     payload.linea = cat ? cat.nombre : null
+    if (editando === 'nueva' && organizacion?.id) {
+      payload.organizacion_id = organizacion.id
+    }
 
     const { error } = editando === 'nuevo'
       ? await supabase.from('cursos').insert(payload)

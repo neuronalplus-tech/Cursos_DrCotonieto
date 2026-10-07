@@ -7,6 +7,7 @@ import { rutaAcceso, FOTO_PERFIL, MARCA, WA_CONSULTA,
   CONTACTO_EMAIL,
 } from '../config'
 import { esTallerIndividual } from '../lib/helpers'
+import { useOrganizacion, aplicarMarca } from '../lib/organizacion'
 import { WhatsAppFlotante, BandaRedes } from './ui'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
 import CarruselCursos from './CarruselCursos'
@@ -19,6 +20,10 @@ function Home({ user }) {
   const [error, setError] = useState(null)
   const [lineaActiva, setLineaActiva] = useState('todas')
   const [copiaLineas, setCopiaLineas] = useState({})
+  const { organizacion, cargado: orgCargada } = useOrganizacion()
+
+  // La marca del cliente se aplica en cuanto se sabe cuál es.
+  useEffect(() => { aplicarMarca(organizacion) }, [organizacion])
 
   useEffect(() => {
     let vivo = true
@@ -35,7 +40,9 @@ function Home({ user }) {
   useEffect(() => {
     async function load() {
       try {
-        const { data, error } = await supabase.from('cursos').select('*').eq('activo', true).order('orden')
+        let q = supabase.from('cursos').select('*').eq('activo', true).order('orden')
+        if (organizacion?.id) q = q.eq('organizacion_id', organizacion.id)
+        const { data, error } = await q
         if (error) throw error
         const cursosHome = (data || []).filter(c => !esTallerIndividual(c))
         setCursos(cursosHome)
@@ -48,7 +55,7 @@ function Home({ user }) {
       } finally { setLoading(false) }
     }
     load()
-  }, [user])
+  }, [user, organizacion])
 
   const lineas = []
   cursos.forEach(c => { if (c.linea && !lineas.includes(c.linea)) lineas.push(c.linea) })
