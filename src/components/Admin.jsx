@@ -305,7 +305,11 @@ function Admin({ user }) {
       const token = session?.access_token
       if (!token) { setMsg('Error: no hay sesión activa'); setCreando(false); return }
 
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuario`
+      // Una sola función para el alta individual y la masiva: la
+      // individual es una lista de un elemento. Dos funciones casi
+      // iguales fue justo lo que permitió que una se arreglara y la
+      // otra se quedara atrás.
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios`
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -314,7 +318,7 @@ function Admin({ user }) {
           'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
         },
         body: JSON.stringify({
-          email: correoLimpio,
+          emails: [correoLimpio],
           password: porInvitacion ? claveDeUnSoloUso() : claveLimpia,
           curso_ids: cursosSeleccionados
         })
@@ -339,7 +343,19 @@ function Admin({ user }) {
           const r = await asignarFacilitadores([correoLimpio], cursosSeleccionados)
           extra = r.error ? ` (pero falló el rol de facilitador: ${r.error.message})` : ' y queda como facilitador'
         }
-        setMsg(`✅ Usuario ${json.email} creado y asignado a ${cursosSeleccionados.length} curso(s)` + extra)
+        // Si no vuelve un id, la cuenta NO existe por mucho que la
+        // respuesta sea 200. Decir "creado" sin comprobarlo es lo que
+        // dejó el alta rota tres semanas sin que nadie se enterara.
+        const r0 = json.resultados?.[0]
+        if (!r0?.id) {
+          setMsg('⚠️ El servidor contestó sin error pero la cuenta no aparece. ' +
+            (r0?.mensaje || 'Revisa Authentication → Users en Supabase.'))
+          setCreando(false)
+          return
+        }
+        const yaEstaba = r0.status === 'existente' ? ' (ya tenía cuenta; se actualizó su contraseña)' : ''
+        setMsg(`✅ ${r0.email} ${r0.status === 'existente' ? 'tiene acceso a' : 'creado y asignado a'} ` +
+          `${cursosSeleccionados.length} curso(s)${yaEstaba}` + extra)
         setNuevoEmail('')
         setNuevoPass('')
         setCursosSeleccionados([])
@@ -417,7 +433,7 @@ function Admin({ user }) {
     setCreandoMasivo(true)
     setProgresoMasivo({ actual: 0, total: emails.length })
 
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios-bulk`
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios`
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setMsgMasivo('Error: no hay sesión activa'); setCreandoMasivo(false); return }
