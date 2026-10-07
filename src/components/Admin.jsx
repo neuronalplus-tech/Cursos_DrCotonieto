@@ -11,6 +11,8 @@ import AdminBitacora from './AdminBitacora'
 import AdminOrganizaciones from './AdminOrganizaciones'
 import AdminSuscripciones, { ResumenPlan } from './AdminSuscripciones'
 import BancoPreguntas from './BancoPreguntas'
+import TableroOrg from './TableroOrg'
+import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
 import { usePermisos } from '../lib/permisos'
 import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
@@ -347,6 +349,12 @@ function Admin({ user }) {
     )
   }
 
+  /* El lector de correos sueltos se queda porque los comunicados lo
+     usan con otro texto. Para el alta en lote se usa `padron`, que
+     entiende la misma lista de siempre Y las columnas de un padrón
+     institucional (nombre, generación, ruta). */
+  const padron = parsePadron(emailsMasivos)
+
   const parsearEmails = (texto) => {
     return texto
       .split(/[,;\n\r\t ]+/)
@@ -359,7 +367,7 @@ function Admin({ user }) {
     setMsgMasivo('')
     setResultadoMasivo(null)
 
-    const emails = parsearEmails(emailsMasivos)
+    const emails = padron.filas.map(f => f.email)
 
     if (emails.length === 0) { setMsgMasivo('Error: pega al menos un correo válido'); return }
     if (emails.length > 200) { setMsgMasivo(`Error: máximo 200 correos por lote (pegaste ${emails.length})`); return }
@@ -447,6 +455,67 @@ function Admin({ user }) {
         if (r.error) setMsgMasivo('Cuentas creadas, pero falló el rol de facilitador: ' + r.error.message)
       }
 
+      /* --- Segundo paso: lo que el padrón traía además del correo ---
+
+         Las cuentas las crea la función del servidor, que solo recibe
+         correos. El nombre, la generación y la ruta se escriben aquí
+         después, con la sesión del administrador y bajo RLS.
+
+         Si algo de esto falla NO se deshace el alta: las cuentas ya
+         existen y volver a crearlas no es posible. Se avisa y se sigue;
+         un nombre que falta se corrige en dos clics, una cuenta a medio
+         crear no. */
+      // El aviso se acumula en vez de pintarse: el mensaje final de
+      // "proceso terminado" se escribe después y lo borraría.
+      let avisoPadron = ''
+      const extras = padron.filas.filter(f => f.nombre || f.generacion || f.grupo)
+      if (extras.length) {
+        try {
+          const { data: usrs } = await supabase.rpc('listar_usuarios_con_accesos')
+          const idDe = {}
+          for (const u of usrs || []) {
+            if (u.email) idDe[u.email.toLowerCase()] = u.usuario_id
+          }
+
+          // Nombres: se escriben solo donde el padrón trae uno.
+          const perfiles = extras
+            .filter(f => f.nombre && idDe[f.email])
+            .map(f => ({ id: idDe[f.email], nombre_completo: f.nombre }))
+          if (perfiles.length) {
+            const { error: eP } = await supabase.from('perfiles')
+              .upsert(perfiles, { onConflict: 'id' })
+            if (eP) throw new Error('nombres: ' + eP.message)
+          }
+
+          // Generación y ruta, por curso.
+          const { data: gens } = await supabase.from('generaciones')
+            .select('id, nombre, curso_id').in('curso_id', cursosMasivos)
+          const sinCruzarTodas = new Set()
+          for (const cursoId of cursosMasivos) {
+            const delCurso = (gens || []).filter(g => g.curso_id === cursoId)
+            const { asignadas, sinCruzar } = cruzarGeneraciones(extras, delCurso)
+            for (const x of sinCruzar) sinCruzarTodas.add(x)
+            for (const f of extras) {
+              const uid = idDe[f.email]
+              if (!uid) continue
+              const cambios = {}
+              if (asignadas[f.email] != null) cambios.generacion_id = asignadas[f.email]
+              if (f.grupo) cambios.grupo = f.grupo
+              if (!Object.keys(cambios).length) continue
+              await supabase.from('acceso').update(cambios)
+                .eq('usuario_id', uid).eq('curso_id', cursoId)
+            }
+          }
+          if (sinCruzarTodas.size) {
+            avisoPadron = ' · No encontré estas generaciones y las dejé sin asignar: ' +
+              [...sinCruzarTodas].join(', ') + '. Créalas en el curso y vuelve a asignarlas.'
+          }
+        } catch (e2) {
+          avisoPadron = ' · No pude guardar todos los datos del padrón: ' + e2.message +
+            '. Revisa nombres y generaciones en Gestión de usuarios.'
+        }
+      }
+
       setResultadoMasivo({
         total: emails.length,
         creados,
@@ -454,7 +523,7 @@ function Admin({ user }) {
         errores,
         detalles: todosResultados,
       })
-      setMsgMasivo(`✓ Proceso terminado: ${creados} creados, ${existentes} ya existían, ${errores} con error.`)
+      setMsgMasivo(`✓ Proceso terminado: ${creados} creados, ${existentes} ya existían, ` + `${errores} con error.${avisoPadron}`)
 
       const { data } = await supabase.from('vista_admin_inscripciones')
         .select('*').order('inscrito_el', { ascending: false })
@@ -1050,6 +1119,7 @@ function Admin({ user }) {
       <h1>Panel de administración</h1>
 
       <div className="admin-tabs">
+        <button type="button" className={`admin-tab ${vista === 'tablero' ? 'activa' : ''}`} onClick={() => setVista('tablero')}>📈 Tablero</button>
         <button type="button" className={`admin-tab ${vista === 'cursos' ? 'activa' : ''}`} onClick={() => setVista('cursos')}>📚 Cursos</button>
         <button type="button" className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`} onClick={() => setVista('inscripciones')}>📋 Inscripciones</button>
         <button type="button" className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`} onClick={() => setVista('usuarios')}>👥 Gestión de usuarios</button>
@@ -1153,7 +1223,9 @@ function Admin({ user }) {
               <div className="nuevo-usuario-form">
                 <h3>Inscripción masiva de usuarios</h3>
                 <p className="sutil" style={{ marginTop: 0, marginBottom: 14 }}>
-                  Pega los correos separados por coma, punto y coma o salto de línea.
+                  Pega los correos separados por coma, punto y coma o salto de línea,
+                  o pega el padrón completo desde Excel con sus columnas
+                  (<strong>nombre, correo, generación, ruta</strong>).
                   Se crearán todos con la misma contraseña temporal y se asignarán a los cursos que elijas.
                 </p>
 
@@ -1161,7 +1233,56 @@ function Admin({ user }) {
                 <textarea rows="6" className="modal-textarea" value={emailsMasivos} onChange={e => setEmailsMasivos(e.target.value)}
                   placeholder={"alumno1@correo.com, alumno2@correo.com\nalumno3@correo.com; alumno4@correo.com"}
                   style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }} />
-                <p className="nota" style={{ marginTop: 6 }}>{parsearEmails(emailsMasivos).length} correo(s) válido(s) detectado(s)</p>
+                <div className="padron-pie">
+                  <span className="nota">{padron.filas.length} correo(s) válido(s) detectado(s)</span>
+                  <button type="button" className="button texto"
+                          onClick={() => setEmailsMasivos(PLANTILLA_PADRON)}>
+                    🧪 Ver el formato de padrón
+                  </button>
+                </div>
+
+                {padron.errores.length > 0 && (
+                  <div className="aviso-error" style={{ marginTop: 8 }}>
+                    <strong>{padron.errores.length} fila(s) se van a saltar:</strong>
+                    <ul>{padron.errores.slice(0, 8).map((e, i2) => <li key={i2}>{e}</li>)}</ul>
+                  </div>
+                )}
+
+                {/* La vista previa solo aparece si hay columnas que
+                    interpretar. Para una lista de correos sueltos sería
+                    una tabla de una columna que no dice nada nuevo. */}
+                {padron.conColumnas && (
+                  <div className="padron-previa">
+                    <p className="nota" style={{ marginTop: 0 }}>
+                      Así lo entendí. Revísalo antes de crear las cuentas:
+                    </p>
+                    <div className="gestion-tabla-scroll">
+                      <table className="gestion-tabla">
+                        <thead><tr>
+                          <th>Correo</th><th>Nombre</th><th>Generación</th><th>Ruta</th>
+                        </tr></thead>
+                        <tbody>
+                          {padron.filas.slice(0, 12).map(f => (
+                            <tr key={f.email}>
+                              <td>{f.email}</td>
+                              <td>{f.nombre || <span className="sutil">—</span>}</td>
+                              <td>{f.generacion || <span className="sutil">—</span>}</td>
+                              <td>{f.grupo || <span className="sutil">—</span>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {padron.filas.length > 12 && (
+                      <p className="nota">…y {padron.filas.length - 12} más.</p>
+                    )}
+                    <p className="nota">
+                      La <strong>generación</strong> se cruza por nombre con las que ya
+                      existen en el curso; las que no cuadren se avisan y no se crean solas.
+                      La <strong>ruta</strong> se guarda tal cual.
+                    </p>
+                  </div>
+                )}
 
                 <label>Rol en los cursos seleccionados</label>
                 <div className="rol-opciones">
@@ -1213,7 +1334,7 @@ function Admin({ user }) {
                 </div>
 
                 <button type="button" className="button whatsapp" onClick={crearUsuariosMasivos} disabled={creandoMasivo}>
-                  {creandoMasivo ? `Procesando... ${progresoMasivo.actual} / ${progresoMasivo.total}` : `Crear ${parsearEmails(emailsMasivos).length} usuario(s)`}
+                  {creandoMasivo ? `Procesando... ${progresoMasivo.actual} / ${progresoMasivo.total}` : `Crear ${padron.filas.length} usuario(s)`}
                 </button>
 
                 {msgMasivo && <p className={msgMasivo.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{msgMasivo}</p>}
@@ -1462,6 +1583,7 @@ function Admin({ user }) {
       )}
 
       {vista === 'cursos' && <AdminCursos />}
+      {vista === 'tablero' && <TableroOrg />}
       {vista === 'banco' && <BancoPreguntas />}
       {vista === 'bitacora' && <AdminBitacora />}
       {vista === 'organizaciones' && esAdminPlataforma && <AdminOrganizaciones />}

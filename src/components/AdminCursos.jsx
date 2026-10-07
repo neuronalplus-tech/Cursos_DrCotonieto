@@ -17,6 +17,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
+import {
+  COMPONENTES, PONDERACION_SUGERIDA, revisarPonderacion, tienePonderacion,
+} from '../lib/calificacion'
 
 const VACIO = {
   titulo: '', descripcion: '', linea: '', categoria_id: '', orden: 100,
@@ -41,6 +44,11 @@ export default function AdminCursos() {
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState(null)   // id, o 'nuevo'
   const [form, setForm] = useState(VACIO)
+  /* La ponderación va aparte de `form` a propósito: `form` se guarda
+     con un bucle que convierte las cadenas vacías en null, y un objeto
+     con números no pasa por esa regla. Mezclarlos obligaría a meter
+     excepciones en el bucle, que es justo lo que lo haría frágil. */
+  const [pond, setPond] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState(null)
   const [verTaller, setVerTaller] = useState(false)
@@ -71,6 +79,7 @@ export default function AdminCursos() {
   const abrirNuevo = () => {
     const siguiente = cursos.length ? Math.max(...cursos.map(c => c.orden || 0)) + 10 : 100
     setForm({ ...VACIO, orden: siguiente })
+    setPond(null)
     setEditando('nuevo')
     setVerTaller(false)
     setMsg(null)
@@ -84,6 +93,7 @@ export default function AdminCursos() {
       limpio[k] = c[k] === null || c[k] === undefined ? VACIO[k] : c[k]
     }
     setForm(limpio)
+    setPond(c.ponderacion || null)
     setEditando(c.id)
     setVerTaller(CAMPOS_TALLER.some(([k]) => c[k]))
     setMsg(null)
@@ -112,6 +122,10 @@ export default function AdminCursos() {
     if (editando === 'nueva' && organizacion?.id) {
       payload.organizacion_id = organizacion.id
     }
+    // null = promedio simple. Guardar un objeto con todo en cero
+    // significaría lo mismo pero obligaría a comprobarlo en cada
+    // lectura; null lo dice una vez.
+    payload.ponderacion = tienePonderacion(pond) ? pond : null
 
     const { error } = editando === 'nuevo'
       ? await supabase.from('cursos').insert(payload)
@@ -276,6 +290,73 @@ export default function AdminCursos() {
                      onChange={e => campo('proximamente', e.target.checked)} />
               <span>Próximamente <em className="nota">(anuncio, aún no abre)</em></span>
             </label>
+          </div>
+
+          {/* ---------- CALIFICACIÓN FINAL ---------- */}
+          <div className="pond-bloque">
+            <h4>Calificación final del curso</h4>
+            {!tienePonderacion(pond) ? (
+              <>
+                <p className="nota" style={{ marginTop: 0 }}>
+                  Ahora mismo <strong>todo pesa igual</strong>: el promedio de
+                  cada cosa calificada, llevada a base 100. Es lo que se ha
+                  hecho siempre y está bien para un curso corto.
+                </p>
+                <button type="button" className="button secondary"
+                        onClick={() => setPond({ ...PONDERACION_SUGERIDA })}>
+                  ⚖️ Definir pesos por tipo de actividad
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="nota" style={{ marginTop: 0 }}>
+                  Cuánto pesa cada parte. No hace falta que sumen 100: se
+                  reparten en proporción. Lo que no tenga nada calificado no
+                  cuenta, y su peso se reparte entre lo demás.
+                </p>
+                <div className="pond-campos">
+                  {COMPONENTES.map(([clave, etiqueta]) => (
+                    <div key={clave}>
+                      <label>{etiqueta}</label>
+                      <input className="input" type="number" min="0" max="100"
+                             value={pond[clave] ?? 0}
+                             onChange={e => setPond(p => ({
+                               ...p, [clave]: Number(e.target.value) || 0,
+                             }))} />
+                    </div>
+                  ))}
+                  <div>
+                    <label>Mínima para aprobar</label>
+                    <input className="input" type="number" min="0" max="100"
+                           value={pond.minima ?? ''}
+                           onChange={e => setPond(p => ({
+                             ...p,
+                             minima: e.target.value === '' ? null : Number(e.target.value),
+                           }))} />
+                  </div>
+                </div>
+
+                {revisarPonderacion(pond) && (
+                  <p className="nota pond-aviso">{revisarPonderacion(pond)}</p>
+                )}
+
+                <p className="nota">
+                  <strong>Avance del material</strong> es el porcentaje de
+                  recursos que marcó como vistos. Déjalo en 0 si no quieres
+                  calificar por asistencia.
+                </p>
+
+                <button type="button" className="button texto"
+                        onClick={() => setPond(null)}>
+                  Volver a que todo pese igual
+                </button>
+              </>
+            )}
+            <p className="nota pond-aviso-fuerte">
+              Cambiar esto cambia la nota de <strong>todos</strong> los alumnos
+              del curso, incluidos los que ya terminaron. Si ya emitiste
+              constancias, ajústalo al abrir la generación y no al cerrarla.
+            </p>
           </div>
 
           <button type="button" className="enlace-texto" style={{ marginTop: 10 }}

@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { calcular, tienePonderacion } from '../lib/calificacion'
 
 function cuando(fecha) {
   if (!fecha) return 'Nunca'
@@ -70,6 +71,11 @@ export default function PanelProgreso({ cursoId }) {
   const [orden, setOrden] = useState('avance')
   const [generaciones, setGeneraciones] = useState([])
   const [filtroGen, setFiltroGen] = useState('todas')
+  // Los foros evaluables y la ponderación del curso: sin ellos la
+  // columna de calificación final diría algo distinto de lo que ve el
+  // alumno en "Mis calificaciones".
+  const [foros, setForos] = useState([])
+  const [ponderacion, setPonderacion] = useState(null)
 
   useEffect(() => {
     let vivo = true
@@ -155,6 +161,22 @@ export default function PanelProgreso({ cursoId }) {
         const folioDe = Object.fromEntries(
           (consts || []).map(c => [c.usuario_id, c]))
 
+        // --- Cómo pondera este curso ---
+        const { data: cursoCfg } = await supabase
+          .from('cursos').select('ponderacion').eq('id', curso).maybeSingle()
+
+        // --- Foros que califican ---
+        const { data: hilos } = await supabase
+          .from('foro_hilos').select('id, titulo, puntos_max')
+          .eq('curso_id', curso).eq('califica', true)
+        const idsHilo = (hilos || []).map(h => h.id)
+        const { data: aport } = idsHilo.length
+          ? await supabase.from('foro_respuestas')
+              .select('hilo_id, autor_id, calificacion')
+              .in('hilo_id', idsHilo).eq('borrada', false)
+              .not('calificacion', 'is', null)
+          : { data: [] }
+
         // --- Se cruza todo por alumno ---
         const porAlumno = {}
         for (const id of idsAlumno) {
@@ -168,6 +190,10 @@ export default function PanelProgreso({ cursoId }) {
             mejor: {},
             // tarea_id -> { calificacion, calificado_en } | ausente si no entregó
             entregas: {},
+            // hilo_id -> [notas]. Se promedian por hilo antes de entrar
+            // en la nota del curso: quien escribió diez veces en un hilo
+            // no debe pesar diez veces más que quien escribió una.
+            foro: {},
             constancia: null,
             generacion: genDe[id] ?? null,
           }
@@ -185,6 +211,12 @@ export default function PanelProgreso({ cursoId }) {
           const a = porAlumno[en.usuario_id]
           if (a) a.entregas[en.tarea_id] = en
         }
+        for (const a of aport || []) {
+          const al = porAlumno[a.autor_id]
+          if (!al) continue
+          if (!al.foro[a.hilo_id]) al.foro[a.hilo_id] = []
+          al.foro[a.hilo_id].push(Number(a.calificacion))
+        }
         for (const it of intentos || []) {
           const a = porAlumno[it.usuario_id]
           if (!a) continue
@@ -199,6 +231,8 @@ export default function PanelProgreso({ cursoId }) {
         setExamenes(exs)
         setTareas(tds)
         setGeneraciones(gens || [])
+        setForos(hilos || [])
+        setPonderacion(cursoCfg?.ponderacion || null)
         setFilas(Object.values(porAlumno))
       } catch (e) {
         if (vivo) setError(e.message || String(e))
@@ -210,6 +244,32 @@ export default function PanelProgreso({ cursoId }) {
   }, [cursoId])
 
   const pct = (f) => (totalRecursos ? Math.round((f.hechos / totalRecursos) * 100) : 0)
+
+  /* La calificación final sale de src/lib/calificacion.js, el MISMO
+     módulo que usa "Mis calificaciones". Si algún día hay que cambiar
+     cómo se promedia, se cambia en un solo sitio y las dos pantallas
+     siguen diciendo lo mismo. Que no coincidan es justo lo que no
+     puedes defender cuando alguien reclama su constancia. */
+  const notaDe = (f) => calcular({
+    examenes: examenes
+      .map(e => f.mejor[e.id])
+      .filter(it => it && it.calificacion != null)
+      .map(it => ({ valor: it.calificacion, maximo: 100 })),
+    tareas: tareas
+      .map(t => ({ t, en: f.entregas[t.id] }))
+      .filter(x => x.en?.calificado_en && x.en.calificacion != null)
+      .map(x => ({ valor: x.en.calificacion, maximo: x.t.puntos_max || 100 })),
+    // Se promedia DENTRO de cada hilo primero: quien escribió diez
+    // veces en el mismo hilo no debe pesar diez veces más.
+    foro: foros
+      .map(h => ({ h, notas: f.foro[h.id] || [] }))
+      .filter(x => x.notas.length)
+      .map(x => ({
+        valor: x.notas.reduce((s2, v) => s2 + v, 0) / x.notas.length,
+        maximo: x.h.puntos_max || 10,
+      })),
+    avance: { hechos: f.hechos, total: totalRecursos },
+  }, ponderacion)
 
   // El filtro se aplica antes de ordenar y antes del resumen: si no,
   // los totales seguirían contando a todo el curso y dirían una cosa
@@ -234,8 +294,10 @@ export default function PanelProgreso({ cursoId }) {
   const exportar = () => {
     const cabeceras = [
       'Alumno', 'Generación', 'Avance %', 'Recursos vistos', 'Recursos totales', 'Última actividad',
+      'Calificación final', 'Tipo de cálculo', 'Notas que la forman',
       ...examenes.map(e => `Examen: ${e.titulo}`),
       ...tareas.map(t => `Tarea: ${t.titulo}`),
+      ...foros.map(h => `Foro: ${h.titulo}`),
       'Constancia', 'Folio', 'Fecha de constancia',
     ]
     const cuerpo = ordenadas.map(f => [
@@ -245,11 +307,21 @@ export default function PanelProgreso({ cursoId }) {
       f.hechos,
       totalRecursos,
       f.ultimo ? new Date(f.ultimo).toLocaleDateString('es-MX') : 'Nunca',
+      // Mismo origen que la columna de la pantalla, para que el Excel
+      // que mandes y lo que ves no puedan discrepar.
+      notaDe(f)?.valor ?? '',
+      tienePonderacion(ponderacion) ? 'Ponderada' : 'Promedio simple',
+      notaDe(f)?.de ?? 0,
       ...examenes.map(e => f.mejor[e.id]?.calificacion ?? ''),
       ...tareas.map(t => {
         const en = f.entregas[t.id]
         if (!en) return 'Sin entregar'
         return en.calificado_en ? (en.calificacion ?? '') : 'Por calificar'
+      }),
+      ...foros.map(h => {
+        const notas = f.foro[h.id] || []
+        if (!notas.length) return ''
+        return Math.round((notas.reduce((s2, v) => s2 + v, 0) / notas.length) * 10) / 10
       }),
       f.constancia ? 'Sí' : 'No',
       f.constancia?.folio || '',
@@ -321,8 +393,15 @@ export default function PanelProgreso({ cursoId }) {
               <th>Alumno</th>
               <th>Avance</th>
               <th>Última actividad</th>
+              <th className="progreso-col-nota">
+                Calificación
+                <span className="celda-sub">
+                  {tienePonderacion(ponderacion) ? 'ponderada' : 'promedio simple'}
+                </span>
+              </th>
               {examenes.map(e => <th key={e.id}>{e.titulo}</th>)}
               {tareas.map(t => <th key={`t${t.id}`}>📥 {t.titulo}</th>)}
+              {foros.map(h => <th key={`f${h.id}`}>💬 {h.titulo}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -338,6 +417,25 @@ export default function PanelProgreso({ cursoId }) {
                     <span className="celda-sub">{p}% · {f.hechos}/{totalRecursos}</span>
                   </td>
                   <td className={!f.ultimo ? 'progreso-nunca' : ''}>{cuando(f.ultimo)}</td>
+
+                  {/* Un guion y no un cero cuando no hay nada calificado:
+                      a mitad de curso un 0 asusta sin significar nada. */}
+                  <td className="progreso-col-nota">
+                    {(() => {
+                      const nota = notaDe(f)
+                      if (!nota) return <span className="sutil">—</span>
+                      const clase = nota.aprobado === false ? 'badge no-aprobado' : 'badge ok'
+                      return (
+                        <>
+                          <span className={clase}>{nota.valor}</span>
+                          <span className="celda-sub">
+                            {nota.de} calificación(es)
+                          </span>
+                        </>
+                      )
+                    })()}
+                  </td>
+
                   {examenes.map(e => {
                     const it = f.mejor[e.id]
                     return (
@@ -362,6 +460,19 @@ export default function PanelProgreso({ cursoId }) {
                           : !en.calificado_en
                             ? <span className="badge rol-alumno">Por calificar</span>
                             : <span className="badge ok">{en.calificacion}</span>}
+                      </td>
+                    )
+                  })}
+
+                  {foros.map(h => {
+                    const notas = f.foro[h.id] || []
+                    if (!notas.length) return <td key={`f${h.id}`}><span className="sutil">—</span></td>
+                    const media = Math.round(
+                      (notas.reduce((s2, v) => s2 + v, 0) / notas.length) * 10) / 10
+                    return (
+                      <td key={`f${h.id}`}>
+                        <span className="badge ok">{media}</span>
+                        <span className="celda-sub">de {h.puntos_max || 10}</span>
                       </td>
                     )
                   })}

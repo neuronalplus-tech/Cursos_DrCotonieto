@@ -21,6 +21,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso } from '../config'
 import { Breadcrumb, BandaRedes } from './ui'
+import { calcular } from '../lib/calificacion'
 
 function pct(hechos, total) {
   return total ? Math.round((hechos / total) * 100) : 0
@@ -29,41 +30,31 @@ function pct(hechos, total) {
 /* ------------------------------------------------------------
    LA CALIFICACIÓN DEL CURSO
    ------------------------------------------------------------
-   El promedio de todo lo calificado, llevando cada cosa a base
-   100 antes de promediar. Sin normalizar, un examen sobre 10 y
-   una tarea sobre 100 no se pueden sumar: el examen pesaría una
-   décima parte sin que nadie lo haya decidido.
+   El cálculo NO vive aquí: vive en src/lib/calificacion.js, que es
+   el mismo módulo que usa la rejilla del facilitador.
 
-   Todo pesa igual. Es una decisión, no una omisión: ponderar por
-   tipo de actividad exige que alguien defina los pesos, y mientras
-   nadie los haya definido, inventarlos sería peor que no tenerlos.
+   Antes estaba escrito en este archivo, y en cuanto el facilitador
+   tuvo su propia columna de calificación hubo que elegir: o dos
+   implementaciones del mismo número, o una sola. Dos implementaciones
+   siempre acaban discrepando, y el día que un alumno reclame su
+   constancia no podrías defender ninguna de las dos.
 
-   Lo no calificado NO cuenta como cero. A mitad de curso, contar
-   los ceros de lo que aún no se entrega daría un 20% que no
-   significa nada y asusta sin motivo.
+   Aquí solo se traduce lo que cargó esta pantalla a la forma que
+   espera el módulo.
    ------------------------------------------------------------ */
 function calificacionDelCurso(c) {
-  const notas = []
-
-  for (const e of c.examenes) {
-    if (e.mejor?.calificacion != null) {
-      notas.push((Number(e.mejor.calificacion) / (e.puntos_max || 100)) * 100)
-    }
-  }
-  for (const t of c.tareas) {
-    if (t.entrega?.calificado_en && t.entrega.calificacion != null) {
-      notas.push((Number(t.entrega.calificacion) / (t.puntos_max || 100)) * 100)
-    }
-  }
-  for (const h of c.foros) {
-    if (h.media != null) notas.push((h.media / (h.puntos_max || 10)) * 100)
-  }
-
-  if (!notas.length) return null
-  return {
-    valor: Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 10) / 10,
-    de: notas.length,
-  }
+  return calcular({
+    examenes: c.examenes
+      .filter(e => e.mejor?.calificacion != null)
+      .map(e => ({ valor: e.mejor.calificacion, maximo: e.puntos_max || 100 })),
+    tareas: c.tareas
+      .filter(t => t.entrega?.calificado_en && t.entrega.calificacion != null)
+      .map(t => ({ valor: t.entrega.calificacion, maximo: t.puntos_max || 100 })),
+    foro: c.foros
+      .filter(h => h.media != null)
+      .map(h => ({ valor: h.media, maximo: h.puntos_max || 10 })),
+    avance: { hechos: c.hechosRec, total: c.totalRec },
+  }, c.ponderacion)
 }
 
 function fecha(d) {
@@ -92,7 +83,7 @@ export default function MisCalificaciones({ user }) {
         }
 
         const { data: cs } = await supabase
-          .from('cursos').select('id, titulo').in('id', ids).order('orden')
+          .from('cursos').select('id, titulo, ponderacion').in('id', ids).order('orden')
         const { data: mods } = await supabase
           .from('modulos').select('id, curso_id').in('curso_id', ids)
         const idsMod = (mods || []).map(m => m.id)
@@ -235,7 +226,11 @@ export default function MisCalificaciones({ user }) {
                 {nota ? (
                   <>
                     <strong>{nota.valor}</strong>
-                    <span className="nota">sobre 100 · {nota.de} actividad(es)</span>
+                    <span className="nota">
+                      sobre 100 · {nota.de} actividad(es)
+                      {nota.ponderada && ' · ponderada'}
+                      {nota.aprobado === false && ` · mínima ${nota.minima}`}
+                    </span>
                   </>
                 ) : (
                   <span className="sutil">Sin calificaciones aún</span>

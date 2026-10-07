@@ -27,7 +27,10 @@ with esperado(orden, script, objeto, tipo) as (
     (15, 'GENERACIONES.sql',            'generaciones',      'tabla'),
     (16, 'ORGANIZACIONES_1_BASE.sql',   'organizaciones',    'tabla'),
     (17, 'SUSCRIPCIONES.sql',           'registrar_pago',    'funcion'),
-    (18, 'BANCO_PREGUNTAS.sql',         'banco_preguntas',   'tabla')
+    (18, 'BANCO_PREGUNTAS.sql',         'banco_preguntas',   'tabla'),
+    (19, 'PONDERACION.sql',             'cursos_ponderacion_check', 'restriccion'),
+    (20, 'PADRON.sql',                  'perfil_update_admin',      'politica'),
+    (21, 'TABLERO_ORG.sql',             'tablero_organizacion',     'funcion')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,
@@ -41,6 +44,9 @@ hay as (
       when 'politica' then exists (
         select 1 from pg_policies
         where schemaname = 'public' and policyname = e.objeto)
+      when 'restriccion' then exists (
+        select 1 from pg_constraint
+        where conname = e.objeto)
     end as instalado
   from esperado e
 )

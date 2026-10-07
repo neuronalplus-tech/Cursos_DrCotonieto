@@ -3115,3 +3115,61 @@ a { color: var(--primary); }
   .banco-cuenta { grid-column: 1 / -1; }
   .banco-seleccion { max-height: 40vh; }
 }
+
+/* ============================================================
+   PONDERACION DE LA CALIFICACION
+   ============================================================ */
+.pond-bloque { margin: 18px 0; padding: 16px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.pond-bloque h4 { margin: 0 0 8px; font-size: 15px; color: var(--primary); }
+.pond-campos { display: grid; gap: 12px; margin: 12px 0;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.pond-campos label { display: block; margin-bottom: 4px; font-size: 12.5px;
+  font-weight: 600; color: var(--body); }
+.pond-campos .input { width: 100%; }
+.pond-aviso { background: #FDF3E2; color: #8A5A12; padding: 8px 12px;
+  border-radius: 8px; margin: 10px 0; }
+.pond-aviso-fuerte { margin-top: 14px; padding-top: 12px;
+  border-top: 1px dashed var(--borde); }
+
+.progreso-tabla .progreso-col-nota { background: var(--bg-card); }
+.progreso-tabla th.progreso-col-nota { white-space: nowrap; }
+
+/* ============================================================
+   PADRON
+   ============================================================ */
+.padron-pie { display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.padron-previa { margin-top: 12px; padding: 12px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--borde); }
+
+/* ============================================================
+   TABLERO DE LA ORGANIZACION
+   ============================================================ */
+.tablero-datos { display: grid; gap: 12px; margin: 16px 0 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.tablero-dato { padding: 14px 16px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.tablero-dato strong { display: block; font-family: var(--titulo);
+  font-size: 24px; line-height: 1.15; color: var(--primary); }
+.tablero-dato span { display: block; font-size: 13px; color: var(--body);
+  font-weight: 600; }
+.tablero-dato em { display: block; margin-top: 3px; font-style: normal;
+  font-size: 11.5px; color: var(--gris); line-height: 1.35; }
+.tablero-dato.tablero-ok { border-color: #BFE3C9; }
+.tablero-dato.tablero-aviso { background: #FDF3E2; border-color: #E8CF9E; }
+.tablero-dato.tablero-aviso strong { color: #8A5A12; }
+.tablero-dato.tablero-alerta { background: var(--bg-alert); border-color: #E6BDB5; }
+.tablero-dato.tablero-alerta strong { color: var(--alert); }
+
+.tablero-cab { display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+.tablero-cab h3 { margin: 0; color: var(--primary); }
+.tablero-fila-parada { background: var(--bg-card); }
+.tablero-fila-parada td:first-child a { color: var(--gris); }
+
+@media (max-width: 640px) {
+  .tablero-datos { grid-template-columns: 1fr 1fr; }
+  .tablero-dato strong { font-size: 19px; }
+  .pond-campos { grid-template-columns: 1fr 1fr; }
+}
