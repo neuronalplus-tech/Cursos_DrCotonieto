@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
 import { MARCA, CONTACTO_EMAIL, rutaAcceso, wa } from '../config'
@@ -17,6 +17,9 @@ function Constancia({ user }) {
   // adivinar qué le queda, y a ti a responder el mensaje preguntándolo.
   const [requisitos, setRequisitos] = useState([])
   const [noEmite, setNoEmite] = useState(false)
+  // El folio de ESTA emisión: se lee de la base al cargar y se crea
+  // solo si aún no existe. Regenerar el PDF reutiliza el mismo.
+  const [folio, setFolio] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -100,6 +103,13 @@ function Constancia({ user }) {
       // Sin requisitos no hay nada que exigir: un curso sin material ni
       // evaluaciones no debe bloquear la constancia por un tecnicismo.
       setPuede(req.length === 0 || req.every(r => r.cumple))
+      // El folio vive en la base, no en el PDF: si ya se emitió para
+      // este alumno+curso, se reutiliza para no invalidar impresos.
+      try {
+        const { data: existente } = await supabase.from('constancias')
+          .select('folio').eq('usuario_id', user.id).eq('curso_id', cursoId).maybeSingle()
+        if (existente?.folio) setFolio(existente.folio)
+      } catch { /* la tabla puede no existir aún: se crea al generar */ }
       setCargando(false)
     }
     load()
@@ -115,6 +125,25 @@ function Constancia({ user }) {
     if (!perfil.nombre || !perfil.profesion) return alert('Completa tu nombre y profesión.')
     setGenerando(true)
     try {
+      // El folio lo emite la BASE, no esta pantalla.
+      //
+      // Antes se insertaba aquí directamente, con la comprobación de
+      // requisitos viviendo solo en React. Eso permitía crearse una
+      // constancia de un curso no cursado desde la consola del
+      // navegador, y la URL pública la habría dado por auténtica.
+      //
+      // Ahora `emitir_constancia` recomprueba los requisitos en el
+      // servidor, toma el nombre del perfil y genera el folio. Si ya
+      // se emitió antes devuelve el mismo, para no invalidar los
+      // impresos que esa persona ya repartió.
+      const { data: folioEmitido, error: eFolio } = await supabase
+        .rpc('emitir_constancia', { p_curso: Number(cursoId) })
+      if (eFolio) throw new Error(eFolio.message)
+      const miFolio = folioEmitido
+      if (!miFolio) throw new Error('No se pudo emitir la constancia.')
+      setFolio(miFolio)
+
+      const urlVerificar = `${window.location.origin}/verificar/${miFolio}`
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
       const W = 297, H = 210
       doc.setFillColor(250, 250, 248); doc.rect(0, 0, W, H, 'F')
@@ -133,16 +162,17 @@ function Constancia({ user }) {
       doc.text('por haber concluido satisfactoriamente', W / 2, 108, { align: 'center' })
       doc.setFontSize(15); doc.setFont('times', 'bold'); doc.setTextColor(193, 122, 94)
       doc.text(doc.splitTextToSize(curso?.titulo || '', W - 80), W / 2, 120, { align: 'center' })
-      const folio = `${(curso?.titulo || 'C').substring(0, 3).toUpperCase()}-${new Date().getFullYear()}-${user.id.substring(0, 6).toUpperCase()}`
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(122, 136, 145)
+      doc.text(`Verificable en: ${urlVerificar}`, W / 2, 134, { align: 'center' })
       doc.setDrawColor(27, 58, 75); doc.setLineWidth(0.4); doc.line(W / 2 - 45, 165, W / 2 + 45, 165)
       doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(27, 58, 75)
       doc.text('Dr. Ernesto Cotonieto Martínez', W / 2, 172, { align: 'center' })
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(122, 136, 145)
       doc.text('Cédula profesional 10521804', W / 2, 178, { align: 'center' })
       doc.setFontSize(8)
-      doc.text(`Folio: ${folio}`, 22, H - 20)
+      doc.text(`Folio: ${miFolio}`, 22, H - 20)
       doc.text(new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }), W - 22, H - 20, { align: 'right' })
-      doc.save(`constancia-${folio}.pdf`)
+      doc.save(`constancia-${miFolio}.pdf`)
     } catch (e) { alert('Error: ' + e.message) }
     setGenerando(false)
   }
@@ -189,6 +219,14 @@ function Constancia({ user }) {
               <button className="button primary" onClick={generar} disabled={generando}>
                 {generando ? 'Generando...' : 'Descargar constancia'}
               </button>
+              {folio && (
+                <p className="constancia-folio">
+                  <span className="sutil">Folio {folio} ·</span>
+                  <Link className="enlace-texto" to={`/verificar/${folio}`}>
+                    ver cómo se verifica
+                  </Link>
+                </p>
+              )}
             </>
           : (
             <>

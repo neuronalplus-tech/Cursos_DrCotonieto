@@ -70,7 +70,23 @@ function declarados(fuente) {
 }
 
 /** Nombres usados como componente JSX: <Algo /> o <Algo ...> */
+/**
+ * Quita comentarios antes de escanear.
+ *
+ * Sin esto, un comentario que explique una ruta como
+ *   // Llegar con /verificar/<FOLIO>
+ * se leía como el componente <FOLIO> y salía una alarma falsa. Una
+ * herramienta que avisa de lo que no pasa se acaba ignorando, y
+ * entonces tampoco avisa de lo que sí.
+ */
+function sinComentarios(fuente) {
+  return fuente
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+}
+
 function componentesUsados(fuente) {
+  fuente = sinComentarios(fuente)
   const usados = new Set()
   const re = /<([A-Z][A-Za-z0-9_$]*)\b/g
   let m

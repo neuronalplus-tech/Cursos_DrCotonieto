@@ -33,6 +33,7 @@ import Recuperar from './components/Recuperar'
 import Perfil from './components/Perfil'
 import CursoDetalle from './components/CursoDetalle'
 import Constancia from './components/Constancia'
+import VerificarConstancia from './components/VerificarConstancia'
 import ForoCurso from './components/ForoCurso'
 import {
   ModalEditarBotonesRuta, ModalNuevoModulo, ModalEditarBotonesModulo,
@@ -223,6 +224,7 @@ function App() {
             <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} />} />
             <Route path="/modulo/:id" element={<ModuloView user={user} />} />
             <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
+            <Route path="/verificar/:folio?" element={<VerificarConstancia />} />
             <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
             <Route path="/foro/:cursoId" element={<ForoCurso user={user} />} />
           </Routes>

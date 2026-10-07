@@ -2728,6 +2728,15 @@ a { color: var(--primary); }
 /* Lo cumplido se atenúa: lo que importa leer es lo que falta. */
 .constancia-requisitos li.cumple { opacity: .55; }
 
+/* ---- Verificación pública del folio ----------------------- */
+.verificar-datos { display: grid; gap: 8px; margin: 12px 0 0; text-align: left; }
+.verificar-datos > div { display: grid; grid-template-columns: 140px 1fr;
+  gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--bg-card); }
+.verificar-datos dt { color: var(--texto-suave); font-size: .85em; }
+.verificar-datos dd { margin: 0; font-weight: 600; }
+.constancia-folio { display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-top: 10px; }
+
 /* ---- Ramas del foro ----------------------------------------- */
 /* La sangría se corta al tercer nivel: más allá, en un móvil la
    conversación acabaría en una columna de dos palabras. Los datos
