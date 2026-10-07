@@ -59,6 +59,8 @@ function Admin({ user }) {
   const [msgGestion, setMsgGestion] = useState('')
   const [bulkCursoId, setBulkCursoId] = useState('')
   const [bulkAccion, setBulkAccion] = useState('dar')
+  const [bulkGeneracion, setBulkGeneracion] = useState('')
+  const [generacionesCurso, setGeneracionesCurso] = useState([])
   const [bulkProcesando, setBulkProcesando] = useState(false)
 
   const [modalNotas, setModalNotas] = useState(null)
@@ -799,6 +801,20 @@ function Admin({ user }) {
     }
   }
 
+  // Las generaciones son de UN curso, así que la lista se rehace al
+  // cambiar el curso de la barra. Sin esto se podría asignar a alguien
+  // a la generación de otro curso.
+  useEffect(() => {
+    setBulkGeneracion('')
+    if (!bulkCursoId) { setGeneracionesCurso([]); return }
+    let vivo = true
+    supabase.from('generaciones').select('id, nombre')
+      .eq('curso_id', Number(bulkCursoId))
+      .order('fecha_inicio', { ascending: false, nullsFirst: false })
+      .then(({ data }) => { if (vivo) setGeneracionesCurso(data || []) })
+    return () => { vivo = false }
+  }, [bulkCursoId])
+
   const ejecutarBulk = async () => {
     if (!bulkCursoId) { setMsgGestion('Error: elige un curso'); return }
     const usuariosArr = [...seleccionados]
@@ -827,6 +843,21 @@ function Admin({ user }) {
       })
 
       if (error) throw error
+
+      // La función de alta masiva no conoce las generaciones, así que la
+      // etiqueta se pone después sobre las filas recién creadas. Es una
+      // sola consulta y evita tener que tocar esa función.
+      if (bulkAccion === 'dar' && bulkGeneracion) {
+        const { error: eGen } = await supabase.from('acceso')
+          .update({ generacion_id: Number(bulkGeneracion) })
+          .eq('curso_id', parseInt(bulkCursoId))
+          .in('usuario_id', usuariosArr)
+        if (eGen) {
+          setMsgGestion('Acceso dado, pero no se pudo asignar la generación: ' + eGen.message)
+          setBulkProcesando(false)
+          return
+        }
+      }
 
       setMsgGestion(`✓ Acción completada para ${usuariosArr.length} usuario(s)`)
       setSeleccionados(new Set())
@@ -1251,6 +1282,15 @@ function Admin({ user }) {
                 <option value="">— Elige un curso —</option>
                 {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
               </select>
+              {bulkAccion === 'dar' && generacionesCurso.length > 0 && (
+                <select className="gestion-select" value={bulkGeneracion}
+                        onChange={e => setBulkGeneracion(e.target.value)}>
+                  <option value="">— Sin generación —</option>
+                  {generacionesCurso.map(g => (
+                    <option key={g.id} value={g.id}>{g.nombre}</option>
+                  ))}
+                </select>
+              )}
               <button type="button" className="button primary" onClick={ejecutarBulk} disabled={bulkProcesando || !bulkCursoId}>
                 {bulkProcesando ? 'Procesando...' : 'Aplicar a seleccionados'}
               </button>
