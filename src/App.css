@@ -1002,6 +1002,8 @@ a { color: var(--primary); }
 .progreso-resumen .progreso-pendiente { background: #FFF4E5; }
 .progreso-resumen .progreso-pendiente strong { color: #8A5300; }
 
+.progreso-acciones { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+
 .progreso-orden { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .progreso-orden .input { max-width: 260px; }
 

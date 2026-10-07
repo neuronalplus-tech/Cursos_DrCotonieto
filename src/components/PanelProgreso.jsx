@@ -26,6 +26,40 @@ function cuando(fecha) {
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/* ------------------------------------------------------------
+   EXPORTAR A CSV
+   ------------------------------------------------------------
+   CSV y no xlsx a proposito: Excel lo abre igual, y generar un
+   xlsx de verdad costaria otra libreria en el paquete para no
+   ganar nada que esta gente vaya a usar.
+
+   El BOM del principio NO es decorativo. Sin el, Excel en Windows
+   lee el archivo como ANSI y "Martínez" aparece como "MartÃ­nez".
+   Es el fallo numero uno de los CSV en español.
+   ------------------------------------------------------------ */
+function aCSV(cabeceras, filas) {
+  const celda = (v) => {
+    const s = v === null || v === undefined ? '' : String(v)
+    // Comillas, comas y saltos obligan a entrecomillar; las comillas
+    // internas se duplican, que es como lo espera el formato.
+    return /[";\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+  }
+  const lineas = [cabeceras, ...filas].map(f => f.map(celda).join(';'))
+  // El BOM se genera con fromCharCode y no se escribe pegado: uno
+  // literal es invisible, se pierde al copiar y pegar, y entonces
+  // vuelven los acentos rotos sin que nadie entienda por qué.
+  return String.fromCharCode(0xFEFF) + lineas.join('\r\n')
+}
+
+function descargar(nombre, contenido) {
+  const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = nombre
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 export default function PanelProgreso({ cursoId }) {
   const [filas, setFilas] = useState([])
   const [examenes, setExamenes] = useState([])
@@ -106,6 +140,13 @@ export default function PanelProgreso({ cursoId }) {
               .in('tarea_id', idsTarea)
           : { data: [] }
 
+        // --- Constancias emitidas ---
+        const { data: consts } = await supabase
+          .from('constancias').select('usuario_id, folio, fecha_emision')
+          .eq('curso_id', curso)
+        const folioDe = Object.fromEntries(
+          (consts || []).map(c => [c.usuario_id, c]))
+
         // --- Se cruza todo por alumno ---
         const porAlumno = {}
         for (const id of idsAlumno) {
@@ -119,6 +160,7 @@ export default function PanelProgreso({ cursoId }) {
             mejor: {},
             // tarea_id -> { calificacion, calificado_en } | ausente si no entregó
             entregas: {},
+            constancia: null,
           }
         }
         for (const p of prog || []) {
@@ -126,6 +168,9 @@ export default function PanelProgreso({ cursoId }) {
           if (!a) continue
           a.hechos++
           if (!a.ultimo || (p.ultimo_acceso && p.ultimo_acceso > a.ultimo)) a.ultimo = p.ultimo_acceso
+        }
+        for (const [uid, c] of Object.entries(folioDe)) {
+          if (porAlumno[uid]) porAlumno[uid].constancia = c
         }
         for (const en of entregas || []) {
           const a = porAlumno[en.usuario_id]
@@ -166,6 +211,36 @@ export default function PanelProgreso({ cursoId }) {
   // que señala trabajo TUYO, no de ellos, por eso va aparte.
   const porCalificar = filas.reduce(
     (n, f) => n + Object.values(f.entregas || {}).filter(e => !e.calificado_en).length, 0)
+  /* Una fila por persona con todo lo que se evalúa. Sale del mismo
+     estado que pinta la tabla, así que el Excel y la pantalla no
+     pueden discrepar. */
+  const exportar = () => {
+    const cabeceras = [
+      'Alumno', 'Avance %', 'Recursos vistos', 'Recursos totales', 'Última actividad',
+      ...examenes.map(e => `Examen: ${e.titulo}`),
+      ...tareas.map(t => `Tarea: ${t.titulo}`),
+      'Constancia', 'Folio', 'Fecha de constancia',
+    ]
+    const cuerpo = ordenadas.map(f => [
+      f.nombre,
+      pct(f),
+      f.hechos,
+      totalRecursos,
+      f.ultimo ? new Date(f.ultimo).toLocaleDateString('es-MX') : 'Nunca',
+      ...examenes.map(e => f.mejor[e.id]?.calificacion ?? ''),
+      ...tareas.map(t => {
+        const en = f.entregas[t.id]
+        if (!en) return 'Sin entregar'
+        return en.calificado_en ? (en.calificacion ?? '') : 'Por calificar'
+      }),
+      f.constancia ? 'Sí' : 'No',
+      f.constancia?.folio || '',
+      f.constancia ? new Date(f.constancia.fecha_emision).toLocaleDateString('es-MX') : '',
+    ])
+    const fecha = new Date().toISOString().slice(0, 10)
+    descargar(`avance-${fecha}.csv`, aCSV(cabeceras, cuerpo))
+  }
+
   const sinEmpezar = filas.filter(f => f.hechos === 0).length
   const terminados = filas.filter(f => totalRecursos && f.hechos >= totalRecursos).length
   const promedio = filas.length
@@ -188,8 +263,14 @@ export default function PanelProgreso({ cursoId }) {
             <strong>{porCalificar}</strong><span>por calificar</span>
           </div>
         )}
+        <div><strong>{filas.filter(f => f.constancia).length}</strong><span>constancias</span></div>
       </div>
 
+      <div className="progreso-acciones">
+        <button type="button" className="button secondary" onClick={exportar}>
+          ⬇️ Exportar a Excel
+        </button>
+      </div>
       <div className="progreso-orden">
         <label>Ordenar por</label>
         <select className="input" value={orden} onChange={e => setOrden(e.target.value)}>
