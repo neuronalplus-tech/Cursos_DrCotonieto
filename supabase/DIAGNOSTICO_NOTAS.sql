@@ -19,15 +19,27 @@
 --  una sola fila la puedes comprobar a mano en treinta segundos.
 --
 --  CÓMO USARLO
---  1. Cambia el número de la línea de abajo por el id de tu curso
---     (sale en la dirección: /curso/12 -> 12).
---  2. Supabase -> SQL Editor -> pega esto -> Run.
+--
+--  PASO 1. Averigua el ID DEL CURSO. Es un NÚMERO, no un correo
+--  ni un título. Corre esta consulta aparte:
+--
+--      select id, titulo, ponderacion from public.cursos order by id;
+--
+--  También sale en la dirección cuando entras al curso:
+--  .../curso/7  ->  el id es 7
+--
+--  PASO 2. Escribe ese número en la línea marcada más abajo,
+--  donde ahora dice 12. Debe quedar así, con el número suelto:
+--
+--      select 7::bigint as curso
+--
+--  PASO 3. Supabase -> SQL Editor -> pega esto -> Run.
 --
 --  Solo lee. No modifica nada.
 -- =============================================================
 
 with parametros as (
-  select 12::bigint as curso          -- <<< CAMBIA ESTE NÚMERO
+  select 12::bigint as curso   -- <<< PON AQUÍ EL ID DEL CURSO (un número)
 ),
 
 -- Los módulos del curso, porque exámenes y tareas pueden colgar del
