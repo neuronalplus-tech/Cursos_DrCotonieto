@@ -32,6 +32,7 @@ import Login from './components/Login'
 import Recuperar from './components/Recuperar'
 import Perfil from './components/Perfil'
 import MisCalificaciones from './components/MisCalificaciones'
+import Calendario from './components/Calendario'
 import CursoDetalle from './components/CursoDetalle'
 import Constancia from './components/Constancia'
 import VerificarConstancia from './components/VerificarConstancia'
@@ -221,6 +222,7 @@ function App() {
             <Route path="/recuperar" element={<Recuperar />} />
             <Route path="/perfil" element={<Perfil user={user} />} />
             <Route path="/mis-calificaciones" element={<MisCalificaciones user={user} />} />
+            <Route path="/calendario" element={<Calendario user={user} />} />
             <Route path="/admin" element={<Admin user={user} />} />
             <Route path="/curso/:id" element={<CursoView user={user} />} />
             <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} />} />

@@ -22,6 +22,7 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const [sinLeer, setSinLeer] = useState(0)
   const [foto, setFoto] = useState(null)
+  const [misCursos, setMisCursos] = useState([])
   const cajaCuenta = useRef(null)
   const { organizacion } = useOrganizacion()
 
@@ -61,6 +62,22 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
       .then(({ count }) => { if (vivo) setSinLeer(count || 0) })
     return () => { vivo = false }
   }, [user?.id, location.pathname])
+
+  useEffect(() => {
+    if (!cuentaAbierta || !user?.id || misCursos.length) return
+    let vivo = true
+    ;(async () => {
+      const { data: acc } = await supabase.from('acceso')
+        .select('curso_id').eq('usuario_id', user.id)
+      const ids = [...new Set((acc || []).map(a => a.curso_id))]
+      if (!ids.length || !vivo) return
+      const { data } = await supabase.from('cursos')
+        .select('id, titulo').in('id', ids).order('orden')
+      if (vivo) setMisCursos(data || [])
+    })()
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cuentaAbierta, user?.id])
 
   // Cerrar el menú de cuenta al pulsar fuera. Sin esto se queda
   // abierto tapando la página hasta que se elige algo.
@@ -121,9 +138,24 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
 
                 {cuentaAbierta && (
                   <div className="header-menu" role="menu">
+                    {misCursos.length > 0 && (
+                      <>
+                        <p className="header-menu-titulo">Mis cursos</p>
+                        {misCursos.map(c => (
+                          <button key={c.id} role="menuitem" className="header-menu-curso"
+                                  onClick={() => ir(`/curso/${c.id}`)}>
+                            {c.titulo}
+                          </button>
+                        ))}
+                        <hr />
+                      </>
+                    )}
                     <button role="menuitem" onClick={() => ir('/perfil')}>Mi perfil</button>
                     <button role="menuitem" onClick={() => ir('/mis-calificaciones')}>
                       Mis calificaciones
+                    </button>
+                    <button role="menuitem" onClick={() => ir('/calendario')}>
+                      Calendario
                     </button>
                     <button role="menuitem" onClick={() => ir('/mensajes')}>
                       Mensajes{sinLeer > 0 ? ` (${sinLeer})` : ''}

@@ -2968,3 +2968,39 @@ a { color: var(--primary); }
 @media (max-width: 560px) {
   .mis-nota { align-items: flex-start; text-align: left; }
 }
+
+/* ---- Menú de cuenta: los cursos de la persona --------------- */
+.header-menu-titulo { margin: 6px 12px 2px; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.header-menu-curso { font-size: 13.5px; }
+
+/* ---- Calendario ---------------------------------------------
+   Agenda y no rejilla: la pregunta es "qué tengo pendiente", y una
+   lista ordenada por cercanía la contesta de un vistazo.
+   ------------------------------------------------------------- */
+.cal-grupo { margin-bottom: 26px; }
+.cal-grupo h2 { font-size: 15px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+
+.cal-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cal-lista li { display: grid; grid-template-columns: auto 1fr auto;
+  gap: 14px; align-items: center; padding: 12px 14px;
+  border: 1px solid var(--borde); border-radius: 10px; }
+.cal-lista li.hecho { opacity: .55; }
+.cal-lista li.hecho .cal-datos a { text-decoration: line-through; }
+
+.cal-tipo { font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted); }
+.cal-datos a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.cal-datos a:hover { color: var(--accent); }
+.cal-cuando { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+/* Lo vencido y sin entregar es lo único que debe alarmar. */
+.cal-vencido li:not(.hecho) { border-color: #D9534F; }
+.cal-vencido li:not(.hecho) .cal-cuando { color: #9B2C20; font-weight: 600; }
+.cal-urgente li:not(.hecho) { border-color: var(--accent); }
+
+@media (max-width: 560px) {
+  .cal-lista li { grid-template-columns: 1fr; gap: 4px; }
+  .cal-cuando { white-space: normal; }
+}
