@@ -8,7 +8,9 @@ import AdminExamenes from './AdminExamenes'
 import AdminForo from './AdminForo'
 import AdminCursos from './AdminCursos'
 import AdminBitacora from './AdminBitacora'
+import AdminOrganizaciones from './AdminOrganizaciones'
 import { usePermisos } from '../lib/permisos'
+import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
 
@@ -17,7 +19,14 @@ function Admin({ user }) {
   // panel pintaba "No tienes permisos" durante el instante que tardaba
   // la consulta a `admins`. Se usa el hook, que ademas dice CUANDO ya
   // sabe la respuesta: hasta entonces no se decide nada.
-  const { esAdmin, cargado: permisosCargados } = usePermisos(user)
+  const { esAdmin: esAdminPlataforma, esAdminDe, cargado: permisosCargados }
+    = usePermisos(user)
+  const { organizacion, cargado: orgCargada } = useOrganizacion()
+
+  // En el panel, "admin" significa administrar ESTE sitio: tú en el
+  // tuyo, y el responsable de un cliente en el suyo. Lo que solo te
+  // toca a ti cuelga de `esAdminPlataforma`.
+  const esAdmin = esAdminDe(organizacion?.id)
   const [vista, setVista] = useState('inscripciones')
 
   const [filas, setFilas] = useState([])
@@ -97,19 +106,28 @@ function Admin({ user }) {
   useEffect(() => {
     if (!user) { navigate(rutaAcceso('/admin')); return }
     async function load() {
+      const { data: misCursos } = organizacion?.id
+        ? await supabase.from('cursos').select('id').eq('organizacion_id', organizacion.id)
+        : { data: null }
+      const idsCurso = misCursos ? new Set(misCursos.map(c => c.id)) : null
+
       const { data, error } = await supabase.from('vista_admin_inscripciones')
         .select('*').order('inscrito_el', { ascending: false })
-      if (error) setError(error.message); else setFilas(data || [])
+      if (error) setError(error.message)
+      // La vista es de toda la plataforma: aquí se acota a lo de esta
+      // organización, que es lo único que su administrador debe ver.
+      else setFilas(idsCurso ? (data || []).filter(f => idsCurso.has(f.curso_id)) : (data || []))
       setCargando(false)
     }
     load()
-  }, [user, navigate])
+  }, [user, navigate, organizacion])
 
   useEffect(() => {
-    if (!esAdmin) return
-    supabase.from('cursos').select('id, titulo').eq('activo', true).order('orden')
+    if (!esAdmin || !organizacion?.id) return
+    supabase.from('cursos').select('id, titulo')
+      .eq('activo', true).eq('organizacion_id', organizacion.id).order('orden')
       .then(({ data }) => setCursosLista(data || []))
-  }, [esAdmin])
+  }, [esAdmin, organizacion])
 
   const cargarGestion = async () => {
     setCargandoGestion(true)
@@ -1015,7 +1033,7 @@ function Admin({ user }) {
   })
 
   if (!user) return null
-  if (!permisosCargados) return <div className="loading">Cargando…</div>
+  if (!permisosCargados || !orgCargada) return <div className="loading">Cargando…</div>
   if (!esAdmin) return <div className="contenedor"><p className="aviso-error">No tienes permisos para ver esta sección.</p></div>
   if (cargando) return <div className="loading">Cargando panel...</div>
   if (error) return <div className="contenedor"><p className="aviso-error">Error: {error}</p></div>
@@ -1039,7 +1057,12 @@ function Admin({ user }) {
         <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
         <button type="button" className={`admin-tab ${vista === 'examenes' ? 'activa' : ''}`} onClick={() => setVista('examenes')}>📝 Exámenes</button>
         <button type="button" className={`admin-tab ${vista === 'foro' ? 'activa' : ''}`} onClick={() => setVista('foro')}>💬 Foro</button>
-        <button type="button" className={`admin-tab ${vista === 'bitacora' ? 'activa' : ''}`} onClick={() => setVista('bitacora')}>🧾 Bitácora</button>
+        {esAdminPlataforma && (
+          <button type="button" className={`admin-tab ${vista === 'bitacora' ? 'activa' : ''}`} onClick={() => setVista('bitacora')}>🧾 Bitácora</button>
+        )}
+        {esAdminPlataforma && (
+          <button type="button" className={`admin-tab ${vista === 'organizaciones' ? 'activa' : ''}`} onClick={() => setVista('organizaciones')}>🏢 Organizaciones</button>
+        )}
       </div>
 
       {vista === 'inscripciones' && (
@@ -1428,6 +1451,7 @@ function Admin({ user }) {
 
       {vista === 'cursos' && <AdminCursos />}
       {vista === 'bitacora' && <AdminBitacora />}
+      {vista === 'organizaciones' && esAdminPlataforma && <AdminOrganizaciones />}
 
       {vista === 'facilitadores' && (
         <>

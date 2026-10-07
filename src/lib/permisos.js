@@ -26,7 +26,10 @@
 import { useEffect, useReducer } from 'react'
 import { supabase } from './supabase'
 
-const VACIO = { cargado: false, esAdmin: false, cursos: new Set() }
+const VACIO = {
+  cargado: false, esAdmin: false,
+  organizaciones: new Set(), cursos: new Set(),
+}
 
 let cache = VACIO
 let enVuelo = null
@@ -38,16 +41,26 @@ function avisar() {
 }
 
 async function cargar(user) {
-  // `facilitadores` ya filtra por RLS: esta consulta solo devuelve
-  // las asignaciones de quien pregunta. No hace falta un `where`.
-  const [{ data: admin }, { data: asignados }] = await Promise.all([
-    supabase.from('admins').select('email').eq('email', user.email).maybeSingle(),
+  // Una persona puede tener VARIAS filas en `admins`: una sin
+  // organización (administra la plataforma) y/o una por cada cliente
+  // que administre. Por eso ya no vale `maybeSingle`, que falla en
+  // cuanto hay más de una.
+  //
+  // `facilitadores` ya filtra por RLS: esa consulta solo devuelve las
+  // asignaciones de quien pregunta.
+  const [{ data: filasAdmin }, { data: asignados }] = await Promise.all([
+    supabase.from('admins').select('email, organizacion_id').eq('email', user.email),
     supabase.from('facilitadores').select('curso_id'),
   ])
 
+  const filas = filasAdmin || []
   cache = {
     cargado: true,
-    esAdmin: !!admin,
+    // Administrador de la plataforma: la fila sin organización.
+    esAdmin: filas.some((a) => a.organizacion_id == null),
+    organizaciones: new Set(
+      filas.filter((a) => a.organizacion_id != null)
+        .map((a) => Number(a.organizacion_id))),
     cursos: new Set((asignados || []).map((f) => Number(f.curso_id))),
   }
   usuarioCargado = user.id
@@ -92,6 +105,11 @@ export function usePermisos(user) {
     cargado: cache.cargado,
     esAdmin,
     esFacilitador: cache.cursos.size > 0,
+    // Administra ESTA organización: el de la plataforma, todas; el de
+    // un cliente, solo la suya. Es la pregunta que debe hacer el panel.
+    esAdminDe: (orgId) =>
+      esAdmin || (orgId != null && cache.organizaciones.has(Number(orgId))),
+    organizacionesAdministradas: cache.organizaciones,
     cursosGestionados: cache.cursos,
     puedeGestionar: (cursoId) =>
       esAdmin || (cursoId != null && cache.cursos.has(Number(cursoId))),

@@ -989,6 +989,20 @@ a { color: var(--primary); }
   .tarea-editor-fila, .rubrica-criterio { grid-template-columns: 1fr; }
 }
 
+/* ---- Organizaciones ----------------------------------------- */
+.org-editor { margin: 14px 0; padding: 16px; border-radius: 12px;
+  border: 1px solid var(--accent); }
+.org-editor label { display: block; margin-top: 12px; font-size: 13px;
+  font-weight: 600; color: var(--primary); }
+.org-editor .input { width: 100%; }
+.org-editor-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.org-lista { display: grid; gap: 8px; margin-top: 16px; }
+.org-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1px solid var(--borde); border-radius: 10px; }
+.org-fila.inactiva { opacity: .6; }
+.org-fila-datos { flex: 1 1 260px; min-width: 0; }
+.org-fila-datos strong { display: block; color: var(--primary); }
+
 /* ---- Generaciones ------------------------------------------- */
 .gen-editor { margin: 14px 0; padding: 14px; border-radius: 12px;
   border: 1px solid var(--accent); }
