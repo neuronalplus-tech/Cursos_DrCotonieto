@@ -2952,3 +2952,19 @@ a { color: var(--primary); }
 .mis-retro { flex-basis: 100%; margin: 6px 0 0; padding-left: 12px;
   border-left: 2px solid var(--accent); font-size: 13.5px;
   line-height: 1.6; color: var(--primary); }
+
+/* La foto real del perfil en la cabecera; las iniciales se quedan
+   como repliegue para quien no ha subido ninguna. */
+.header-avatar-img { width: 30px; height: 30px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0; }
+
+/* La calificación del curso, alineada a la derecha de su cabecera:
+   es el dato que se busca al abrir la pantalla. */
+.mis-nota { display: flex; flex-direction: column; align-items: flex-end;
+  gap: 2px; text-align: right; }
+.mis-nota strong { font-size: 26px; line-height: 1; color: var(--primary); }
+.mis-nota .nota { font-size: 11.5px; }
+
+@media (max-width: 560px) {
+  .mis-nota { align-items: flex-start; text-align: left; }
+}

@@ -21,6 +21,7 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const [sinLeer, setSinLeer] = useState(0)
+  const [foto, setFoto] = useState(null)
   const cajaCuenta = useRef(null)
   const { organizacion } = useOrganizacion()
 
@@ -35,6 +36,16 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
     setMenuAbierto(false)
     setCuentaAbierta(false)
   }
+
+  // La foto que la persona subió en su perfil. Las iniciales se quedan
+  // como repliegue: quien no ha subido ninguna no debe ver un hueco.
+  useEffect(() => {
+    if (!user?.id) { setFoto(null); return }
+    let vivo = true
+    supabase.from('perfiles').select('avatar_url').eq('id', user.id).maybeSingle()
+      .then(({ data }) => { if (vivo) setFoto(data?.avatar_url || null) })
+    return () => { vivo = false }
+  }, [user?.id])
 
   // Mensajes sin leer, para el contador del sobre. Se recalcula al
   // cambiar de pantalla: así baja solo al salir de la bandeja, sin
@@ -99,9 +110,11 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
               <div className="header-cuenta" ref={cajaCuenta}>
                 <button className="header-cuenta-btn" onClick={() => setCuentaAbierta(v => !v)}
                         aria-expanded={cuentaAbierta} aria-haspopup="menu">
-                  <span className="header-avatar" aria-hidden="true">
-                    {iniciales(nombreUsuario || user.email)}
-                  </span>
+                  {foto
+                    ? <img className="header-avatar-img" src={foto} alt="" />
+                    : <span className="header-avatar" aria-hidden="true">
+                        {iniciales(nombreUsuario || user.email)}
+                      </span>}
                   <span className="header-cuenta-nombre">{nombreUsuario || user.email}</span>
                   <span aria-hidden="true">▾</span>
                 </button>

@@ -26,6 +26,46 @@ function pct(hechos, total) {
   return total ? Math.round((hechos / total) * 100) : 0
 }
 
+/* ------------------------------------------------------------
+   LA CALIFICACIÓN DEL CURSO
+   ------------------------------------------------------------
+   El promedio de todo lo calificado, llevando cada cosa a base
+   100 antes de promediar. Sin normalizar, un examen sobre 10 y
+   una tarea sobre 100 no se pueden sumar: el examen pesaría una
+   décima parte sin que nadie lo haya decidido.
+
+   Todo pesa igual. Es una decisión, no una omisión: ponderar por
+   tipo de actividad exige que alguien defina los pesos, y mientras
+   nadie los haya definido, inventarlos sería peor que no tenerlos.
+
+   Lo no calificado NO cuenta como cero. A mitad de curso, contar
+   los ceros de lo que aún no se entrega daría un 20% que no
+   significa nada y asusta sin motivo.
+   ------------------------------------------------------------ */
+function calificacionDelCurso(c) {
+  const notas = []
+
+  for (const e of c.examenes) {
+    if (e.mejor?.calificacion != null) {
+      notas.push((Number(e.mejor.calificacion) / (e.puntos_max || 100)) * 100)
+    }
+  }
+  for (const t of c.tareas) {
+    if (t.entrega?.calificado_en && t.entrega.calificacion != null) {
+      notas.push((Number(t.entrega.calificacion) / (t.puntos_max || 100)) * 100)
+    }
+  }
+  for (const h of c.foros) {
+    if (h.media != null) notas.push((h.media / (h.puntos_max || 10)) * 100)
+  }
+
+  if (!notas.length) return null
+  return {
+    valor: Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 10) / 10,
+    de: notas.length,
+  }
+}
+
 function fecha(d) {
   if (!d) return ''
   return new Date(d).toLocaleDateString('es-MX',
@@ -179,6 +219,7 @@ export default function MisCalificaciones({ user }) {
 
       {cursos.map(c => {
         const avance = pct(c.hechosRec, c.totalRec)
+        const nota = calificacionDelCurso(c)
         return (
           <article key={c.id} className="mis-curso">
             <header className="mis-curso-cab">
@@ -188,6 +229,16 @@ export default function MisCalificaciones({ user }) {
                   <span className="celda-sub">
                     {avance}% del material · {c.hechosRec} de {c.totalRec}
                   </span>
+                )}
+              </div>
+              <div className="mis-nota">
+                {nota ? (
+                  <>
+                    <strong>{nota.valor}</strong>
+                    <span className="nota">sobre 100 · {nota.de} actividad(es)</span>
+                  </>
+                ) : (
+                  <span className="sutil">Sin calificaciones aún</span>
                 )}
               </div>
               {c.constancia && (
