@@ -7,7 +7,10 @@ const LETRAS = ['A', 'B', 'C', 'D', 'E', 'F']
  * Formulario para escribir UNA pregunta a mano (sin Excel).
  * onCancelar(null) = cerrar · onGuardar(pregunta) = aceptar
  */
-export default function EditorPregunta({ inicial, indice, onGuardar, onCancelar }) {
+/* `textoGuardar` existe porque este editor se usa en dos sitios: dentro de
+   un examen, donde la pregunta se agrega, y en el banco, donde se guarda.
+   Decir "Agregar" al editar una del banco despista. */
+export default function EditorPregunta({ inicial, indice, onGuardar, onCancelar, textoGuardar }) {
   const [p, setP] = useState(inicial || crearPreguntaVacia('opcion', (indice || 0) + 1))
   const [error, setError] = useState(null)
 
@@ -153,7 +156,7 @@ export default function EditorPregunta({ inicial, indice, onGuardar, onCancelar 
 
       <div className="modal-botones" style={{ marginTop: 16 }}>
         <button type="button" className="button secondary" onClick={() => onCancelar(null)}>Cancelar</button>
-        <button type="button" className="button primary" onClick={aceptar}>Agregar pregunta</button>
+        <button type="button" className="button primary" onClick={aceptar}>{textoGuardar || 'Agregar pregunta'}</button>
       </div>
     </div>
   )

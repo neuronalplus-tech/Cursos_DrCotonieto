@@ -3078,3 +3078,40 @@ a { color: var(--primary); }
   .susc-dato strong { font-size: 18px; }
   .plan-franja-topes { gap: 14px; }
 }
+
+/* ============================================================
+   BANCO DE PREGUNTAS
+   ============================================================ */
+.banco-filtros { display: grid; gap: 10px; align-items: center; margin: 16px 0 10px;
+  grid-template-columns: minmax(160px, 2fr) repeat(3, minmax(120px, 1fr)) auto; }
+.banco-filtros .input { width: 100%; }
+.banco-cuenta { font-size: 12.5px; color: var(--gris); white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+
+.banco-sorteo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin: 14px 0 4px; padding: 12px 14px; border-radius: 10px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.banco-sorteo span { font-size: 13px; font-weight: 600; color: var(--body); }
+.banco-sorteo .input { width: 84px; }
+
+/* La lista de selección se acota en alto: con doscientas preguntas,
+   el botón de Agregar quedaría fuera de la pantalla. */
+.banco-seleccion { list-style: none; margin: 12px 0 0; padding: 0;
+  max-height: 46vh; overflow-y: auto; border: 1px solid var(--borde);
+  border-radius: 10px; }
+.banco-seleccion li { border-bottom: 1px solid var(--borde); }
+.banco-seleccion li:last-child { border-bottom: none; }
+.banco-seleccion li.marcada { background: var(--bg-info); }
+.banco-seleccion label { display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; cursor: pointer; margin: 0; }
+.banco-seleccion input[type="checkbox"] { margin-top: 3px; flex: none; }
+.banco-sel-texto { min-width: 0; }
+.banco-sel-texto strong { display: block; font-weight: 500; color: var(--body);
+  line-height: 1.4; }
+
+@media (max-width: 720px) {
+  .banco-filtros { grid-template-columns: 1fr 1fr; }
+  .banco-filtros .input:first-child { grid-column: 1 / -1; }
+  .banco-cuenta { grid-column: 1 / -1; }
+  .banco-seleccion { max-height: 40vh; }
+}

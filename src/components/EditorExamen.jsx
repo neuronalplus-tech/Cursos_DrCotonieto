@@ -5,7 +5,9 @@ import {
   TIPOS_EXAMEN, ETIQUETA_TIPO, tipoDe,
   parseTabla, filasAPreguntas, preguntasATSV, descargarTSV, PLANTILLA_TSV,
 } from '../lib/examenes'
+import { agregarPreguntas } from '../lib/banco'
 import EditorPregunta from './EditorPregunta'
+import { SelectorBanco, GuardarEnBanco } from './BancoPreguntas'
 
 function ModalPortal({ children }) {
   return createPortal(children, document.body)
@@ -29,6 +31,8 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
   const [activo, setActivo] = useState(examen?.activo !== false)
   const [preguntas, setPreguntas] = useState(examen?.preguntas || [])
   const [editandoPregunta, setEditandoPregunta] = useState(null) // {indice, pregunta} | {indice:null}
+  const [bancoAbierto, setBancoAbierto] = useState(false)
+  const [guardarBanco, setGuardarBanco] = useState(false)
   const [pegado, setPegado] = useState('')
   const [errores, setErrores] = useState([])
   const [msg, setMsg] = useState('')
@@ -41,8 +45,17 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
   const cerrarEditor = (resultado) => {
     if (resultado) {
       setPreguntas(prev => {
-        if (editandoPregunta.indice == null) return [...prev, resultado]
-        return prev.map((q, i) => (i === editandoPregunta.indice ? resultado : q))
+        // Al EDITAR se conserva el id: las respuestas de los alumnos se
+        // guardan indexadas por él, y cambiarlo dejaría huérfanos los
+        // intentos ya hechos.
+        if (editandoPregunta.indice != null) {
+          return prev.map((q, i) => (i === editandoPregunta.indice ? resultado : q))
+        }
+        // Al AGREGAR hay que buscarle un id libre: el editor siempre
+        // propone "p1", y en un examen que ya tiene p1 eso hacía que dos
+        // preguntas compartieran identificador. La respuesta de una se
+        // leía entonces como la de la otra al calificar.
+        return agregarPreguntas(prev, [resultado])
       })
     }
     setEditandoPregunta(null)
@@ -64,7 +77,9 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
       setErrores(errs.length ? errs : ['No encontré preguntas. Pega una tabla con columna "pregunta".'])
       return
     }
-    setPreguntas(prev => [...prev, ...nuevas])
+    // `filasAPreguntas` numera siempre desde p1, así que una segunda
+    // tanda chocaba con la primera. Ver el comentario en cerrarEditor.
+    setPreguntas(prev => agregarPreguntas(prev, nuevas))
     setErrores(errs)
     setPegado('')
     setMsg(`✓ ${nuevas.length} pregunta(s) agregada(s)${errs.length ? ` · ${errs.length} fila(s) con problemas` : ''}.`)
@@ -137,7 +152,7 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
 
           <label>Título del examen</label>
           <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
-                 placeholder="Ej. Examen — Módulo 1:evaluation differential" />
+                 placeholder="Ej. Examen — Módulo 1: evaluación diferencial" />
 
           <label>Descripción (opcional)</label>
           <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)}
@@ -226,7 +241,27 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
             <button type="button" className="button primary" onClick={abrirNueva}>
               ✍️ Escribir pregunta a mano
             </button>
+            <button type="button" className="button secondary" onClick={() => setBancoAbierto(true)}>
+              📚 Traer del banco
+            </button>
+            {preguntas.length > 0 && (
+              <button type="button" className="button texto" onClick={() => setGuardarBanco(true)}>
+                📥 Guardar estas en el banco
+              </button>
+            )}
           </div>
+
+          {bancoAbierto && (
+            <SelectorBanco
+              yaEnExamen={preguntas}
+              onAgregar={(nuevas) => setPreguntas(prev => agregarPreguntas(prev, nuevas))}
+              onCerrar={() => setBancoAbierto(false)}
+            />
+          )}
+
+          {guardarBanco && (
+            <GuardarEnBanco preguntas={preguntas} onCerrar={() => setGuardarBanco(false)} />
+          )}
 
           {editandoPregunta && (
             <EditorPregunta

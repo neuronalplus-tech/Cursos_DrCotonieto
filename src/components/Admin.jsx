@@ -10,6 +10,7 @@ import AdminCursos from './AdminCursos'
 import AdminBitacora from './AdminBitacora'
 import AdminOrganizaciones from './AdminOrganizaciones'
 import AdminSuscripciones, { ResumenPlan } from './AdminSuscripciones'
+import BancoPreguntas from './BancoPreguntas'
 import { usePermisos } from '../lib/permisos'
 import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
@@ -1057,6 +1058,7 @@ function Admin({ user }) {
         <button type="button" className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`} onClick={() => setVista('comunicados')}>📧 Comunicados</button>
         <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
         <button type="button" className={`admin-tab ${vista === 'examenes' ? 'activa' : ''}`} onClick={() => setVista('examenes')}>📝 Exámenes</button>
+        <button type="button" className={`admin-tab ${vista === 'banco' ? 'activa' : ''}`} onClick={() => setVista('banco')}>📚 Banco de preguntas</button>
         <button type="button" className={`admin-tab ${vista === 'foro' ? 'activa' : ''}`} onClick={() => setVista('foro')}>💬 Foro</button>
         {esAdminPlataforma && (
           <button type="button" className={`admin-tab ${vista === 'bitacora' ? 'activa' : ''}`} onClick={() => setVista('bitacora')}>🧾 Bitácora</button>
@@ -1460,6 +1462,7 @@ function Admin({ user }) {
       )}
 
       {vista === 'cursos' && <AdminCursos />}
+      {vista === 'banco' && <BancoPreguntas />}
       {vista === 'bitacora' && <AdminBitacora />}
       {vista === 'organizaciones' && esAdminPlataforma && <AdminOrganizaciones />}
       {vista === 'suscripciones' && esAdminPlataforma && <AdminSuscripciones />}

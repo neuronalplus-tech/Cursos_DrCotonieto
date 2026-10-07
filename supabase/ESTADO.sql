@@ -26,7 +26,8 @@ with esperado(orden, script, objeto, tipo) as (
     (14, 'CONSTANCIAS_2_EMISION.sql',   'emitir_constancia', 'funcion'),
     (15, 'GENERACIONES.sql',            'generaciones',      'tabla'),
     (16, 'ORGANIZACIONES_1_BASE.sql',   'organizaciones',    'tabla'),
-    (17, 'SUSCRIPCIONES.sql',           'registrar_pago',    'funcion')
+    (17, 'SUSCRIPCIONES.sql',           'registrar_pago',    'funcion'),
+    (18, 'BANCO_PREGUNTAS.sql',         'banco_preguntas',   'tabla')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,
