@@ -3,7 +3,9 @@
    Extraídos de App.jsx durante el refactor. Mismo comportamiento.
    ============================================================ */
 
-import { CURSOS_ESPECIALES } from '../config'
+// Con extensión: Vite resuelve `../config` igual, pero Node no, y las
+// pruebas de supabase/test-helpers.mjs importan este archivo directo.
+import { CURSOS_ESPECIALES } from '../config.js'
 
 /** Quita acentos y pasa a minúsculas, para comparar títulos de forma tolerante. */
 const sinAcentos = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -31,8 +33,23 @@ export function esTallerIndividual(curso) {
   return !curso.linea
 }
 
-export function moduloVisible(m, { user, esAdmin, miGrupo }) {
-  if (esAdmin) return true
+/**
+ * ¿Esta persona puede ver este módulo?
+ *
+ * El parámetro se llama `gestionaCurso` y no `esAdmin` porque la
+ * pregunta correcta desde que existe el rol Facilitador es si
+ * gestiona ESTE curso, no si administra la plataforma. Quien lo
+ * llama ya lo calcula con `puedeGestionar(curso_id)`.
+ *
+ * Ojo con renombrarlo: al desestructurar, un nombre que no coincide
+ * con lo que manda quien llama no es un error, es `undefined`. Esta
+ * función se pasó un tiempo recibiendo `gestionaCurso` mientras leía
+ * `esAdmin`, así que el permiso de quien gestiona el curso no se
+ * aplicaba nunca y los módulos con ruta salían como privados incluso
+ * para el administrador.
+ */
+export function moduloVisible(m, { user, gestionaCurso, miGrupo }) {
+  if (gestionaCurso) return true
   if (m.oculto && !user) return false
   if (m.grupo) {
     if (!user) return false
@@ -42,7 +59,10 @@ export function moduloVisible(m, { user, esAdmin, miGrupo }) {
 }
 
 export function moduloBloqueadoParaAlumno(m) {
-  return m && m.disponible === false
+  // Con `m && ...` esto devolvía null para un módulo nulo. Funciona
+  // igual dentro de un `if`, pero una función que pregunta sí o no
+  // debe contestar sí o no.
+  return !!m && m.disponible === false
 }
 
 export function emiteConstancia(curso) {
