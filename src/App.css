@@ -2873,3 +2873,52 @@ a { color: var(--primary); }
   .admin-foro-barra select { min-width: 100%; width: 100%; }
 }
 
+
+/* =============================================================
+   TELÉFONO · lo que faltaba por acotar
+   -------------------------------------------------------------
+   Las tablas grandes (participantes, avance) ya se desplazan en
+   horizontal dentro de su contenedor, así que no se tocan aquí.
+   Lo que sí se desbordaba eran las cuadrículas de los editores,
+   que repartían el ancho en dos o tres columnas fijas.
+   ============================================================= */
+@media (max-width: 720px) {
+  /* Editores: una columna. Dos campos de fecha lado a lado en un
+     móvil dejan cada uno sin espacio para su propio contenido. */
+  .org-editor-fila,
+  .curso-editor-fila,
+  .calificar-criterio { grid-template-columns: 1fr; }
+
+  /* El puntaje deja de ir a la derecha cuando ya no hay un campo
+     al lado del que separarse. */
+  .calificar-criterio .input { text-align: left; }
+
+  .barra-h-fila { grid-template-columns: 1fr; gap: 6px; }
+
+  .foro-promedios li { grid-template-columns: 1fr auto; }
+
+  /* El modal gana pantalla: 20px por lado en un móvil estrecho es
+     casi una décima parte del ancho útil. */
+  .modal-overlay { padding: 10px; }
+  .modal, .modal-ancho { padding: 18px; }
+
+  /* Las barras de acciones se apilan en vez de comprimirse hasta
+     que los botones dejan de poder pulsarse. */
+  .modal-botones { justify-content: stretch; }
+  .modal-botones .button { flex: 1 1 auto; }
+
+  /* La cabecera del panel: las pestañas se desplazan en lugar de
+     partirse en cinco filas. */
+  .admin-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .admin-tab { white-space: nowrap; }
+}
+
+/* Pantallas muy estrechas: lo mínimo para que nada se corte. */
+@media (max-width: 420px) {
+  .gen-editor-fila,
+  .tarea-editor-fila,
+  .rubrica-criterio,
+  .rubrica-nivel { grid-template-columns: 1fr; }
+
+  .progreso-resumen { grid-template-columns: 1fr 1fr; }
+}
