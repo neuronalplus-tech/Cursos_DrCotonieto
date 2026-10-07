@@ -68,6 +68,8 @@ export default function PanelProgreso({ cursoId }) {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [orden, setOrden] = useState('avance')
+  const [generaciones, setGeneraciones] = useState([])
+  const [filtroGen, setFiltroGen] = useState('todas')
 
   useEffect(() => {
     let vivo = true
@@ -91,8 +93,14 @@ export default function PanelProgreso({ cursoId }) {
 
         // --- Quién está inscrito ---
         const { data: insc } = await supabase
-          .from('acceso').select('usuario_id').eq('curso_id', curso)
+          .from('acceso').select('usuario_id, generacion_id').eq('curso_id', curso)
         const idsAlumno = [...new Set((insc || []).map(a => a.usuario_id))]
+
+        const { data: gens } = await supabase.from('generaciones')
+          .select('id, nombre').eq('curso_id', curso)
+          .order('fecha_inicio', { ascending: false, nullsFirst: false })
+        const genDe = Object.fromEntries(
+          (insc || []).map(a => [a.usuario_id, a.generacion_id]))
 
         if (!idsAlumno.length) {
           if (vivo) { setFilas([]); setTotalRecursos(idsRec.length); setCargando(false) }
@@ -161,6 +169,7 @@ export default function PanelProgreso({ cursoId }) {
             // tarea_id -> { calificacion, calificado_en } | ausente si no entregó
             entregas: {},
             constancia: null,
+            generacion: genDe[id] ?? null,
           }
         }
         for (const p of prog || []) {
@@ -189,6 +198,7 @@ export default function PanelProgreso({ cursoId }) {
         setTotalRecursos(idsRec.length)
         setExamenes(exs)
         setTareas(tds)
+        setGeneraciones(gens || [])
         setFilas(Object.values(porAlumno))
       } catch (e) {
         if (vivo) setError(e.message || String(e))
@@ -201,7 +211,14 @@ export default function PanelProgreso({ cursoId }) {
 
   const pct = (f) => (totalRecursos ? Math.round((f.hechos / totalRecursos) * 100) : 0)
 
-  const ordenadas = [...filas].sort((a, b) => {
+  // El filtro se aplica antes de ordenar y antes del resumen: si no,
+  // los totales seguirían contando a todo el curso y dirían una cosa
+  // distinta de la tabla que tienes delante.
+  const visibles = filtroGen === 'todas'
+    ? filas
+    : filas.filter(f => String(f.generacion ?? '') === String(filtroGen))
+
+  const ordenadas = [...visibles].sort((a, b) => {
     if (orden === 'nombre') return a.nombre.localeCompare(b.nombre)
     if (orden === 'inactivo') return (a.ultimo || '').localeCompare(b.ultimo || '')
     return pct(a) - pct(b)   // por defecto: los más atrasados primero
@@ -209,20 +226,21 @@ export default function PanelProgreso({ cursoId }) {
 
   // Entregas esperando calificación. Es el unico numero del resumen
   // que señala trabajo TUYO, no de ellos, por eso va aparte.
-  const porCalificar = filas.reduce(
+  const porCalificar = visibles.reduce(
     (n, f) => n + Object.values(f.entregas || {}).filter(e => !e.calificado_en).length, 0)
   /* Una fila por persona con todo lo que se evalúa. Sale del mismo
      estado que pinta la tabla, así que el Excel y la pantalla no
      pueden discrepar. */
   const exportar = () => {
     const cabeceras = [
-      'Alumno', 'Avance %', 'Recursos vistos', 'Recursos totales', 'Última actividad',
+      'Alumno', 'Generación', 'Avance %', 'Recursos vistos', 'Recursos totales', 'Última actividad',
       ...examenes.map(e => `Examen: ${e.titulo}`),
       ...tareas.map(t => `Tarea: ${t.titulo}`),
       'Constancia', 'Folio', 'Fecha de constancia',
     ]
     const cuerpo = ordenadas.map(f => [
       f.nombre,
+      generaciones.find(g => String(g.id) === String(f.generacion))?.nombre || 'Sin generación',
       pct(f),
       f.hechos,
       totalRecursos,
@@ -238,13 +256,16 @@ export default function PanelProgreso({ cursoId }) {
       f.constancia ? new Date(f.constancia.fecha_emision).toLocaleDateString('es-MX') : '',
     ])
     const fecha = new Date().toISOString().slice(0, 10)
-    descargar(`avance-${fecha}.csv`, aCSV(cabeceras, cuerpo))
+    const gen = filtroGen === 'todas' ? '' :
+      '-' + (generaciones.find(g => String(g.id) === String(filtroGen))?.nombre || 'sin-generacion')
+        .replace(/[^w-]/g, '')
+    descargar(`avance${gen}-${fecha}.csv`, aCSV(cabeceras, cuerpo))
   }
 
-  const sinEmpezar = filas.filter(f => f.hechos === 0).length
-  const terminados = filas.filter(f => totalRecursos && f.hechos >= totalRecursos).length
-  const promedio = filas.length
-    ? Math.round(filas.reduce((s, f) => s + pct(f), 0) / filas.length)
+  const sinEmpezar = visibles.filter(f => f.hechos === 0).length
+  const terminados = visibles.filter(f => totalRecursos && f.hechos >= totalRecursos).length
+  const promedio = visibles.length
+    ? Math.round(visibles.reduce((s, f) => s + pct(f), 0) / visibles.length)
     : 0
 
   if (cargando) return <p className="nota">Cargando el avance del grupo…</p>
@@ -254,7 +275,7 @@ export default function PanelProgreso({ cursoId }) {
   return (
     <div className="progreso-panel">
       <div className="progreso-resumen">
-        <div><strong>{filas.length}</strong><span>inscritos</span></div>
+        <div><strong>{visibles.length}</strong><span>inscritos</span></div>
         <div><strong>{promedio}%</strong><span>avance medio</span></div>
         <div><strong>{sinEmpezar}</strong><span>sin empezar</span></div>
         <div><strong>{terminados}</strong><span>completaron</span></div>
@@ -263,7 +284,7 @@ export default function PanelProgreso({ cursoId }) {
             <strong>{porCalificar}</strong><span>por calificar</span>
           </div>
         )}
-        <div><strong>{filas.filter(f => f.constancia).length}</strong><span>constancias</span></div>
+        <div><strong>{visibles.filter(f => f.constancia).length}</strong><span>constancias</span></div>
       </div>
 
       <div className="progreso-acciones">
@@ -271,6 +292,19 @@ export default function PanelProgreso({ cursoId }) {
           ⬇️ Exportar a Excel
         </button>
       </div>
+      {generaciones.length > 0 && (
+        <div className="progreso-orden">
+          <label>Generación</label>
+          <select className="input" value={filtroGen}
+                  onChange={e => setFiltroGen(e.target.value)}>
+            <option value="todas">Todas</option>
+            {generaciones.map(g => (
+              <option key={g.id} value={g.id}>{g.nombre}</option>
+            ))}
+            <option value="">Sin generación asignada</option>
+          </select>
+        </div>
+      )}
       <div className="progreso-orden">
         <label>Ordenar por</label>
         <select className="input" value={orden} onChange={e => setOrden(e.target.value)}>

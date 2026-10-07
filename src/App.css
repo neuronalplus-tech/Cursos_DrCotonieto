@@ -989,6 +989,28 @@ a { color: var(--primary); }
   .tarea-editor-fila, .rubrica-criterio { grid-template-columns: 1fr; }
 }
 
+/* ---- Generaciones ------------------------------------------- */
+.gen-editor { margin: 14px 0; padding: 14px; border-radius: 12px;
+  border: 1px solid var(--accent); }
+.gen-editor h4 { margin: 0 0 6px; color: var(--primary); }
+.gen-editor label { display: block; margin-top: 10px; font-size: 13px;
+  font-weight: 600; color: var(--primary); }
+.gen-editor .input { width: 100%; }
+.gen-editor-fila { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 12px; }
+.gen-activa { display: flex; gap: 8px; align-items: baseline; margin-top: 14px; }
+.gen-activa em { font-style: normal; }
+
+.gen-lista { display: grid; gap: 8px; margin-top: 16px; }
+.gen-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 14px; border: 1px solid var(--borde); border-radius: 10px; }
+.gen-fila.cerrada { opacity: .6; }
+.gen-fila-datos { flex: 1 1 220px; min-width: 0; }
+.gen-fila-datos strong { display: block; color: var(--primary); }
+
+@media (max-width: 720px) {
+  .gen-editor-fila { grid-template-columns: 1fr; }
+}
+
 /* ---- Avance del grupo --------------------------------------- */
 .progreso-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 10px; margin: 14px 0; }

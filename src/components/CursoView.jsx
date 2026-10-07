@@ -10,6 +10,7 @@ import { usePermisos } from '../lib/permisos'
 import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
 import AdminTareas from './AdminTareas'
+import AdminGeneraciones from './AdminGeneraciones'
 import TareasAlumno from './TareasAlumno'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
@@ -28,6 +29,7 @@ function CursoView({ user }) {
   const [examenesAbierto, setExamenesAbierto] = useState(false)
   const [progresoAbierto, setProgresoAbierto] = useState(false)
   const [tareasAbierto, setTareasAbierto] = useState(false)
+  const [generacionesAbierto, setGeneracionesAbierto] = useState(false)
   const [borrandoModulo, setBorrandoModulo] = useState(null)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
@@ -557,6 +559,37 @@ function CursoView({ user }) {
             📥 Administrar tareas
           </button>
         </section>
+      )}
+
+      {gestiona && (
+        <section className="bloque-foro">
+          <div>
+            <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Generaciones</h2>
+            <p className="nota" style={{ margin: 0 }}>
+              Cada edición del curso con sus fechas y su cupo, para medir por grupo.
+            </p>
+          </div>
+          <button type="button" className="button secondary"
+                  onClick={() => setGeneracionesAbierto(true)}>
+            🗓️ Administrar generaciones
+          </button>
+        </section>
+      )}
+
+      {generacionesAbierto && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setGeneracionesAbierto(false)}>
+            <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}
+                 style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+              <h2>Generaciones · {curso.titulo}</h2>
+              <AdminGeneraciones cursoId={curso.id} />
+              <div className="modal-botones">
+                <button type="button" className="button secondary"
+                        onClick={() => setGeneracionesAbierto(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {tareasAbierto && (
