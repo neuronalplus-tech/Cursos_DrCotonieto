@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase'
 import { sanear, resumen, aTextoPlano, esTextoPlano } from '../lib/foro'
 import { ModalPortal } from './ui'
 import EditorForo from './EditorForo'
+import { CamposPlazo } from './Prorrogas'
 
 export default function AdminForo({ user }) {
   const [cursos, setCursos] = useState([])
@@ -32,6 +33,8 @@ export default function AdminForo({ user }) {
      separarse, vuelve el mismo problema. */
   const [califica, setCalifica] = useState(false)
   const [puntosMax, setPuntosMax] = useState(10)
+  const [fechaLimite, setFechaLimite] = useState(null)
+  const [cierraAlVencer, setCierraAlVencer] = useState(true)
   const [guardando, setGuardando] = useState(false)
   // Nombre real del admin, para la firma del tema. Sin esto el INSERT
   // guardaba autor_id = null y el NOT NULL de la tabla lo rechazaba.
@@ -75,6 +78,8 @@ export default function AdminForo({ user }) {
     setTitulo('')
     setCalifica(false)
     setPuntosMax(10)
+    setFechaLimite(null)
+    setCierraAlVencer(true)
     setCuerpo('')
     setMsg(null)
     setFormAbierto(true)
@@ -85,6 +90,8 @@ export default function AdminForo({ user }) {
     setTitulo(h.titulo || '')
     setCalifica(!!h.califica)
     setPuntosMax(h.puntos_max ?? 10)
+    setFechaLimite(h.fecha_limite || null)
+    setCierraAlVencer(h.cierra_al_vencer !== false)
     setCuerpo(h.cuerpo || '')
     setMsg(null)
     setFormAbierto(true)
@@ -104,6 +111,8 @@ export default function AdminForo({ user }) {
       cuerpo: sanear(contenido),
       califica,
       puntos_max: Number(puntosMax) || 10,
+      fecha_limite: fechaLimite,
+      cierra_al_vencer: cierraAlVencer,
       actualizado_en: new Date().toISOString(),
     }
     // Al editar solo se manda el cuerpo; al crear, también la firma. Y la
@@ -248,6 +257,9 @@ return (
                   <label style={{ marginTop: 10 }}>Puntaje máximo por aportación</label>
                   <input className="input" type="number" min="1" value={puntosMax}
                          onChange={(e) => setPuntosMax(e.target.value)} />
+
+              <CamposPlazo fecha={fechaLimite} cierra={cierraAlVencer}
+                           onFecha={setFechaLimite} onCierra={setCierraAlVencer} />
                 </>
               )}
               <label style={{ marginTop: 14 }}>Contenido</label>

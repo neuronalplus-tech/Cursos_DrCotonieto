@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { estadoPlazo, fechaLarga } from '../lib/plazos'
 
 /* El nombre original se conserva aparte; en la ruta se limpia para
    que no haya acentos ni espacios que compliquen la descarga. */
@@ -21,25 +22,29 @@ function nombreSeguro(nombre) {
     .slice(-80)
 }
 
-function venceEn(fecha) {
-  if (!fecha) return null
-  const faltan = new Date(fecha).getTime() - Date.now()
-  if (faltan < 0) return { texto: 'Fecha de entrega vencida', tarde: true }
-  const dias = Math.floor(faltan / 86400000)
-  if (dias === 0) return { texto: 'Vence hoy', tarde: false }
-  return { texto: `Faltan ${dias} día(s)`, tarde: false }
-}
+/* El cálculo del plazo vive en src/lib/plazos.js. Antes estaba aquí,
+   con su propia idea de «vencido», y no sabía nada de prórrogas ni de
+   la diferencia entre vencer y cerrar. */
 
 function UnaTarea({ tarea, user }) {
   const [entrega, setEntrega] = useState(null)
   const [criterios, setCriterios] = useState([])
   const [subiendo, setSubiendo] = useState(false)
+  const [prorroga, setProrroga] = useState(null)
   const [msg, setMsg] = useState(null)
   const [comentario, setComentario] = useState('')
 
   useEffect(() => {
     let vivo = true
     ;(async () => {
+      // La prórroga propia, si la hay: cambia la fecha que aplica a
+      // ESTA persona, no a todo el grupo.
+      const { data: pr } = await supabase
+        .from('prorrogas').select('nueva_fecha')
+        .eq('tipo', 'tarea').eq('actividad_id', tarea.id)
+        .order('nueva_fecha', { ascending: false }).limit(1)
+      setProrroga(pr?.[0]?.nueva_fecha || null)
+
       const { data: e } = await supabase
         .from('entregas').select('*')
         .eq('tarea_id', tarea.id).eq('usuario_id', user.id).maybeSingle()
@@ -103,9 +108,11 @@ function UnaTarea({ tarea, user }) {
     window.open(data.signedUrl, '_blank', 'noopener')
   }
 
-  const plazo = venceEn(tarea.fecha_limite)
+  const plazo = estadoPlazo(tarea, prorroga)
   const calificada = entrega?.calificado_en != null
-  const puedeEntregar = !entrega || tarea.permite_reentrega
+  // El cierre real lo impone la base (FECHAS_LIMITE.sql). Aquí solo
+  // se evita ofrecer un botón que iba a fallar.
+  const puedeEntregar = (!entrega || tarea.permite_reentrega) && plazo.abierto
 
   return (
     <article className="tarea-alumno">
@@ -113,8 +120,14 @@ function UnaTarea({ tarea, user }) {
         <h3>{tarea.titulo}</h3>
         <div className="tarea-alumno-meta">
           <span className="nota">{tarea.puntos_max} puntos</span>
-          {plazo && (
-            <span className={plazo.tarde ? 'badge inactivo' : 'nota'}>{plazo.texto}</span>
+          {plazo.clave !== 'sin_plazo' && (
+            <span className={`badge plazo-${plazo.tono}`}
+                  title={fechaLarga(plazo.fecha)}>{plazo.etiqueta}</span>
+          )}
+          {prorroga && (
+            <span className="badge rol-facil" title={fechaLarga(prorroga)}>
+              Tienes prórroga
+            </span>
           )}
           {entrega && !calificada && <span className="badge ok">Entregado</span>}
           {calificada && (
@@ -189,7 +202,17 @@ function UnaTarea({ tarea, user }) {
           </label>
         </>
       ) : (
-        <p className="nota">Esta tarea no admite reentrega.</p>
+        /* Se dice CUAL de las dos razones es. «No puedes entregar» a
+           secas deja al alumno sin saber si pedir una prórroga o si
+           simplemente ya entregó. */
+        !plazo.abierto ? (
+          <p className="aviso-error">
+            El plazo cerró {plazo.fecha ? `el ${fechaLarga(plazo.fecha)}` : ''}.
+            {' '}Si necesitas más tiempo, pídele una prórroga a quien imparte el curso.
+          </p>
+        ) : (
+          <p className="nota">Esta tarea no admite reentrega.</p>
+        )
       )}
     </article>
   )

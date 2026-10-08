@@ -12,10 +12,11 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import Prorrogas from './Prorrogas'
 import CalificarTarea from './CalificarTarea'
 
 const VACIA = {
-  titulo: '', instrucciones: '', fecha_limite: '',
+  titulo: '', instrucciones: '', fecha_limite: '', cierra_al_vencer: true,
   puntos_max: 100, permite_reentrega: true, grupo: '', activo: true,
 }
 
@@ -84,6 +85,9 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const [msg, setMsg] = useState(null)
 
   const [editando, setEditando] = useState(null)   // id | 'nueva' | null
+  // Las prórrogas listan a los inscritos del CURSO. Cuando esta
+  // pantalla se abre desde un módulo, hay que subir a buscarlo.
+  const [cursoDelModulo, setCursoDelModulo] = useState(null)
   const [form, setForm] = useState(VACIA)
   const [criterios, setCriterios] = useState([])
   const [guardando, setGuardando] = useState(false)
@@ -95,6 +99,14 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
 
   const columna = cursoId ? 'curso_id' : 'modulo_id'
   const valor = cursoId || moduloId
+
+  useEffect(() => {
+    if (cursoId || !moduloId) return
+    let vivo = true
+    supabase.from('modulos').select('curso_id').eq('id', moduloId).maybeSingle()
+      .then(({ data }) => { if (vivo) setCursoDelModulo(data?.curso_id ?? null) })
+    return () => { vivo = false }
+  }, [cursoId, moduloId])
 
   const recargar = async () => {
     setCargando(true)
@@ -135,6 +147,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
       instrucciones: t.instrucciones || '',
       // datetime-local no entiende el formato con zona que da Postgres.
       fecha_limite: t.fecha_limite ? t.fecha_limite.slice(0, 16) : '',
+      cierra_al_vencer: t.cierra_al_vencer !== false,
       puntos_max: t.puntos_max ?? 100,
       permite_reentrega: !!t.permite_reentrega,
       grupo: t.grupo || '',
@@ -194,6 +207,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
       titulo: form.titulo.trim(),
       instrucciones: form.instrucciones.trim() || null,
       fecha_limite: form.fecha_limite || null,
+      cierra_al_vencer: !!form.cierra_al_vencer,
       puntos_max: Number(form.puntos_max) || 100,
       permite_reentrega: !!form.permite_reentrega,
       grupo: form.grupo.trim() || null,
@@ -326,6 +340,20 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
               <label>Fecha límite</label>
               <input className="input" type="datetime-local" value={form.fecha_limite}
                      onChange={e => campo('fecha_limite', e.target.value)} />
+              {/* Vencer y cerrar son cosas distintas: hay trabajos donde
+                  llegar tarde resta y otros donde llegar tarde no existe. */}
+              <label className="gen-activa" style={{ marginTop: 6 }}>
+                <input type="checkbox" checked={form.cierra_al_vencer !== false}
+                       disabled={!form.fecha_limite}
+                       onChange={e => campo('cierra_al_vencer', e.target.checked)} />
+                <span>Cerrar al vencer
+                  <em className="nota">
+                    {form.cierra_al_vencer !== false
+                      ? 'Al pasar la fecha ya no se podrá entregar.'
+                      : 'Se seguirá admitiendo, marcado como tardío.'}
+                  </em>
+                </span>
+              </label>
             </div>
             <div>
               <label>Puntos</label>
@@ -450,6 +478,12 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
               </>
             )}
           </div>
+
+          {editando !== 'nueva' && (
+            <Prorrogas tipo="tarea" actividadId={editando}
+                       cursoId={cursoId || cursoDelModulo}
+                       fechaOriginal={form.fecha_limite || null} />
+          )}
 
           <div className="modal-botones" style={{ marginTop: 16 }}>
             <button type="button" className="button secondary"

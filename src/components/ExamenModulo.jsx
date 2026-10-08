@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { tipoDe, puedeIntentar, resumenIntentos } from '../lib/examenes'
+import { estadoPlazo, fechaLarga } from '../lib/plazos'
 
 /* ============================================================
    EXAMEN autocalificable (modulo o curso completo)
@@ -12,6 +13,7 @@ import { tipoDe, puedeIntentar, resumenIntentos } from '../lib/examenes'
    ============================================================ */
 export default function ExamenModulo({ moduloId, cursoId, user }) {
   const [examen, setExamen] = useState(null)
+  const [prorroga, setProrroga] = useState(null)
   const [intentos, setIntentos] = useState([])
   const [respuestas, setRespuestas] = useState({})
   const [enviando, setEnviando] = useState(false)
@@ -23,6 +25,8 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
       // El examen pertenece a un módulo (modulo_id) o al curso completo (curso_id).
       const columna = moduloId ? 'modulo_id' : 'curso_id'
       const valor = moduloId ?? cursoId
+      // La prórroga propia: RLS solo devuelve las de quien pregunta,
+      // así que no hace falta filtrar por usuario aquí.
       const { data: ex } = await supabase.from('examenes').select('*')
         .eq(columna, valor).eq('activo', true).maybeSingle()
       setExamen(ex)
@@ -95,6 +99,7 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
   const mejor = intentos.reduce((m, i) => Math.max(m, i.calificacion), 0)
   const resumen = resumenIntentos(intentos, examen.max_intentos)
   const quedanIntentos = puedeIntentar(intentos, examen.max_intentos)
+  const plazo = estadoPlazo(examen, prorroga)
 
   return (
     <div className="examen-bloque">
@@ -110,8 +115,32 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
               : ' intentos ilimitados'}
             {resumen.usados > 0 && ` · Mejor nota: ${resumen.mejor}%`}
           </p>
+          {plazo.clave !== 'sin_plazo' && (
+            <p className="examen-meta">
+              <span className={`badge plazo-${plazo.tono}`} title={fechaLarga(plazo.fecha)}>
+                {plazo.etiqueta}
+              </span>
+              {prorroga && (
+                <span className="badge rol-facil" title={fechaLarga(prorroga)}>
+                  Tienes prórroga
+                </span>
+              )}
+            </p>
+          )}
         </div>
       </header>
+
+      {/* El plazo se mira ANTES que los intentos: a quien se le cerró
+          el examen no le sirve saber cuántos intentos le quedaban. */}
+      {quedanIntentos && !plazo.abierto && (
+        <div className="aviso-error">
+          <strong>El plazo de este examen cerró</strong>
+          <p style={{ margin: '6px 0 0' }}>
+            {plazo.fecha ? `Cerró el ${fechaLarga(plazo.fecha)}. ` : ''}
+            Si necesitas presentarlo, pídele una prórroga a quien imparte el curso.
+          </p>
+        </div>
+      )}
 
       {!quedanIntentos ? (
         <div className={resumen.aprobado ? 'aviso-ok' : 'aviso-error'}>
@@ -136,10 +165,12 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
             </p>
           )}
           <div style={{ marginTop: 10 }}>
-            <button className="button secondary" onClick={reintentar}>Volver a intentar</button>
+            {plazo.abierto && (
+              <button className="button secondary" onClick={reintentar}>Volver a intentar</button>
+            )}
           </div>
         </div>
-      ) : (
+      ) : plazo.abierto ? (
         <>
           <ol className="examen-preguntas">
             {(examen.preguntas || []).map((p) => {
@@ -183,7 +214,7 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
             {enviando ? 'Enviando...' : 'Enviar respuestas'}
           </button>
         </>
-      )}
+      ) : null}
 
       {intentos.length > 0 && (
         <details className="examen-historial">

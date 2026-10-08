@@ -3217,3 +3217,36 @@ a { color: var(--primary); }
 .mis-lista li.mis-pendiente { border-left: 3px solid #E8CF9E; padding-left: 10px; }
 .mis-lista li a { color: var(--primary); text-decoration: none; font-weight: 600; }
 .mis-lista li a:hover { color: var(--accent); text-decoration: underline; }
+
+/* ============================================================
+   PLAZOS Y PRORROGAS
+   ============================================================ */
+.badge.plazo-ok { background: var(--ok-bg); color: var(--ok); }
+.badge.plazo-aviso { background: #FDF3E2; color: #8A5A12; }
+.badge.plazo-alerta { background: var(--bg-alert); color: var(--alert); }
+.badge.plazo-neutro { background: var(--bg-card); color: var(--gris); }
+
+.plazo-campos { display: grid; gap: 14px; margin: 14px 0;
+  grid-template-columns: minmax(200px, 1fr) minmax(220px, 1fr); align-items: start; }
+.plazo-campos .input { width: 100%; }
+.plazo-cierra { margin-top: 22px; }
+
+.prorrogas { margin-top: 20px; padding: 16px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.prorrogas h4 { margin: 0 0 6px; font-size: 15px; color: var(--primary); }
+.prorroga-alta { display: grid; gap: 10px; margin: 12px 0;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(170px, 1fr) minmax(140px, 1fr) auto;
+  align-items: end; }
+.prorroga-alta label { display: block; margin-bottom: 4px; font-size: 12.5px;
+  font-weight: 600; color: var(--body); }
+.prorroga-alta .input { width: 100%; }
+.prorroga-lista { list-style: none; margin: 10px 0 0; padding: 0; }
+.prorroga-lista li { display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 9px 0; border-top: 1px solid var(--borde); }
+.prorroga-lista strong { color: var(--primary); font-size: 14px; }
+
+@media (max-width: 720px) {
+  .plazo-campos,
+  .prorroga-alta { grid-template-columns: 1fr; }
+  .plazo-cierra { margin-top: 0; }
+}

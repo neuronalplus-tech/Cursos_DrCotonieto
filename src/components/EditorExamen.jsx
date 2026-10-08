@@ -8,6 +8,7 @@ import {
 import { agregarPreguntas } from '../lib/banco'
 import EditorPregunta from './EditorPregunta'
 import { SelectorBanco, GuardarEnBanco } from './BancoPreguntas'
+import Prorrogas, { CamposPlazo } from './Prorrogas'
 
 function ModalPortal({ children }) {
   return createPortal(children, document.body)
@@ -29,6 +30,8 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
   const [umbral, setUmbral] = useState(examen?.umbral_aprobacion ?? 70)
   const [maxIntentos, setMaxIntentos] = useState(examen?.max_intentos ?? 3)
   const [activo, setActivo] = useState(examen?.activo !== false)
+  const [fechaLimite, setFechaLimite] = useState(examen?.fecha_limite || null)
+  const [cierraAlVencer, setCierraAlVencer] = useState(examen?.cierra_al_vencer !== false)
   const [preguntas, setPreguntas] = useState(examen?.preguntas || [])
   const [editandoPregunta, setEditandoPregunta] = useState(null) // {indice, pregunta} | {indice:null}
   const [bancoAbierto, setBancoAbierto] = useState(false)
@@ -104,6 +107,8 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
       umbral_aprobacion: Math.max(0, Math.min(100, parseInt(umbral, 10) || 0)),
       max_intentos: Math.max(0, parseInt(maxIntentos, 10) || 0),
       activo,
+      fecha_limite: fechaLimite,
+      cierra_al_vencer: cierraAlVencer,
       preguntas,
       [destino.tipo === 'modulo' ? 'modulo_id' : 'curso_id']: destino.id,
     }
@@ -170,6 +175,15 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
             Al agotarlos se muestra <strong>solo la mejor calificación</strong>.
             Escribe <strong>0</strong> para dejar intentos ilimitados.
           </p>
+
+          <CamposPlazo fecha={fechaLimite} cierra={cierraAlVencer}
+                       onFecha={setFechaLimite} onCierra={setCierraAlVencer} />
+
+          {!esNuevo && (
+            <Prorrogas tipo="examen" actividadId={examen.id}
+                       cursoId={destino.tipo === 'curso' ? destino.id : examen.curso_id}
+                       fechaOriginal={fechaLimite} />
+          )}
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />

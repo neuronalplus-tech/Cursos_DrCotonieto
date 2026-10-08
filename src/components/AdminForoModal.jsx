@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import Prorrogas, { CamposPlazo } from './Prorrogas'
 import { sanear, resumen } from '../lib/foro'
 import { ModalPortal } from './ui'
 import EditorForo from './EditorForo'
@@ -21,6 +22,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
   const [titulo, setTitulo] = useState('')
   const [cuerpo, setCuerpo] = useState('')
   const [califica, setCalifica] = useState(false)
+  const [fechaLimite, setFechaLimite] = useState(null)
+  const [cierraAlVencer, setCierraAlVencer] = useState(true)
   const [puntosMax, setPuntosMax] = useState(10)
   const [guardando, setGuardando] = useState(false)
   const [autor, setAutor] = useState(null)
@@ -71,6 +74,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
     setTitulo(h.titulo || '')
     setCuerpo(h.cuerpo || '')
     setCalifica(!!h.califica)
+    setFechaLimite(h.fecha_limite || null)
+    setCierraAlVencer(h.cierra_al_vencer !== false)
     setPuntosMax(h.puntos_max ?? 10)
     setMsg(null)
     setFormAbierto(true)
@@ -87,6 +92,8 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
       titulo: titulo.trim(),
       cuerpo: sanear(contenido),
       califica,
+      fecha_limite: fechaLimite,
+      cierra_al_vencer: cierraAlVencer,
       puntos_max: Number(puntosMax) || 10,
       actualizado_en: new Date().toISOString(),
     }
@@ -224,6 +231,14 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
                   <label style={{ marginTop: 10 }}>Puntaje máximo por aportación</label>
                   <input className="input" type="number" min="1" value={puntosMax}
                          onChange={(e) => setPuntosMax(e.target.value)} />
+
+              <CamposPlazo fecha={fechaLimite} cierra={cierraAlVencer}
+                           onFecha={setFechaLimite} onCierra={setCierraAlVencer} />
+
+              {editando && (
+                <Prorrogas tipo="foro" actividadId={editando.id}
+                           cursoId={cursoId} fechaOriginal={fechaLimite} />
+              )}
                 </>
               )}
               <label style={{ marginTop: 14 }}>Contenido</label>
