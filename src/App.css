@@ -3190,3 +3190,22 @@ a { color: var(--primary); }
   .tablero-dato strong { font-size: 19px; }
   .pond-campos { grid-template-columns: 1fr 1fr; }
 }
+
+/* ============================================================
+   EXPORTAR DATOS
+   ============================================================ */
+.exportar { padding: 16px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.exportar h4 { margin: 0 0 8px; font-size: 15px; color: var(--primary); }
+.exportar-detalle { margin: 10px 0 14px; }
+.exportar-detalle summary { cursor: pointer; font-size: 13.5px;
+  font-weight: 600; color: var(--primary); }
+.exportar-detalle ul { margin: 10px 0; padding-left: 20px;
+  font-size: 13.5px; color: var(--body); columns: 2; }
+.exportar-detalle li { margin-bottom: 3px; break-inside: avoid; }
+.exportar-compacto { display: flex; flex-direction: column; gap: 8px; }
+.tablero-exportar { margin-top: 26px; }
+
+@media (max-width: 560px) {
+  .exportar-detalle ul { columns: 1; }
+}

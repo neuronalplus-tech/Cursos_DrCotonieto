@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
+import ExportarDatos from './ExportarDatos'
 
 function cuando(fecha) {
   if (!fecha) return 'Sin movimiento'
@@ -219,6 +220,14 @@ export default function TableroOrg() {
           </table>
         </div>
       )}
+
+      {/* También aquí, y no solo en el panel de la plataforma: quien
+          administra una organización debe poder sacar lo suyo sin
+          pedírselo a nadie. Un dato que hay que solicitar no es
+          portable, es un favor. */}
+      <div className="tablero-exportar">
+        <ExportarDatos organizacion={organizacion} />
+      </div>
 
       <p className="nota" style={{ marginTop: 14 }}>
         Un curso marcado «sin movimiento» lleva más de {PARADO_DIAS} días sin
