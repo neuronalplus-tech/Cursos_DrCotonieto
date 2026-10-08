@@ -129,7 +129,8 @@ begin
     (select count(*)::int from public.constancias co
       where co.curso_id in (select id from cursos_org)),
 
-    (select round(coalesce(avg(fraccion), 0) * 100, 1) from avance_inscripcion);
+    (select round(coalesce(avg(fraccion), 0) * 100, 1)::numeric
+       from avance_inscripcion);
 end $$;
 
 revoke all on function public.tablero_organizacion(bigint) from public;
@@ -195,12 +196,17 @@ begin
     where ac.curso_id in (select id from cursos_org)
     group by ac.curso_id, ac.usuario_id, rc.total
   )
+  -- Cada columna se convierte al tipo declarado de forma explicita.
+  -- PL/pgSQL compara los tipos uno a uno y no convierte nada por su
+  -- cuenta: basta con que `titulo` sea varchar y no text para que la
+  -- funcion entera falle con "structure of query does not match
+  -- function result type", sin decir cual columna.
   select
-    co.id,
-    co.titulo,
+    co.id::bigint,
+    co.titulo::text,
     (select count(distinct ac.usuario_id)::int from public.acceso ac
       where ac.curso_id = co.id),
-    (select round(coalesce(avg(ai.fraccion), 0) * 100, 1)
+    (select round(coalesce(avg(ai.fraccion), 0) * 100, 1)::numeric
        from avance_inscripcion ai where ai.curso_id = co.id),
     (select count(*)::int from avance_inscripcion ai
       where ai.curso_id = co.id and ai.fraccion >= 1),
@@ -212,7 +218,7 @@ begin
           or exists (select 1 from public.modulos m
                       where m.id = t.modulo_id and m.curso_id = co.id))),
     (select count(*)::int from public.constancias c2 where c2.curso_id = co.id),
-    (select max(pu.ultimo_acceso)
+    (select max(pu.ultimo_acceso)::timestamptz
        from public.progreso_usuario pu
        join public.recursos r on r.id = pu.recurso_id
        join public.modulos m on m.id = r.modulo_id
@@ -258,7 +264,15 @@ select 'tu organizacion (id)',
      from public.organizaciones where slug = 'cotonieto')
 union all
 select 'cursos sin organizacion asignada',
-  (select count(*)::text from public.cursos where organizacion_id is null);
+  (select count(*)::text from public.cursos where organizacion_id is null)
+union all
+-- Si esto dice `character varying`, ahi estaba el fallo de tipos: la
+-- funcion declara `text` y PL/pgSQL no convierte por su cuenta. Ya se
+-- convierte de forma explicita, asi que da igual lo que diga.
+select 'tipo de la columna cursos.titulo',
+  (select data_type from information_schema.columns
+    where table_schema = 'public' and table_name = 'cursos'
+      and column_name = 'titulo');
 
 -- =============================================================
 --  RESULTADO ESPERADO

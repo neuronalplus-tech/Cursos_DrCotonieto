@@ -69,8 +69,15 @@ export default function TableroOrg() {
         supabase.rpc('tablero_cursos', { p_org: orgId }),
       ])
       if (!vivo) return
-      if (eT || eC) setError((eT || eC).message)
-      else {
+      // Se dice CUAL de las dos falló. Juntarlas en un solo mensaje
+      // obligaba a adivinar dónde mirar, y las dos consultan cosas
+      // distintas.
+      if (eT || eC) {
+        setError([
+          eT && `tablero_organizacion: ${eT.message}`,
+          eC && `tablero_cursos: ${eC.message}`,
+        ].filter(Boolean).join(' · '))
+      } else {
         // La función devuelve una tabla de una sola fila.
         setTot(Array.isArray(t) ? t[0] : t)
         setCursos(c || [])
@@ -85,9 +92,12 @@ export default function TableroOrg() {
   if (error) {
     return (
       <p className="aviso-error">
-        No se pudo cargar: {error}
+        No se pudo cargar. {error}
         <br />
-        Si dice que la función no existe, falta correr <code>TABLERO_ORG.sql</code>.
+        Si dice que <strong>no existe</strong>, falta correr <code>TABLERO_ORG.sql</code>.
+        Si dice <strong>«structure of query does not match»</strong>, es una columna
+        con un tipo distinto al declarado: vuelve a correr ese mismo script,
+        que ya lleva la conversión explícita.
       </p>
     )
   }
