@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Breadcrumb, BandaRedes, ModalPortal, EmbedFrame } from './ui'
-import { rutaAcceso, FOTO_PERFIL } from '../config'
+import { rutaAcceso, FOTO_PERFIL, CHAT_ADJUNTOS_BUCKET } from '../config'
+import { firmarAdjunto } from '../lib/adjuntos'
 import { usePermisos } from '../lib/permisos'
 
 /* ============================================================
@@ -301,13 +302,14 @@ export default function MensajesInbox({ user, esAdmin }) {
       const limpio = archivoAdjunto.name.replace(/[^\w.\-]/g, '_')
       const path = `${user.id}/${Date.now()}_${limpio}`
       const { error: errU } = await supabase.storage
-        .from('chat_adjuntos')
+        .from(CHAT_ADJUNTOS_BUCKET)
         .upload(path, archivoAdjunto, { contentType: archivoAdjunto.type })
       if (errU) throw errU
-      const { data: pub } = supabase.storage.from('chat_adjuntos').getPublicUrl(path)
+      // Se guarda la RUTA, no una direccion publica: el bucket pasa a
+      // ser privado y la direccion se firma al mostrarla.
       const esImagen = archivoAdjunto.type?.startsWith('image/')
       return {
-        url: pub.publicUrl,
+        url: path,
         nombre: archivoAdjunto.name,
         tipo: esImagen ? 'imagen' : 'archivo',
       }
@@ -405,21 +407,11 @@ export default function MensajesInbox({ user, esAdmin }) {
     )
   }
 
-  const renderAdjunto = (m) => {
-    if (!m.adjunto_url) return null
-    if (m.adjunto_tipo === 'imagen') {
-      return (
-        <a href={m.adjunto_url} target="_blank" rel="noopener noreferrer">
-          <img src={m.adjunto_url} alt={m.adjunto_nombre || ''} className="chat-adjunto-img" loading="lazy" />
-        </a>
-      )
-    }
-    return (
-      <a href={m.adjunto_url} target="_blank" rel="noopener noreferrer" className="chat-adjunto-archivo">
-        📎 {m.adjunto_nombre || 'Archivo adjunto'}
-      </a>
-    )
-  }
+  // Un componente y no una funcion suelta porque firmar la direccion
+  // es asincrono: hay que pedirsela al servidor, esperar, y volver a
+  // pedirla cuando caduque. Una funcion que devuelve JSX no puede
+  // esperar a nada.
+  const renderAdjunto = (m) => (m.adjunto_url ? <Adjunto mensaje={m} /> : null)
 
   const inputFileOculto = (
     <input
@@ -827,5 +819,57 @@ export function MensajesPage({ user, esAdmin }) {
       <MensajesInbox user={user} esAdmin={esAdmin} />
       <BandaRedes />
     </section>
+  )
+}
+
+
+/* ------------------------------------------------------------
+   UN ADJUNTO
+   ------------------------------------------------------------
+   El bucket es privado, asi que cada adjunto necesita una
+   direccion firmada que caduca. Se pide al montar.
+
+   Si no se puede firmar no se enseña un enlace roto ni se cae de
+   vuelta a la direccion publica —eso reabriria el agujero—: se dice
+   que no esta disponible, que es la verdad.
+   ------------------------------------------------------------ */
+function Adjunto({ mensaje }) {
+  const [url, setUrl] = useState(null)
+  const [estado, setEstado] = useState('cargando')
+
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      const firmada = await firmarAdjunto(supabase, mensaje.adjunto_url)
+      if (!vivo) return
+      setUrl(firmada)
+      setEstado(firmada ? 'listo' : 'error')
+    })()
+    return () => { vivo = false }
+  }, [mensaje.adjunto_url])
+
+  if (estado === 'cargando') {
+    return <span className="chat-adjunto-archivo sutil">📎 Abriendo…</span>
+  }
+  if (estado === 'error' || !url) {
+    return (
+      <span className="chat-adjunto-archivo sutil"
+            title="Puede que el archivo se haya borrado o que no tengas acceso">
+        📎 {mensaje.adjunto_nombre || 'Archivo'} · no disponible
+      </span>
+    )
+  }
+  if (mensaje.adjunto_tipo === 'imagen') {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        <img src={url} alt={mensaje.adjunto_nombre || ''}
+             className="chat-adjunto-img" loading="lazy" />
+      </a>
+    )
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="chat-adjunto-archivo">
+      📎 {mensaje.adjunto_nombre || 'Archivo adjunto'}
+    </a>
   )
 }

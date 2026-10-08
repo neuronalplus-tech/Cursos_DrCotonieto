@@ -32,7 +32,8 @@ with esperado(orden, script, objeto, tipo) as (
     (20, 'PADRON.sql',                  'perfil_update_admin',      'politica'),
     (21, 'TABLERO_ORG.sql',             'tablero_organizacion',     'funcion'),
     (22, 'USUARIOS_ALTA.sql',           'usuario_id_por_correo',    'funcion'),
-    (23, 'SEGURIDAD_2_ACCESO.sql',      'acceso_update_admin',      'politica')
+    (23, 'SEGURIDAD_2_ACCESO.sql',      'acceso_update_admin',      'politica'),
+    (24, 'ALMACEN_CHAT_PRIVADO.sql',    'chat_adjuntos_ver',        'politica')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,
