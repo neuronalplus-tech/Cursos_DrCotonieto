@@ -30,7 +30,9 @@ with esperado(orden, script, objeto, tipo) as (
     (18, 'BANCO_PREGUNTAS.sql',         'banco_preguntas',   'tabla'),
     (19, 'PONDERACION.sql',             'cursos_ponderacion_check', 'restriccion'),
     (20, 'PADRON.sql',                  'perfil_update_admin',      'politica'),
-    (21, 'TABLERO_ORG.sql',             'tablero_organizacion',     'funcion')
+    (21, 'TABLERO_ORG.sql',             'tablero_organizacion',     'funcion'),
+    (22, 'USUARIOS_ALTA.sql',           'usuario_id_por_correo',    'funcion'),
+    (23, 'SEGURIDAD_2_ACCESO.sql',      'acceso_update_admin',      'politica')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,
@@ -65,4 +67,12 @@ order by orden;
 --
 --  Todos son idempotentes: volver a correr uno que ya está no
 --  rompe nada, así que ante la duda, córrelo.
+--
+--  NO ESTÁN EN ESTA LISTA, Y NO HACE FALTA CORRERLOS:
+--  · ESQUEMA_BASE.sql y ESQUEMA_SEGURIDAD.sql son el respaldo para
+--    reconstruir la base en un proyecto NUEVO. Se generan leyendo
+--    la base; no se editan ni se corren aquí.
+--  · DIAGNOSTICO_*.sql solo leen y sirven para investigar algo
+--    concreto.
+--  · ACCESO_REVISION.sql crea un usuario de revisión temporal.
 -- =============================================================
