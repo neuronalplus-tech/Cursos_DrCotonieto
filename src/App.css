@@ -3209,3 +3209,11 @@ a { color: var(--primary); }
 @media (max-width: 560px) {
   .exportar-detalle ul { columns: 1; }
 }
+
+/* Lo pendiente, visible sin gritar. El ambar dice "te falta", no
+   "lo hiciste mal": un rojo para algo que simplemente no ha llegado
+   su turno desanima mas de lo que ayuda. */
+.badge.pendiente { background: #FDF3E2; color: #8A5A12; }
+.mis-lista li.mis-pendiente { border-left: 3px solid #E8CF9E; padding-left: 10px; }
+.mis-lista li a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.mis-lista li a:hover { color: var(--accent); text-decoration: underline; }

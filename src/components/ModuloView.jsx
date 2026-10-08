@@ -88,7 +88,10 @@ function ModuloView({ user }) {
         if (eR) throw eR
         setRecursos(rs || [])
 
-        const { data: mods } = await supabase.from('modulos').select('id, titulo, orden, grupo, oculto, disponible')
+        // `modulos` NO tiene columna `oculto`: pedirla hacia fallar la
+        // consulta entera y la lista lateral de modulos salia vacia.
+        const { data: mods } = await supabase.from('modulos')
+          .select('id, titulo, orden, grupo, disponible')
           .eq('curso_id', m.curso_id).eq('activo', true).order('orden')
         const modsSidebar = (mods || [])
           .filter(x => moduloVisible(x, { user, gestionaCurso, miGrupo }))

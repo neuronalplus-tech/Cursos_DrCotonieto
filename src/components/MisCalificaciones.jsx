@@ -102,7 +102,10 @@ export default function MisCalificaciones({ user }) {
 
         // --- Exámenes ---
         const { data: exs } = await supabase
-          .from('examenes').select('id, titulo, curso_id, modulo_id, puntos_max, activo')
+          // `examenes` NO tiene puntos_max: pedirla hacia que PostgREST
+          // devolviera error y `exs` llegara nulo, asi que los examenes no
+          // aparecian en esta pantalla. Se califican sobre 100.
+          .select('id, titulo, curso_id, modulo_id, activo')
           .or(`curso_id.in.(${ids.join(',')})` +
               (idsMod.length ? `,modulo_id.in.(${idsMod.join(',')})` : ''))
         const { data: intentos } = (exs || []).length
@@ -145,7 +148,10 @@ export default function MisCalificaciones({ user }) {
           const deEsteCurso = (x) =>
             x.curso_id === c.id || (x.modulo_id && cursoDeModulo[x.modulo_id] === c.id)
 
-          const examenes = (exs || []).filter(deEsteCurso).map(e => {
+          // Un examen apagado no cuenta como pendiente: el alumno no
+          // puede presentarlo aunque quiera.
+          const examenes = (exs || []).filter(e => e.activo !== false)
+            .filter(deEsteCurso).map(e => {
             const mios = (intentos || []).filter(i => i.examen_id === e.id)
             const mejor = mios.reduce((m, i) =>
               !m || (i.calificacion ?? 0) > (m.calificacion ?? 0) ? i : m, null)
@@ -157,6 +163,9 @@ export default function MisCalificaciones({ user }) {
           }))
 
           const foros = (hilos || []).filter(h => h.curso_id === c.id).map(h => {
+            // Todas mis aportaciones, calificadas o no: es lo que
+            // distingue «no participé» de «participé y falta la nota».
+            const mias = (aport || []).filter(a => a.hilo_id === h.id)
             const notas = (aport || [])
               .filter(a => a.hilo_id === h.id && a.calificacion != null)
               .map(a => Number(a.calificacion))
@@ -166,6 +175,7 @@ export default function MisCalificaciones({ user }) {
                 ? Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 100) / 100
                 : null,
               n: notas.length,
+              aportaciones: mias.length,
             }
           })
 
@@ -249,17 +259,24 @@ export default function MisCalificaciones({ user }) {
               </div>
             )}
 
-            {/* Cada bloque solo aparece si el curso lo tiene: una lista de
-                "exámenes: ninguno" no le dice nada a nadie. */}
+            {/* Todas las actividades evaluables del curso, hechas o no.
+                Lo pendiente se marca en ámbar y con enlace para ir a
+                hacerlo: esta pantalla contesta «cómo voy», y parte de
+                eso es «qué me falta». Esconder lo no hecho dejaba al
+                alumno sin saber qué le faltaba hasta que era tarde. */}
             {c.examenes.length > 0 && (
               <div className="mis-bloque">
                 <h3>Exámenes</h3>
                 <ul className="mis-lista">
                   {c.examenes.map(e => (
-                    <li key={e.id}>
-                      <span>{e.titulo}</span>
+                    <li key={e.id} className={!e.mejor ? 'mis-pendiente' : ''}>
+                      <span>
+                        <Link to={e.modulo_id ? `/modulo/${e.modulo_id}` : `/curso/${c.id}`}>
+                          {e.titulo}
+                        </Link>
+                      </span>
                       {!e.mejor
-                        ? <span className="sutil">Sin presentar</span>
+                        ? <span className="badge pendiente">Pendiente</span>
                         : <span className={e.mejor.aprobado ? 'badge ok' : 'badge no-aprobado'}>
                             {e.mejor.calificacion}
                           </span>}
@@ -274,10 +291,14 @@ export default function MisCalificaciones({ user }) {
                 <h3>Entregas</h3>
                 <ul className="mis-lista">
                   {c.tareas.map(t => (
-                    <li key={t.id} className="mis-tarea">
-                      <span>{t.titulo}</span>
+                    <li key={t.id} className={`mis-tarea ${!t.entrega ? 'mis-pendiente' : ''}`}>
+                      <span>
+                        <Link to={t.modulo_id ? `/modulo/${t.modulo_id}` : `/curso/${c.id}`}>
+                          {t.titulo}
+                        </Link>
+                      </span>
                       {!t.entrega
-                        ? <span className="badge inactivo">Sin entregar</span>
+                        ? <span className="badge pendiente">Pendiente</span>
                         : !t.entrega.calificado_en
                           ? <span className="badge rol-alumno">En revisión</span>
                           : <span className="badge ok">
@@ -300,13 +321,19 @@ export default function MisCalificaciones({ user }) {
                 <h3>Participación en el foro</h3>
                 <ul className="mis-lista">
                   {c.foros.map(h => (
-                    <li key={h.id}>
+                    <li key={h.id} className={h.aportaciones === 0 ? 'mis-pendiente' : ''}>
                       <span><Link to={`/foro/${c.id}`}>{h.titulo}</Link></span>
-                      {h.media == null
-                        ? <span className="sutil">Sin calificar</span>
-                        : <span className="badge ok" title={`${h.n} aportación(es)`}>
-                            {h.media} / {h.puntos_max ?? 10}
-                          </span>}
+                      {/* Tres estados y no dos: no participar es cosa del
+                          alumno; participar y esperar nota es cosa del
+                          docente. Decirle «sin calificar» a quien no ha
+                          escrito nada le hace creer que ya cumplió. */}
+                      {h.aportaciones === 0
+                        ? <span className="badge pendiente">Pendiente</span>
+                        : h.media == null
+                          ? <span className="badge rol-alumno">En revisión</span>
+                          : <span className="badge ok" title={`${h.n} aportación(es)`}>
+                              {h.media} / {h.puntos_max ?? 10}
+                            </span>}
                     </li>
                   ))}
                 </ul>
