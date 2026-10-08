@@ -22,6 +22,12 @@
 --  3. Correr los scripts de supabase/ en el orden de ESTADO.sql.
 --  4. Restaurar los datos desde el respaldo de Supabase.
 --
+--  NO HACE FALTA CORRERLO EN UNA BASE QUE YA FUNCIONA
+--  Tu base ya tiene todo esto. Correrlo ahi no aporta nada.
+--  Dicho eso, es seguro: todo va con "if not exists", asi que no
+--  borra, no reemplaza y no toca ningun dato. Si lo corres por
+--  curiosidad, no pasa nada.
+--
 --  NO LO EDITES A MANO: se genera leyendo el catalogo. Si cambias
 --  la base, vuelve a generarlo.
 -- =============================================================
@@ -420,144 +426,489 @@ create table if not exists public.tareas (
 --  Van despues de todas las tablas: una clave foranea no se
 --  puede crear si la tabla a la que apunta todavia no existe.
 -- -------------------------------------------------------------
-alter table public.acceso drop constraint if exists acceso_pkey;
-alter table public.acceso add constraint acceso_pkey PRIMARY KEY (id);
-alter table public.admins drop constraint if exists admins_pkey;
-alter table public.admins add constraint admins_pkey PRIMARY KEY (email);
-alter table public.auditoria drop constraint if exists auditoria_pkey;
-alter table public.auditoria add constraint auditoria_pkey PRIMARY KEY (id);
-alter table public.banco_preguntas drop constraint if exists banco_preguntas_pkey;
-alter table public.banco_preguntas add constraint banco_preguntas_pkey PRIMARY KEY (id);
-alter table public.categorias drop constraint if exists categorias_pkey;
-alter table public.categorias add constraint categorias_pkey PRIMARY KEY (id);
-alter table public.constancias drop constraint if exists constancias_pkey;
-alter table public.constancias add constraint constancias_pkey PRIMARY KEY (id);
-alter table public.cursos drop constraint if exists cursos_pkey;
-alter table public.cursos add constraint cursos_pkey PRIMARY KEY (id);
-alter table public.entregas drop constraint if exists entregas_pkey;
-alter table public.entregas add constraint entregas_pkey PRIMARY KEY (id);
-alter table public.examenes drop constraint if exists examenes_pkey;
-alter table public.examenes add constraint examenes_pkey PRIMARY KEY (id);
-alter table public.facilitadores drop constraint if exists facilitadores_pkey;
-alter table public.facilitadores add constraint facilitadores_pkey PRIMARY KEY (id);
-alter table public.foro_hilos drop constraint if exists foro_hilos_pkey;
-alter table public.foro_hilos add constraint foro_hilos_pkey PRIMARY KEY (id);
-alter table public.foro_respuestas drop constraint if exists foro_respuestas_pkey;
-alter table public.foro_respuestas add constraint foro_respuestas_pkey PRIMARY KEY (id);
-alter table public.generaciones drop constraint if exists generaciones_pkey;
-alter table public.generaciones add constraint generaciones_pkey PRIMARY KEY (id);
-alter table public.intentos_examen drop constraint if exists intentos_examen_pkey;
-alter table public.intentos_examen add constraint intentos_examen_pkey PRIMARY KEY (id);
-alter table public.leads_talleres drop constraint if exists leads_talleres_pkey;
-alter table public.leads_talleres add constraint leads_talleres_pkey PRIMARY KEY (id);
-alter table public.mensajes drop constraint if exists mensajes_pkey;
-alter table public.mensajes add constraint mensajes_pkey PRIMARY KEY (id);
-alter table public.modulos drop constraint if exists modulos_pkey;
-alter table public.modulos add constraint modulos_pkey PRIMARY KEY (id);
-alter table public.organizaciones drop constraint if exists organizaciones_pkey;
-alter table public.organizaciones add constraint organizaciones_pkey PRIMARY KEY (id);
-alter table public.pagos_suscripcion drop constraint if exists pagos_suscripcion_pkey;
-alter table public.pagos_suscripcion add constraint pagos_suscripcion_pkey PRIMARY KEY (id);
-alter table public.perfiles drop constraint if exists perfiles_pkey;
-alter table public.perfiles add constraint perfiles_pkey PRIMARY KEY (id);
-alter table public.planes drop constraint if exists planes_pkey;
-alter table public.planes add constraint planes_pkey PRIMARY KEY (id);
-alter table public.progreso_usuario drop constraint if exists progreso_usuario_pkey;
-alter table public.progreso_usuario add constraint progreso_usuario_pkey PRIMARY KEY (id);
-alter table public.recursos drop constraint if exists recursos_pkey;
-alter table public.recursos add constraint recursos_pkey PRIMARY KEY (id);
-alter table public.rubrica_criterios drop constraint if exists rubrica_criterios_pkey;
-alter table public.rubrica_criterios add constraint rubrica_criterios_pkey PRIMARY KEY (id);
-alter table public.tareas drop constraint if exists tareas_pkey;
-alter table public.tareas add constraint tareas_pkey PRIMARY KEY (id);
-alter table public.acceso drop constraint if exists acceso_usuario_id_curso_id_key;
-alter table public.acceso add constraint acceso_usuario_id_curso_id_key UNIQUE (usuario_id, curso_id);
-alter table public.progreso_usuario drop constraint if exists progreso_usuario_usuario_id_recurso_id_key;
-alter table public.progreso_usuario add constraint progreso_usuario_usuario_id_recurso_id_key UNIQUE (usuario_id, recurso_id);
-alter table public.progreso_usuario drop constraint if exists progreso_usuario_usuario_recurso_key;
-alter table public.progreso_usuario add constraint progreso_usuario_usuario_recurso_key UNIQUE (usuario_id, recurso_id);
-alter table public.banco_preguntas drop constraint if exists banco_preguntas_dificultad_check;
-alter table public.banco_preguntas add constraint banco_preguntas_dificultad_check CHECK (((dificultad IS NULL) OR ((dificultad >= 1) AND (dificultad <= 3))));
-alter table public.banco_preguntas drop constraint if exists banco_preguntas_tipo_check;
-alter table public.banco_preguntas add constraint banco_preguntas_tipo_check CHECK ((tipo = ANY (ARRAY['opcion'::text, 'vf'::text, 'corta'::text, 'emparejar'::text])));
-alter table public.cursos drop constraint if exists cursos_ponderacion_check;
-alter table public.cursos add constraint cursos_ponderacion_check CHECK (((ponderacion IS NULL) OR (jsonb_typeof(ponderacion) = 'object'::text)));
-alter table public.facilitadores drop constraint if exists facilitadores_destino_check;
-alter table public.facilitadores add constraint facilitadores_destino_check CHECK (((curso_id IS NOT NULL) <> (categoria_id IS NOT NULL)));
-alter table public.organizaciones drop constraint if exists organizaciones_estado_check;
-alter table public.organizaciones add constraint organizaciones_estado_check CHECK ((estado_suscripcion = ANY (ARRAY['prueba'::text, 'activa'::text, 'suspendida'::text, 'cancelada'::text])));
-alter table public.organizaciones drop constraint if exists organizaciones_periodo_check;
-alter table public.organizaciones add constraint organizaciones_periodo_check CHECK ((periodo = ANY (ARRAY['mensual'::text, 'anual'::text])));
-alter table public.recursos drop constraint if exists recursos_tipo_check;
-alter table public.recursos add constraint recursos_tipo_check CHECK ((tipo = ANY (ARRAY['pdf'::text, 'video'::text, 'texto'::text, 'enlace'::text, 'word'::text, 'autoevaluacion'::text])));
-alter table public.tareas drop constraint if exists tareas_destino_check;
-alter table public.tareas add constraint tareas_destino_check CHECK (((curso_id IS NOT NULL) <> (modulo_id IS NOT NULL)));
-alter table public.acceso drop constraint if exists acceso_curso_id_fkey;
-alter table public.acceso add constraint acceso_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.acceso drop constraint if exists acceso_generacion_id_fkey;
-alter table public.acceso add constraint acceso_generacion_id_fkey FOREIGN KEY (generacion_id) REFERENCES generaciones(id) ON DELETE SET NULL;
-alter table public.acceso drop constraint if exists acceso_usuario_id_fkey;
-alter table public.acceso add constraint acceso_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table public.admins drop constraint if exists admins_organizacion_id_fkey;
-alter table public.admins add constraint admins_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
-alter table public.banco_preguntas drop constraint if exists banco_preguntas_organizacion_id_fkey;
-alter table public.banco_preguntas add constraint banco_preguntas_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
-alter table public.categorias drop constraint if exists categorias_organizacion_id_fkey;
-alter table public.categorias add constraint categorias_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE RESTRICT;
-alter table public.constancias drop constraint if exists constancias_curso_id_fkey;
-alter table public.constancias add constraint constancias_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.cursos drop constraint if exists cursos_categoria_id_fkey;
-alter table public.cursos add constraint cursos_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL;
-alter table public.cursos drop constraint if exists cursos_organizacion_id_fkey;
-alter table public.cursos add constraint cursos_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE RESTRICT;
-alter table public.entregas drop constraint if exists entregas_tarea_id_fkey;
-alter table public.entregas add constraint entregas_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE;
-alter table public.examenes drop constraint if exists examenes_curso_id_fkey;
-alter table public.examenes add constraint examenes_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.examenes drop constraint if exists examenes_modulo_id_fkey;
-alter table public.examenes add constraint examenes_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
-alter table public.facilitadores drop constraint if exists facilitadores_categoria_id_fkey;
-alter table public.facilitadores add constraint facilitadores_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE;
-alter table public.facilitadores drop constraint if exists facilitadores_curso_id_fkey;
-alter table public.facilitadores add constraint facilitadores_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.foro_hilos drop constraint if exists foro_hilos_curso_id_fkey;
-alter table public.foro_hilos add constraint foro_hilos_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.foro_respuestas drop constraint if exists foro_respuestas_hilo_id_fkey;
-alter table public.foro_respuestas add constraint foro_respuestas_hilo_id_fkey FOREIGN KEY (hilo_id) REFERENCES foro_hilos(id) ON DELETE CASCADE;
-alter table public.foro_respuestas drop constraint if exists foro_respuestas_responde_a_fkey;
-alter table public.foro_respuestas add constraint foro_respuestas_responde_a_fkey FOREIGN KEY (responde_a) REFERENCES foro_respuestas(id) ON DELETE SET NULL;
-alter table public.generaciones drop constraint if exists generaciones_curso_id_fkey;
-alter table public.generaciones add constraint generaciones_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.intentos_examen drop constraint if exists intentos_examen_examen_id_fkey;
-alter table public.intentos_examen add constraint intentos_examen_examen_id_fkey FOREIGN KEY (examen_id) REFERENCES examenes(id) ON DELETE CASCADE;
-alter table public.intentos_examen drop constraint if exists intentos_examen_usuario_id_fkey;
-alter table public.intentos_examen add constraint intentos_examen_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table public.leads_talleres drop constraint if exists leads_talleres_curso_id_fkey;
-alter table public.leads_talleres add constraint leads_talleres_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.mensajes drop constraint if exists mensajes_de_id_fkey;
-alter table public.mensajes add constraint mensajes_de_id_fkey FOREIGN KEY (de_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table public.mensajes drop constraint if exists mensajes_para_id_fkey;
-alter table public.mensajes add constraint mensajes_para_id_fkey FOREIGN KEY (para_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table public.modulos drop constraint if exists modulos_curso_id_fkey;
-alter table public.modulos add constraint modulos_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.organizaciones drop constraint if exists organizaciones_plan_id_fkey;
-alter table public.organizaciones add constraint organizaciones_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES planes(id) ON DELETE SET NULL;
-alter table public.pagos_suscripcion drop constraint if exists pagos_suscripcion_organizacion_id_fkey;
-alter table public.pagos_suscripcion add constraint pagos_suscripcion_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
-alter table public.perfiles drop constraint if exists perfiles_id_fkey;
-alter table public.perfiles add constraint perfiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table public.progreso_usuario drop constraint if exists progreso_usuario_recurso_id_fkey;
-alter table public.progreso_usuario add constraint progreso_usuario_recurso_id_fkey FOREIGN KEY (recurso_id) REFERENCES recursos(id) ON DELETE CASCADE;
-alter table public.progreso_usuario drop constraint if exists progreso_usuario_usuario_id_fkey;
-alter table public.progreso_usuario add constraint progreso_usuario_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-alter table public.recursos drop constraint if exists recursos_modulo_id_fkey;
-alter table public.recursos add constraint recursos_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
-alter table public.rubrica_criterios drop constraint if exists rubrica_criterios_tarea_id_fkey;
-alter table public.rubrica_criterios add constraint rubrica_criterios_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE;
-alter table public.tareas drop constraint if exists tareas_curso_id_fkey;
-alter table public.tareas add constraint tareas_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
-alter table public.tareas drop constraint if exists tareas_modulo_id_fkey;
-alter table public.tareas add constraint tareas_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'acceso_pkey'
+                    and conrelid = 'public.acceso'::regclass) then
+    alter table public.acceso add constraint acceso_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'admins_pkey'
+                    and conrelid = 'public.admins'::regclass) then
+    alter table public.admins add constraint admins_pkey PRIMARY KEY (email);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'auditoria_pkey'
+                    and conrelid = 'public.auditoria'::regclass) then
+    alter table public.auditoria add constraint auditoria_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'banco_preguntas_pkey'
+                    and conrelid = 'public.banco_preguntas'::regclass) then
+    alter table public.banco_preguntas add constraint banco_preguntas_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'categorias_pkey'
+                    and conrelid = 'public.categorias'::regclass) then
+    alter table public.categorias add constraint categorias_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'constancias_pkey'
+                    and conrelid = 'public.constancias'::regclass) then
+    alter table public.constancias add constraint constancias_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'cursos_pkey'
+                    and conrelid = 'public.cursos'::regclass) then
+    alter table public.cursos add constraint cursos_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'entregas_pkey'
+                    and conrelid = 'public.entregas'::regclass) then
+    alter table public.entregas add constraint entregas_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'examenes_pkey'
+                    and conrelid = 'public.examenes'::regclass) then
+    alter table public.examenes add constraint examenes_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'facilitadores_pkey'
+                    and conrelid = 'public.facilitadores'::regclass) then
+    alter table public.facilitadores add constraint facilitadores_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'foro_hilos_pkey'
+                    and conrelid = 'public.foro_hilos'::regclass) then
+    alter table public.foro_hilos add constraint foro_hilos_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'foro_respuestas_pkey'
+                    and conrelid = 'public.foro_respuestas'::regclass) then
+    alter table public.foro_respuestas add constraint foro_respuestas_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'generaciones_pkey'
+                    and conrelid = 'public.generaciones'::regclass) then
+    alter table public.generaciones add constraint generaciones_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'intentos_examen_pkey'
+                    and conrelid = 'public.intentos_examen'::regclass) then
+    alter table public.intentos_examen add constraint intentos_examen_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'leads_talleres_pkey'
+                    and conrelid = 'public.leads_talleres'::regclass) then
+    alter table public.leads_talleres add constraint leads_talleres_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'mensajes_pkey'
+                    and conrelid = 'public.mensajes'::regclass) then
+    alter table public.mensajes add constraint mensajes_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'modulos_pkey'
+                    and conrelid = 'public.modulos'::regclass) then
+    alter table public.modulos add constraint modulos_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'organizaciones_pkey'
+                    and conrelid = 'public.organizaciones'::regclass) then
+    alter table public.organizaciones add constraint organizaciones_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'pagos_suscripcion_pkey'
+                    and conrelid = 'public.pagos_suscripcion'::regclass) then
+    alter table public.pagos_suscripcion add constraint pagos_suscripcion_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'perfiles_pkey'
+                    and conrelid = 'public.perfiles'::regclass) then
+    alter table public.perfiles add constraint perfiles_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'planes_pkey'
+                    and conrelid = 'public.planes'::regclass) then
+    alter table public.planes add constraint planes_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'progreso_usuario_pkey'
+                    and conrelid = 'public.progreso_usuario'::regclass) then
+    alter table public.progreso_usuario add constraint progreso_usuario_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'recursos_pkey'
+                    and conrelid = 'public.recursos'::regclass) then
+    alter table public.recursos add constraint recursos_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'rubrica_criterios_pkey'
+                    and conrelid = 'public.rubrica_criterios'::regclass) then
+    alter table public.rubrica_criterios add constraint rubrica_criterios_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'tareas_pkey'
+                    and conrelid = 'public.tareas'::regclass) then
+    alter table public.tareas add constraint tareas_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'acceso_usuario_id_curso_id_key'
+                    and conrelid = 'public.acceso'::regclass) then
+    alter table public.acceso add constraint acceso_usuario_id_curso_id_key UNIQUE (usuario_id, curso_id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'progreso_usuario_usuario_id_recurso_id_key'
+                    and conrelid = 'public.progreso_usuario'::regclass) then
+    alter table public.progreso_usuario add constraint progreso_usuario_usuario_id_recurso_id_key UNIQUE (usuario_id, recurso_id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'progreso_usuario_usuario_recurso_key'
+                    and conrelid = 'public.progreso_usuario'::regclass) then
+    alter table public.progreso_usuario add constraint progreso_usuario_usuario_recurso_key UNIQUE (usuario_id, recurso_id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'banco_preguntas_dificultad_check'
+                    and conrelid = 'public.banco_preguntas'::regclass) then
+    alter table public.banco_preguntas add constraint banco_preguntas_dificultad_check CHECK (((dificultad IS NULL) OR ((dificultad >= 1) AND (dificultad <= 3))));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'banco_preguntas_tipo_check'
+                    and conrelid = 'public.banco_preguntas'::regclass) then
+    alter table public.banco_preguntas add constraint banco_preguntas_tipo_check CHECK ((tipo = ANY (ARRAY['opcion'::text, 'vf'::text, 'corta'::text, 'emparejar'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'cursos_ponderacion_check'
+                    and conrelid = 'public.cursos'::regclass) then
+    alter table public.cursos add constraint cursos_ponderacion_check CHECK (((ponderacion IS NULL) OR (jsonb_typeof(ponderacion) = 'object'::text)));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'facilitadores_destino_check'
+                    and conrelid = 'public.facilitadores'::regclass) then
+    alter table public.facilitadores add constraint facilitadores_destino_check CHECK (((curso_id IS NOT NULL) <> (categoria_id IS NOT NULL)));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'organizaciones_estado_check'
+                    and conrelid = 'public.organizaciones'::regclass) then
+    alter table public.organizaciones add constraint organizaciones_estado_check CHECK ((estado_suscripcion = ANY (ARRAY['prueba'::text, 'activa'::text, 'suspendida'::text, 'cancelada'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'organizaciones_periodo_check'
+                    and conrelid = 'public.organizaciones'::regclass) then
+    alter table public.organizaciones add constraint organizaciones_periodo_check CHECK ((periodo = ANY (ARRAY['mensual'::text, 'anual'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'recursos_tipo_check'
+                    and conrelid = 'public.recursos'::regclass) then
+    alter table public.recursos add constraint recursos_tipo_check CHECK ((tipo = ANY (ARRAY['pdf'::text, 'video'::text, 'texto'::text, 'enlace'::text, 'word'::text, 'autoevaluacion'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'tareas_destino_check'
+                    and conrelid = 'public.tareas'::regclass) then
+    alter table public.tareas add constraint tareas_destino_check CHECK (((curso_id IS NOT NULL) <> (modulo_id IS NOT NULL)));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'acceso_curso_id_fkey'
+                    and conrelid = 'public.acceso'::regclass) then
+    alter table public.acceso add constraint acceso_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'acceso_generacion_id_fkey'
+                    and conrelid = 'public.acceso'::regclass) then
+    alter table public.acceso add constraint acceso_generacion_id_fkey FOREIGN KEY (generacion_id) REFERENCES generaciones(id) ON DELETE SET NULL;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'acceso_usuario_id_fkey'
+                    and conrelid = 'public.acceso'::regclass) then
+    alter table public.acceso add constraint acceso_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'admins_organizacion_id_fkey'
+                    and conrelid = 'public.admins'::regclass) then
+    alter table public.admins add constraint admins_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'banco_preguntas_organizacion_id_fkey'
+                    and conrelid = 'public.banco_preguntas'::regclass) then
+    alter table public.banco_preguntas add constraint banco_preguntas_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'categorias_organizacion_id_fkey'
+                    and conrelid = 'public.categorias'::regclass) then
+    alter table public.categorias add constraint categorias_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE RESTRICT;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'constancias_curso_id_fkey'
+                    and conrelid = 'public.constancias'::regclass) then
+    alter table public.constancias add constraint constancias_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'cursos_categoria_id_fkey'
+                    and conrelid = 'public.cursos'::regclass) then
+    alter table public.cursos add constraint cursos_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'cursos_organizacion_id_fkey'
+                    and conrelid = 'public.cursos'::regclass) then
+    alter table public.cursos add constraint cursos_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE RESTRICT;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'entregas_tarea_id_fkey'
+                    and conrelid = 'public.entregas'::regclass) then
+    alter table public.entregas add constraint entregas_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'examenes_curso_id_fkey'
+                    and conrelid = 'public.examenes'::regclass) then
+    alter table public.examenes add constraint examenes_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'examenes_modulo_id_fkey'
+                    and conrelid = 'public.examenes'::regclass) then
+    alter table public.examenes add constraint examenes_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'facilitadores_categoria_id_fkey'
+                    and conrelid = 'public.facilitadores'::regclass) then
+    alter table public.facilitadores add constraint facilitadores_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'facilitadores_curso_id_fkey'
+                    and conrelid = 'public.facilitadores'::regclass) then
+    alter table public.facilitadores add constraint facilitadores_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'foro_hilos_curso_id_fkey'
+                    and conrelid = 'public.foro_hilos'::regclass) then
+    alter table public.foro_hilos add constraint foro_hilos_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'foro_respuestas_hilo_id_fkey'
+                    and conrelid = 'public.foro_respuestas'::regclass) then
+    alter table public.foro_respuestas add constraint foro_respuestas_hilo_id_fkey FOREIGN KEY (hilo_id) REFERENCES foro_hilos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'foro_respuestas_responde_a_fkey'
+                    and conrelid = 'public.foro_respuestas'::regclass) then
+    alter table public.foro_respuestas add constraint foro_respuestas_responde_a_fkey FOREIGN KEY (responde_a) REFERENCES foro_respuestas(id) ON DELETE SET NULL;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'generaciones_curso_id_fkey'
+                    and conrelid = 'public.generaciones'::regclass) then
+    alter table public.generaciones add constraint generaciones_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'intentos_examen_examen_id_fkey'
+                    and conrelid = 'public.intentos_examen'::regclass) then
+    alter table public.intentos_examen add constraint intentos_examen_examen_id_fkey FOREIGN KEY (examen_id) REFERENCES examenes(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'intentos_examen_usuario_id_fkey'
+                    and conrelid = 'public.intentos_examen'::regclass) then
+    alter table public.intentos_examen add constraint intentos_examen_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'leads_talleres_curso_id_fkey'
+                    and conrelid = 'public.leads_talleres'::regclass) then
+    alter table public.leads_talleres add constraint leads_talleres_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'mensajes_de_id_fkey'
+                    and conrelid = 'public.mensajes'::regclass) then
+    alter table public.mensajes add constraint mensajes_de_id_fkey FOREIGN KEY (de_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'mensajes_para_id_fkey'
+                    and conrelid = 'public.mensajes'::regclass) then
+    alter table public.mensajes add constraint mensajes_para_id_fkey FOREIGN KEY (para_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'modulos_curso_id_fkey'
+                    and conrelid = 'public.modulos'::regclass) then
+    alter table public.modulos add constraint modulos_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'organizaciones_plan_id_fkey'
+                    and conrelid = 'public.organizaciones'::regclass) then
+    alter table public.organizaciones add constraint organizaciones_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES planes(id) ON DELETE SET NULL;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'pagos_suscripcion_organizacion_id_fkey'
+                    and conrelid = 'public.pagos_suscripcion'::regclass) then
+    alter table public.pagos_suscripcion add constraint pagos_suscripcion_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'perfiles_id_fkey'
+                    and conrelid = 'public.perfiles'::regclass) then
+    alter table public.perfiles add constraint perfiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'progreso_usuario_recurso_id_fkey'
+                    and conrelid = 'public.progreso_usuario'::regclass) then
+    alter table public.progreso_usuario add constraint progreso_usuario_recurso_id_fkey FOREIGN KEY (recurso_id) REFERENCES recursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'progreso_usuario_usuario_id_fkey'
+                    and conrelid = 'public.progreso_usuario'::regclass) then
+    alter table public.progreso_usuario add constraint progreso_usuario_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'recursos_modulo_id_fkey'
+                    and conrelid = 'public.recursos'::regclass) then
+    alter table public.recursos add constraint recursos_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'rubrica_criterios_tarea_id_fkey'
+                    and conrelid = 'public.rubrica_criterios'::regclass) then
+    alter table public.rubrica_criterios add constraint rubrica_criterios_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'tareas_curso_id_fkey'
+                    and conrelid = 'public.tareas'::regclass) then
+    alter table public.tareas add constraint tareas_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'tareas_modulo_id_fkey'
+                    and conrelid = 'public.tareas'::regclass) then
+    alter table public.tareas add constraint tareas_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
+  end if;
+end $$;
 
 -- -------------------------------------------------------------
 --  INDICES
