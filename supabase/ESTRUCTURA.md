@@ -36,7 +36,7 @@ No contiene **ningún dato**: solo nombres, tipos y restricciones.
 
 ### `acceso`
 
-Protección de filas: **activada** · políticas: 3
+Protección de filas: **activada** · políticas: 4
 
 | Columna | Tipo | Obligatoria | Por omisión |
 |---|---|---|---|
@@ -198,6 +198,8 @@ Protección de filas: **activada** · políticas: 5
 | `created_at` | `timestamp with time zone` | — | `now()` |
 | `curso_id` | `bigint` | — | — |
 | `max_intentos` | `integer` | sí | `3` |
+| `fecha_limite` | `timestamp with time zone` | — | — |
+| `cierra_al_vencer` | `boolean` | sí | `true` |
 
 ### `facilitadores`
 
@@ -230,6 +232,8 @@ Protección de filas: **activada** · políticas: 4
 | `actualizado_en` | `timestamp with time zone` | sí | `now()` |
 | `califica` | `boolean` | sí | `false` |
 | `puntos_max` | `numeric` | sí | `10` |
+| `fecha_limite` | `timestamp with time zone` | — | — |
+| `cierra_al_vencer` | `boolean` | sí | `true` |
 
 ### `foro_respuestas`
 
@@ -418,6 +422,22 @@ Protección de filas: **activada** · políticas: 3
 | `intentos` | `integer` | — | `0` |
 | `ultimo_acceso` | `timestamp with time zone` | — | `now()` |
 
+### `prorrogas`
+
+Protección de filas: **activada** · políticas: 4
+
+| Columna | Tipo | Obligatoria | Por omisión |
+|---|---|---|---|
+| `id` | `bigint` | sí | `nextval('prorrogas_id_seq'::regclass)` |
+| `tipo` | `text` | sí | — |
+| `actividad_id` | `bigint` | sí | — |
+| `usuario_id` | `uuid` | — | — |
+| `generacion_id` | `bigint` | — | — |
+| `nueva_fecha` | `timestamp with time zone` | sí | — |
+| `motivo` | `text` | — | — |
+| `creado_por` | `text` | — | — |
+| `creado_en` | `timestamp with time zone` | sí | `now()` |
+
 ### `recursos`
 
 Protección de filas: **activada** · políticas: 5
@@ -467,6 +487,7 @@ Protección de filas: **activada** · políticas: 4
 | `permite_reentrega` | `boolean` | sí | `true` |
 | `activo` | `boolean` | sí | `true` |
 | `creado_en` | `timestamp with time zone` | sí | `now()` |
+| `cierra_al_vencer` | `boolean` | sí | `true` |
 
 ## Funciones
 
@@ -478,6 +499,7 @@ Protección de filas: **activada** · políticas: 4
 | `completo_el_curso` | `p_usuario uuid, p_curso bigint` | `boolean` | sí |
 | `consumo_organizaciones` | `` | `TABLE(organizacion_id bigint, alumnos integer, cursos integer, facilitadores integer)` | sí |
 | `correo_de` | `p_usuario uuid` | `text` | sí |
+| `curso_de_actividad` | `p_tipo text, p_id bigint` | `bigint` | sí |
 | `curso_de_tarea` | `p_tarea bigint` | `bigint` | sí |
 | `curso_del_examen` | `p_curso bigint, p_modulo bigint` | `bigint` | sí |
 | `curso_del_modulo` | `p_modulo bigint` | `bigint` | sí |
@@ -489,6 +511,7 @@ Protección de filas: **activada** · políticas: 4
 | `es_alumno_mio` | `p_usuario uuid` | `boolean` | sí |
 | `es_facilitador` | `` | `boolean` | sí |
 | `es_facilitador_de_org` | `p_org bigint` | `boolean` | sí |
+| `fecha_limite_efectiva` | `p_tipo text, p_id bigint, p_usuario uuid` | `timestamp with time zone` | sí |
 | `get_admin_id` | `` | `uuid` | sí |
 | `inscritos_en_generacion` | `p_gen bigint` | `integer` | sí |
 | `limites_organizacion` | `p_org bigint` | `TABLE(max_alumnos integer, max_facilitadores integer, max_cursos integer, exenta boolean)` | sí |
@@ -498,6 +521,7 @@ Protección de filas: **activada** · políticas: 4
 | `promedio_foro` | `p_hilo bigint, p_usuario uuid` | `numeric` | sí |
 | `proteger_calificacion_foro` | `` | `trigger` | sí |
 | `proteger_contrato_organizacion` | `` | `trigger` | sí |
+| `puede_entregar` | `p_tipo text, p_id bigint, p_usuario uuid` | `boolean` | sí |
 | `puede_escribir_a` | `p_destino uuid` | `boolean` | sí |
 | `puede_gestionar_curso` | `p_curso bigint` | `boolean` | sí |
 | `registrar_auditoria` | `` | `trigger` | sí |
@@ -513,6 +537,9 @@ Protección de filas: **activada** · políticas: 4
 | `verificar_limite_alumnos` | `` | `trigger` | sí |
 | `verificar_limite_cursos` | `` | `trigger` | sí |
 | `verificar_limite_facilitadores` | `` | `trigger` | sí |
+| `verificar_plazo_entrega` | `` | `trigger` | sí |
+| `verificar_plazo_examen` | `` | `trigger` | sí |
+| `verificar_plazo_foro` | `` | `trigger` | sí |
 
 ## Disparadores
 
@@ -525,14 +552,17 @@ Protección de filas: **activada** · políticas: 4
 | `constancias` | `auditar_constancias` |
 | `cursos` | `auditar_cursos` |
 | `cursos` | `cursos_limite` |
+| `entregas` | `entregas_plazo` |
 | `examenes` | `auditar_examenes` |
 | `facilitadores` | `auditar_facilitadores` |
 | `facilitadores` | `facilitadores_limite` |
 | `foro_hilos` | `auditar_foro_hilos` |
+| `foro_respuestas` | `foro_plazo` |
 | `foro_respuestas` | `mover_hilo` |
 | `foro_respuestas` | `proteger_calificacion` |
 | `foro_respuestas` | `validar_rama` |
 | `generaciones` | `auditar_generaciones` |
+| `intentos_examen` | `intentos_plazo` |
 | `modulos` | `auditar_modulos` |
 | `organizaciones` | `organizaciones_protege_contrato` |
 | `recursos` | `auditar_recursos` |

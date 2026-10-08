@@ -58,6 +58,7 @@ create sequence if not exists public.organizaciones_id_seq;
 create sequence if not exists public.pagos_suscripcion_id_seq;
 create sequence if not exists public.planes_id_seq;
 create sequence if not exists public.progreso_usuario_id_seq;
+create sequence if not exists public.prorrogas_id_seq;
 create sequence if not exists public.recursos_id_seq;
 create sequence if not exists public.rubrica_criterios_id_seq;
 create sequence if not exists public.tareas_id_seq;
@@ -197,7 +198,9 @@ create table if not exists public.examenes (
   activo boolean default true,
   created_at timestamp with time zone default now(),
   curso_id bigint,
-  max_intentos integer default 3 not null
+  max_intentos integer default 3 not null,
+  fecha_limite timestamp with time zone,
+  cierra_al_vencer boolean default true not null
 );
 
 -- -------------------------------------------------------------
@@ -223,7 +226,9 @@ create table if not exists public.foro_hilos (
   creado_en timestamp with time zone default now() not null,
   actualizado_en timestamp with time zone default now() not null,
   califica boolean default false not null,
-  puntos_max numeric default 10 not null
+  puntos_max numeric default 10 not null,
+  fecha_limite timestamp with time zone,
+  cierra_al_vencer boolean default true not null
 );
 
 -- -------------------------------------------------------------
@@ -381,6 +386,19 @@ create table if not exists public.progreso_usuario (
 );
 
 -- -------------------------------------------------------------
+create table if not exists public.prorrogas (
+  id bigint default nextval('prorrogas_id_seq'::regclass) not null,
+  tipo text not null,
+  actividad_id bigint not null,
+  usuario_id uuid,
+  generacion_id bigint,
+  nueva_fecha timestamp with time zone not null,
+  motivo text,
+  creado_por text,
+  creado_en timestamp with time zone default now() not null
+);
+
+-- -------------------------------------------------------------
 create table if not exists public.recursos (
   id integer default nextval('recursos_id_seq'::regclass) not null,
   modulo_id integer,
@@ -418,7 +436,8 @@ create table if not exists public.tareas (
   puntos_max numeric default 100 not null,
   permite_reentrega boolean default true not null,
   activo boolean default true not null,
-  creado_en timestamp with time zone default now() not null
+  creado_en timestamp with time zone default now() not null,
+  cierra_al_vencer boolean default true not null
 );
 
 -- -------------------------------------------------------------
@@ -582,6 +601,13 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'prorrogas_pkey'
+                    and conrelid = 'public.prorrogas'::regclass) then
+    alter table public.prorrogas add constraint prorrogas_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'recursos_pkey'
                     and conrelid = 'public.recursos'::regclass) then
     alter table public.recursos add constraint recursos_pkey PRIMARY KEY (id);
@@ -662,6 +688,20 @@ do $$ begin
                   where conname = 'organizaciones_periodo_check'
                     and conrelid = 'public.organizaciones'::regclass) then
     alter table public.organizaciones add constraint organizaciones_periodo_check CHECK ((periodo = ANY (ARRAY['mensual'::text, 'anual'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'prorrogas_destino_check'
+                    and conrelid = 'public.prorrogas'::regclass) then
+    alter table public.prorrogas add constraint prorrogas_destino_check CHECK (((usuario_id IS NOT NULL) <> (generacion_id IS NOT NULL)));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'prorrogas_tipo_check'
+                    and conrelid = 'public.prorrogas'::regclass) then
+    alter table public.prorrogas add constraint prorrogas_tipo_check CHECK ((tipo = ANY (ARRAY['tarea'::text, 'examen'::text, 'foro'::text])));
   end if;
 end $$;
 do $$ begin
@@ -883,6 +923,13 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'prorrogas_generacion_id_fkey'
+                    and conrelid = 'public.prorrogas'::regclass) then
+    alter table public.prorrogas add constraint prorrogas_generacion_id_fkey FOREIGN KEY (generacion_id) REFERENCES generaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'recursos_modulo_id_fkey'
                     and conrelid = 'public.recursos'::regclass) then
     alter table public.recursos add constraint recursos_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE CASCADE;
@@ -947,6 +994,8 @@ create unique index if not exists organizaciones_dominio_idx ON public.organizac
 create unique index if not exists organizaciones_slug_idx ON public.organizaciones USING btree (lower(slug));
 create index if not exists pagos_suscripcion_org_idx ON public.pagos_suscripcion USING btree (organizacion_id, pagado_en DESC);
 create unique index if not exists planes_clave_idx ON public.planes USING btree (lower(clave));
+create unique index if not exists prorrogas_generacion_idx ON public.prorrogas USING btree (tipo, actividad_id, generacion_id) WHERE (generacion_id IS NOT NULL);
+create unique index if not exists prorrogas_usuario_idx ON public.prorrogas USING btree (tipo, actividad_id, usuario_id) WHERE (usuario_id IS NOT NULL);
 create index if not exists rubrica_tarea_idx ON public.rubrica_criterios USING btree (tarea_id, orden);
 create index if not exists tareas_curso_idx ON public.tareas USING btree (curso_id);
 create index if not exists tareas_modulo_idx ON public.tareas USING btree (modulo_id);
@@ -973,6 +1022,7 @@ alter sequence public.organizaciones_id_seq owned by public.organizaciones.id;
 alter sequence public.pagos_suscripcion_id_seq owned by public.pagos_suscripcion.id;
 alter sequence public.planes_id_seq owned by public.planes.id;
 alter sequence public.progreso_usuario_id_seq owned by public.progreso_usuario.id;
+alter sequence public.prorrogas_id_seq owned by public.prorrogas.id;
 alter sequence public.recursos_id_seq owned by public.recursos.id;
 alter sequence public.rubrica_criterios_id_seq owned by public.rubrica_criterios.id;
 alter sequence public.tareas_id_seq owned by public.tareas.id;
@@ -983,4 +1033,4 @@ alter sequence public.tareas_id_seq owned by public.tareas.id;
 select 'tablas' as que, count(*)::text as n from pg_class c
   join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and c.relkind='r';
--- Esperado: 25
+-- Esperado: 26

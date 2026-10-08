@@ -181,6 +181,30 @@ AS $function$
   select lower(u.email) from auth.users u where u.id = p_usuario
 $function$;
 
+create or replace function public.curso_de_actividad(p_tipo text, p_id bigint)
+ RETURNS bigint
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_curso bigint;
+begin
+  if p_tipo = 'tarea' then
+    select coalesce(t.curso_id, m.curso_id) into v_curso
+      from public.tareas t
+      left join public.modulos m on m.id = t.modulo_id
+     where t.id = p_id;
+  elsif p_tipo = 'examen' then
+    select coalesce(e.curso_id, m.curso_id) into v_curso
+      from public.examenes e
+      left join public.modulos m on m.id = e.modulo_id
+     where e.id = p_id;
+  elsif p_tipo = 'foro' then
+    select h.curso_id into v_curso from public.foro_hilos h where h.id = p_id;
+  end if;
+  return v_curso;
+end $function$;
+
 create or replace function public.curso_de_tarea(p_tarea bigint)
  RETURNS bigint
  LANGUAGE sql
@@ -442,6 +466,43 @@ AS $function$
   )
 $function$;
 
+create or replace function public.fecha_limite_efectiva(p_tipo text, p_id bigint, p_usuario uuid)
+ RETURNS timestamp with time zone
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_base     timestamptz;
+  v_prorroga timestamptz;
+begin
+  if p_tipo = 'tarea' then
+    select t.fecha_limite into v_base from public.tareas t where t.id = p_id;
+  elsif p_tipo = 'examen' then
+    select e.fecha_limite into v_base from public.examenes e where e.id = p_id;
+  elsif p_tipo = 'foro' then
+    select h.fecha_limite into v_base from public.foro_hilos h where h.id = p_id;
+  else
+    return null;
+  end if;
+
+  select max(p.nueva_fecha) into v_prorroga
+    from public.prorrogas p
+   where p.tipo = p_tipo
+     and p.actividad_id = p_id
+     and (
+       p.usuario_id = p_usuario
+       or (p.generacion_id is not null and exists (
+             select 1 from public.acceso a
+              where a.usuario_id = p_usuario
+                and a.generacion_id = p.generacion_id))
+     );
+
+  if v_base is null then return v_prorroga; end if;
+  if v_prorroga is null then return v_base; end if;
+  return greatest(v_base, v_prorroga);
+end $function$;
+
 create or replace function public.get_admin_id()
  RETURNS uuid
  LANGUAGE sql
@@ -621,6 +682,39 @@ begin
   end if;
 
   return new;
+end $function$;
+
+create or replace function public.puede_entregar(p_tipo text, p_id bigint, p_usuario uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_cierra boolean;
+  v_fecha  timestamptz;
+begin
+  -- Quien gestiona el curso no entrega: da clase.
+  if public.puede_gestionar_curso(public.curso_de_actividad(p_tipo, p_id)) then
+    return true;
+  end if;
+
+  if p_tipo = 'tarea' then
+    select t.cierra_al_vencer into v_cierra from public.tareas t where t.id = p_id;
+  elsif p_tipo = 'examen' then
+    select e.cierra_al_vencer into v_cierra from public.examenes e where e.id = p_id;
+  elsif p_tipo = 'foro' then
+    select h.cierra_al_vencer into v_cierra from public.foro_hilos h where h.id = p_id;
+  else
+    return true;
+  end if;
+
+  -- Si no cierra, la fecha es un aviso y no una puerta.
+  if not coalesce(v_cierra, true) then return true; end if;
+
+  v_fecha := public.fecha_limite_efectiva(p_tipo, p_id, p_usuario);
+  if v_fecha is null then return true; end if;   -- sin fecha, siempre abierto
+  return now() <= v_fecha;
 end $function$;
 
 create or replace function public.puede_escribir_a(p_destino uuid)
@@ -1171,6 +1265,59 @@ begin
   return new;
 end $function$;
 
+create or replace function public.verificar_plazo_entrega()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if new.usuario_id is distinct from auth.uid() then
+    return new;              -- lo está tocando otra persona: calificando
+  end if;
+  -- En un UPDATE solo importa si cambia LO ENTREGADO.
+  if tg_op = 'UPDATE'
+     and new.archivo_path is not distinct from old.archivo_path
+     and new.comentario   is not distinct from old.comentario then
+    return new;
+  end if;
+  if not public.puede_entregar('tarea', new.tarea_id, new.usuario_id) then
+    raise exception 'El plazo de esta tarea ya cerró. Pídele una prórroga a quien imparte el curso.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $function$;
+
+create or replace function public.verificar_plazo_examen()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if new.usuario_id is distinct from auth.uid() then return new; end if;
+  if not public.puede_entregar('examen', new.examen_id, new.usuario_id) then
+    raise exception 'El plazo de este examen ya cerró. Pídele una prórroga a quien imparte el curso.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $function$;
+
+create or replace function public.verificar_plazo_foro()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if new.autor_id is distinct from auth.uid() then return new; end if;
+  if not public.puede_entregar('foro', new.hilo_id, new.autor_id) then
+    raise exception 'El plazo de participación en este tema ya cerró.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $function$;
+
 -- -------------------------------------------------------------
 --  2) PROTECCION DE FILAS
 -- -------------------------------------------------------------
@@ -1196,6 +1343,7 @@ alter table public.pagos_suscripcion enable row level security;
 alter table public.perfiles enable row level security;
 alter table public.planes enable row level security;
 alter table public.progreso_usuario enable row level security;
+alter table public.prorrogas enable row level security;
 alter table public.recursos enable row level security;
 alter table public.rubrica_criterios enable row level security;
 alter table public.tareas enable row level security;
@@ -1212,23 +1360,34 @@ create policy "Admins pueden eliminar acceso" on public.acceso
   as permissive
   for delete
   to authenticated
-  using ((EXISTS ( SELECT 1
-   FROM admins
-  WHERE (admins.email = (auth.jwt() ->> 'email'::text)))));
+  using (es_admin_de(( SELECT c.organizacion_id
+   FROM cursos c
+  WHERE (c.id = acceso.curso_id))));
 drop policy if exists "Admins pueden insertar acceso" on public.acceso;
 create policy "Admins pueden insertar acceso" on public.acceso
   as permissive
   for insert
   to authenticated
-  with check ((EXISTS ( SELECT 1
-   FROM admins
-  WHERE (admins.email = (auth.jwt() ->> 'email'::text)))));
+  with check (es_admin_de(( SELECT c.organizacion_id
+   FROM cursos c
+  WHERE (c.id = acceso.curso_id))));
 drop policy if exists "acceso_select_propio" on public.acceso;
 create policy "acceso_select_propio" on public.acceso
   as permissive
   for select
   to authenticated
   using (((usuario_id = auth.uid()) OR puede_gestionar_curso((curso_id)::bigint)));
+drop policy if exists "acceso_update_admin" on public.acceso;
+create policy "acceso_update_admin" on public.acceso
+  as permissive
+  for update
+  to authenticated
+  using (es_admin_de(( SELECT c.organizacion_id
+   FROM cursos c
+  WHERE (c.id = acceso.curso_id))))
+  with check (es_admin_de(( SELECT c.organizacion_id
+   FROM cursos c
+  WHERE (c.id = acceso.curso_id))));
 
 -- admins
 drop policy if exists "admin_ver_propio" on public.admins;
@@ -1734,6 +1893,33 @@ create policy "progreso_update" on public.progreso_usuario
   using ((auth.uid() = usuario_id))
   with check ((auth.uid() = usuario_id));
 
+-- prorrogas
+drop policy if exists "prorrogas_delete" on public.prorrogas;
+create policy "prorrogas_delete" on public.prorrogas
+  as permissive
+  for delete
+  to authenticated
+  using (puede_gestionar_curso(curso_de_actividad(tipo, actividad_id)));
+drop policy if exists "prorrogas_insert" on public.prorrogas;
+create policy "prorrogas_insert" on public.prorrogas
+  as permissive
+  for insert
+  to authenticated
+  with check (puede_gestionar_curso(curso_de_actividad(tipo, actividad_id)));
+drop policy if exists "prorrogas_select" on public.prorrogas;
+create policy "prorrogas_select" on public.prorrogas
+  as permissive
+  for select
+  to authenticated
+  using (((usuario_id = auth.uid()) OR puede_gestionar_curso(curso_de_actividad(tipo, actividad_id))));
+drop policy if exists "prorrogas_update" on public.prorrogas;
+create policy "prorrogas_update" on public.prorrogas
+  as permissive
+  for update
+  to authenticated
+  using (puede_gestionar_curso(curso_de_actividad(tipo, actividad_id)))
+  with check (puede_gestionar_curso(curso_de_actividad(tipo, actividad_id)));
+
 -- recursos
 drop policy if exists "leer_recursos" on public.recursos;
 create policy "leer_recursos" on public.recursos
@@ -1832,6 +2018,8 @@ drop trigger if exists auditar_cursos on public.cursos;
 create trigger auditar_cursos AFTER INSERT OR DELETE OR UPDATE ON public.cursos FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
 drop trigger if exists cursos_limite on public.cursos;
 create trigger cursos_limite BEFORE INSERT ON public.cursos FOR EACH ROW EXECUTE FUNCTION verificar_limite_cursos();
+drop trigger if exists entregas_plazo on public.entregas;
+create trigger entregas_plazo BEFORE INSERT OR UPDATE ON public.entregas FOR EACH ROW EXECUTE FUNCTION verificar_plazo_entrega();
 drop trigger if exists auditar_examenes on public.examenes;
 create trigger auditar_examenes AFTER INSERT OR DELETE OR UPDATE ON public.examenes FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
 drop trigger if exists auditar_facilitadores on public.facilitadores;
@@ -1840,6 +2028,8 @@ drop trigger if exists facilitadores_limite on public.facilitadores;
 create trigger facilitadores_limite BEFORE INSERT ON public.facilitadores FOR EACH ROW EXECUTE FUNCTION verificar_limite_facilitadores();
 drop trigger if exists auditar_foro_hilos on public.foro_hilos;
 create trigger auditar_foro_hilos AFTER INSERT OR DELETE OR UPDATE ON public.foro_hilos FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+drop trigger if exists foro_plazo on public.foro_respuestas;
+create trigger foro_plazo BEFORE INSERT ON public.foro_respuestas FOR EACH ROW EXECUTE FUNCTION verificar_plazo_foro();
 drop trigger if exists mover_hilo on public.foro_respuestas;
 create trigger mover_hilo AFTER INSERT ON public.foro_respuestas FOR EACH ROW EXECUTE FUNCTION mover_hilo_al_responder();
 drop trigger if exists proteger_calificacion on public.foro_respuestas;
@@ -1848,6 +2038,8 @@ drop trigger if exists validar_rama on public.foro_respuestas;
 create trigger validar_rama BEFORE INSERT OR UPDATE ON public.foro_respuestas FOR EACH ROW EXECUTE FUNCTION validar_rama_foro();
 drop trigger if exists auditar_generaciones on public.generaciones;
 create trigger auditar_generaciones AFTER INSERT OR DELETE OR UPDATE ON public.generaciones FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+drop trigger if exists intentos_plazo on public.intentos_examen;
+create trigger intentos_plazo BEFORE INSERT ON public.intentos_examen FOR EACH ROW EXECUTE FUNCTION verificar_plazo_examen();
 drop trigger if exists auditar_modulos on public.modulos;
 create trigger auditar_modulos AFTER INSERT OR DELETE OR UPDATE ON public.modulos FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
 drop trigger if exists organizaciones_protege_contrato on public.organizaciones;
@@ -1874,4 +2066,4 @@ select 'disparadores', count(*)::text from pg_trigger t
   join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and not t.tgisinternal;
 
--- Esperado: funciones 41 · politicas 86 · disparadores 20
+-- Esperado: funciones 47 · politicas 91 · disparadores 23
