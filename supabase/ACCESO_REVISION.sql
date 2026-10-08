@@ -119,14 +119,21 @@ select 'puede crear bases o roles (debe ser false, false)',
 --  avisame: significa que heredo algo que no deberia.
 --
 --  LA CADENA DE CONEXION
---  Supabase -> Settings -> Database -> Connection string -> URI.
+--  Esta en el boton `Connect` de la barra de arriba del panel, NO en
+--  Settings -> Database. Elige **Session pooler** (puerto 5432): la
+--  "Direct connection" es solo IPv6 en el plan gratuito.
+--
 --  Sale algo como:
 --
---    postgresql://postgres.<ref>:[TU-PASSWORD]@aws-0-...:5432/postgres
+--    postgresql://postgres.<ref>:[TU-PASSWORD]@aws-0-....pooler.supabase.com:5432/postgres
 --
---  Cambia DOS cosas antes de pasarmela:
---    · `postgres.<ref>`  ->  `revision_estructura`
---    · `[TU-PASSWORD]`   ->  la contraseña que pusiste arriba
+--  Cambia DOS cosas, y solo esas:
+--    · `postgres` (lo de antes del punto)  ->  `revision_estructura`
+--    · `[TU-PASSWORD]`                     ->  la contraseña de arriba
+--
+--  OJO: el `.<ref>` SE QUEDA. El pooler exige que el usuario lleve
+--  pegado el identificador del proyecto, asi que debe quedar
+--  `revision_estructura.<ref>`. Sin esa parte, rechaza la conexion.
 --
 --  NUNCA me pases la cadena del usuario `postgres`, ni la clave de
 --  servicio (`service_role`): esas pueden todo.
