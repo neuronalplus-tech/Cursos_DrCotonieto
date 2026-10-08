@@ -20,3 +20,12 @@ dist/
 build-check.txt
 dif.txt
 lista-dot.txt
+
+# Credenciales. Nunca deben versionarse: el repositorio esta en
+# GitHub y un secreto subido se considera comprometido aunque se
+# borre despues, porque queda en el historial.
+.env
+.env.*
+*.pgpass
+credenciales*
+conexion*.txt
