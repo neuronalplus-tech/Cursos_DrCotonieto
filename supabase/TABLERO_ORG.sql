@@ -197,10 +197,16 @@ begin
     group by ac.curso_id, ac.usuario_id, rc.total
   )
   -- Cada columna se convierte al tipo declarado de forma explicita.
-  -- PL/pgSQL compara los tipos uno a uno y no convierte nada por su
-  -- cuenta: basta con que `titulo` sea varchar y no text para que la
-  -- funcion entera falle con "structure of query does not match
-  -- function result type", sin decir cual columna.
+  --
+  -- El fallo real fue `curso_id`: aqui se declara bigint, pero
+  -- `cursos.id` es INTEGER (es de las tablas originales; casi todo lo
+  -- añadido despues usa bigint). PL/pgSQL compara los tipos uno a uno
+  -- y no convierte por su cuenta, asi que la funcion entera fallaba
+  -- con "structure of query does not match function result type", sin
+  -- decir cual columna era.
+  --
+  -- Se convierten TODAS y no solo esa: la siguiente columna que
+  -- cambie de tipo no deberia volver a tumbar la funcion.
   select
     co.id::bigint,
     co.titulo::text,
