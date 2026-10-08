@@ -777,16 +777,28 @@ a { color: var(--primary); }
 /* ============================================================
    PESTAÑAS DEL PANEL ADMIN
    ============================================================ */
+/* Agrupadas y envolviendo. Antes era una sola fila con desplazamiento
+   lateral: en computadora obligaba a arrastrar para llegar a las
+   ultimas, y en un telefono la mitad de las secciones quedaban
+   escondidas sin que nada insinuara que estaban ahi. */
 .admin-tabs {
   display: flex;
-  gap: 8px;
-  margin: 18px 0 26px;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 18px 0 24px;
+  padding-bottom: 12px;
   border-bottom: 2px solid var(--borde);
 }
+.admin-grupo { display: flex; flex-direction: column; gap: 3px; }
+.admin-grupo-titulo {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--gris); padding-left: 10px;
+}
+.admin-grupo-botones { display: flex; flex-wrap: wrap; gap: 2px; }
 .admin-tab {
   background: none;
   border: none;
-  padding: 12px 20px;
+  padding: 8px 10px;
   font-family: var(--texto);
   font-size: 14px;
   font-weight: 600;
@@ -797,8 +809,12 @@ a { color: var(--primary); }
   transition: all .18s;
 }
 .admin-tab:hover { color: var(--primary); }
+/* Con varias filas, subrayar la activa contra el borde del contenedor
+   dejaria a las de arriba subrayando el aire. Se marca con fondo. */
 .admin-tab.activa {
   color: var(--primary);
+  background: var(--bg-card);
+  border-radius: 8px;
   border-bottom-color: var(--accent);
 }
 
@@ -2912,10 +2928,11 @@ a { color: var(--primary); }
   .modal-botones { justify-content: stretch; }
   .modal-botones .button { flex: 1 1 auto; }
 
-  /* La cabecera del panel: las pestañas se desplazan en lugar de
-     partirse en cinco filas. */
-  .admin-tabs { overflow-x: auto; flex-wrap: nowrap; }
-  .admin-tab { white-space: nowrap; }
+  /* En el telefono cada grupo ocupa su propia linea: una fila por
+     tema se recorre con el pulgar, trece botones seguidos no. */
+  .admin-tabs { gap: 12px 14px; }
+  .admin-grupo { flex: 1 1 100%; }
+  .admin-tab { white-space: nowrap; padding: 9px 11px; font-size: 13.5px; }
 }
 
 /* Pantallas muy estrechas: lo mínimo para que nada se corte. */

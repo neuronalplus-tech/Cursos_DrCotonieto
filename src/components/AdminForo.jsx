@@ -25,6 +25,13 @@ export default function AdminForo({ user }) {
   const [editando, setEditando] = useState(null)
   const [titulo, setTitulo] = useState('')
   const [cuerpo, setCuerpo] = useState('')
+  /* Estos dos faltaban aquí y sí estaban en el editor de dentro del
+     curso, así que un tema creado desde el panel central nunca podía
+     calificarse y no había forma de notarlo salvo echándolo en falta.
+     Mismos nombres y mismos valores por omisión que allá: si vuelven a
+     separarse, vuelve el mismo problema. */
+  const [califica, setCalifica] = useState(false)
+  const [puntosMax, setPuntosMax] = useState(10)
   const [guardando, setGuardando] = useState(false)
   // Nombre real del admin, para la firma del tema. Sin esto el INSERT
   // guardaba autor_id = null y el NOT NULL de la tabla lo rechazaba.
@@ -66,6 +73,8 @@ export default function AdminForo({ user }) {
   const abrirNuevo = () => {
     setEditando(null)
     setTitulo('')
+    setCalifica(false)
+    setPuntosMax(10)
     setCuerpo('')
     setMsg(null)
     setFormAbierto(true)
@@ -74,6 +83,8 @@ export default function AdminForo({ user }) {
   const abrirEdicion = (h) => {
     setEditando(h)
     setTitulo(h.titulo || '')
+    setCalifica(!!h.califica)
+    setPuntosMax(h.puntos_max ?? 10)
     setCuerpo(h.cuerpo || '')
     setMsg(null)
     setFormAbierto(true)
@@ -91,6 +102,8 @@ export default function AdminForo({ user }) {
       curso_id: Number(cursoId),
       titulo: titulo.trim(),
       cuerpo: sanear(contenido),
+      califica,
+      puntos_max: Number(puntosMax) || 10,
       actualizado_en: new Date().toISOString(),
     }
     // Al editar solo se manda el cuerpo; al crear, también la firma. Y la
@@ -217,6 +230,26 @@ return (
               <input className="input" value={titulo} onChange={(e) => setTitulo(e.target.value)}
                      placeholder="Ej. Duda sobre el caso del módulo 2" autoFocus />
 
+              {/* Sin rúbrica desplegable a propósito: lo que se espera se
+                  escribe en el cuerpo del tema, que es donde el alumno ya
+                  está mirando cuando va a responder. */}
+              <label className="foro-evaluable">
+                <input type="checkbox" checked={califica}
+                       onChange={(e) => setCalifica(e.target.checked)} />
+                <span>
+                  <strong>Calificar las aportaciones</strong>
+                  <em className="nota">
+                    La nota de cada quien será el promedio de sus aportaciones.
+                  </em>
+                </span>
+              </label>
+              {califica && (
+                <>
+                  <label style={{ marginTop: 10 }}>Puntaje máximo por aportación</label>
+                  <input className="input" type="number" min="1" value={puntosMax}
+                         onChange={(e) => setPuntosMax(e.target.value)} />
+                </>
+              )}
               <label style={{ marginTop: 14 }}>Contenido</label>
               <EditorForo valor={cuerpo} onChange={setCuerpo} minAlto={160} onGuardar={guardar} />
 

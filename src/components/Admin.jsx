@@ -18,6 +18,44 @@ import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
 
+/* ------------------------------------------------------------
+   LAS SECCIONES DEL PANEL
+   ------------------------------------------------------------
+   [clave, etiqueta, soloPlataforma]. `soloPlataforma` deja fuera
+   del panel de un cliente lo que es cosa del negocio: su bitácora,
+   los demás clientes y lo que cada uno paga.
+
+   Vivir en una tabla y no en veinte botones escritos a mano no es
+   solo por brevedad: así no se puede añadir una pestaña y olvidar
+   el `esAdminPlataforma`, que es como se filtra una fuga.
+   ------------------------------------------------------------ */
+const GRUPOS_PANEL = [
+  ['Contenido', [
+    ['cursos', '📚 Cursos'],
+    ['banco', '🗂️ Banco de preguntas'],
+    ['examenes', '📝 Exámenes'],
+    ['foro', '💬 Foro'],
+  ]],
+  ['Personas', [
+    ['inscripciones', '📋 Inscripciones'],
+    ['usuarios', '👥 Gestión de usuarios'],
+    ['facilitadores', '🛠️ Facilitadores'],
+  ]],
+  ['Seguimiento', [
+    ['tablero', '📈 Tablero'],
+    ['metricas', '📊 Métricas'],
+  ]],
+  ['Comunicación', [
+    ['comunicados', '📧 Comunicados'],
+    ['mensajes', '✉️ Mensajes'],
+  ]],
+  ['Plataforma', [
+    ['organizaciones', '🏢 Organizaciones', true],
+    ['suscripciones', '💳 Suscripciones', true],
+    ['bitacora', '🧾 Bitácora', true],
+  ]],
+]
+
 function Admin({ user }) {
   // Antes `esAdmin` llegaba como prop y arrancaba en false, asi que el
   // panel pintaba "No tienes permisos" durante el instante que tardaba
@@ -1148,28 +1186,31 @@ function Admin({ user }) {
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
       <h1>Panel de administración</h1>
 
-      <div className="admin-tabs">
-        <button type="button" className={`admin-tab ${vista === 'tablero' ? 'activa' : ''}`} onClick={() => setVista('tablero')}>📈 Tablero</button>
-        <button type="button" className={`admin-tab ${vista === 'cursos' ? 'activa' : ''}`} onClick={() => setVista('cursos')}>📚 Cursos</button>
-        <button type="button" className={`admin-tab ${vista === 'inscripciones' ? 'activa' : ''}`} onClick={() => setVista('inscripciones')}>📋 Inscripciones</button>
-        <button type="button" className={`admin-tab ${vista === 'usuarios' ? 'activa' : ''}`} onClick={() => setVista('usuarios')}>👥 Gestión de usuarios</button>
-        <button type="button" className={`admin-tab ${vista === 'facilitadores' ? 'activa' : ''}`} onClick={() => setVista('facilitadores')}>🛠️ Facilitadores</button>
-        <button type="button" className={`admin-tab ${vista === 'metricas' ? 'activa' : ''}`} onClick={() => setVista('metricas')}>📊 Métricas</button>
-        <button type="button" className={`admin-tab ${vista === 'comunicados' ? 'activa' : ''}`} onClick={() => setVista('comunicados')}>📧 Comunicados</button>
-        <button type="button" className={`admin-tab ${vista === 'mensajes' ? 'activa' : ''}`} onClick={() => setVista('mensajes')}>💬 Mensajes</button>
-        <button type="button" className={`admin-tab ${vista === 'examenes' ? 'activa' : ''}`} onClick={() => setVista('examenes')}>📝 Exámenes</button>
-        <button type="button" className={`admin-tab ${vista === 'banco' ? 'activa' : ''}`} onClick={() => setVista('banco')}>📚 Banco de preguntas</button>
-        <button type="button" className={`admin-tab ${vista === 'foro' ? 'activa' : ''}`} onClick={() => setVista('foro')}>💬 Foro</button>
-        {esAdminPlataforma && (
-          <button type="button" className={`admin-tab ${vista === 'bitacora' ? 'activa' : ''}`} onClick={() => setVista('bitacora')}>🧾 Bitácora</button>
-        )}
-        {esAdminPlataforma && (
-          <button type="button" className={`admin-tab ${vista === 'organizaciones' ? 'activa' : ''}`} onClick={() => setVista('organizaciones')}>🏢 Organizaciones</button>
-        )}
-        {esAdminPlataforma && (
-          <button type="button" className={`admin-tab ${vista === 'suscripciones' ? 'activa' : ''}`} onClick={() => setVista('suscripciones')}>💳 Suscripciones</button>
-        )}
-      </div>
+      {/* Trece pestañas en una sola fila obligaban a desplazarse de lado
+          hasta en computadora, y en un teléfono eran impracticables.
+          Agrupadas por lo que se va a hacer, se encuentran antes: la
+          pregunta real nunca es "¿cuál pestaña?", es "¿quiero tocar
+          contenido, personas o dinero?". */}
+      <nav className="admin-tabs" aria-label="Secciones del panel">
+        {GRUPOS_PANEL.map(([grupo, pestañas]) => {
+          const visibles = pestañas.filter(([, , soloPlataforma]) =>
+            !soloPlataforma || esAdminPlataforma)
+          if (!visibles.length) return null
+          return (
+            <div key={grupo} className="admin-grupo">
+              <span className="admin-grupo-titulo">{grupo}</span>
+              <div className="admin-grupo-botones">
+                {visibles.map(([clave, etiqueta]) => (
+                  <button key={clave} type="button"
+                          className={`admin-tab ${vista === clave ? 'activa' : ''}`}
+                          aria-current={vista === clave ? 'page' : undefined}
+                          onClick={() => setVista(clave)}>{etiqueta}</button>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </nav>
 
       {/* El cliente ve su plan y su consumo; tú no, porque tu aula está
           exenta y la franja no se pinta. Va fuera de las pestañas a
