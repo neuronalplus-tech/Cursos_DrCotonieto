@@ -29,6 +29,10 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
   const [descripcion, setDescripcion] = useState(examen?.descripcion || '')
   const [umbral, setUmbral] = useState(examen?.umbral_aprobacion ?? 70)
   const [maxIntentos, setMaxIntentos] = useState(examen?.max_intentos ?? 3)
+  // Cuántas preguntas servir por intento (nulo = todas) y si se revuelve
+  // el orden de las opciones. Lo usa servir_examen() en la base.
+  const [aleatorioN, setAleatorioN] = useState(examen?.aleatorio_n ?? '')
+  const [mezclar, setMezclar] = useState(examen?.mezclar_opciones === true)
   const [activo, setActivo] = useState(examen?.activo !== false)
   const [fechaLimite, setFechaLimite] = useState(examen?.fecha_limite || null)
   const [cierraAlVencer, setCierraAlVencer] = useState(examen?.cierra_al_vencer !== false)
@@ -106,6 +110,11 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
       descripcion: descripcion.trim() || null,
       umbral_aprobacion: Math.max(0, Math.min(100, parseInt(umbral, 10) || 0)),
       max_intentos: Math.max(0, parseInt(maxIntentos, 10) || 0),
+      // Vacío = todas (lo mismo que hoy). Solo se manda si la base ya
+      // tiene las columnas; si el SQL aún no se corrió, PostgREST
+      // rechaza la columna y se reintenta sin ella.
+      ...(aleatorioN === '' || aleatorioN == null ? {} : { aleatorio_n: Math.max(0, parseInt(aleatorioN, 10) || 0) }),
+      ...(mezclar ? { mezclar_opciones: true } : {}),
       activo,
       fecha_limite: fechaLimite,
       cierra_al_vencer: cierraAlVencer,
@@ -114,11 +123,21 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
     }
 
     setGuardando(true); setMsg('')
-    try {
+    // Guarda con reintento: si la base aún no tiene las columnas
+    // nuevas (SQL sin correr), PostgREST rechaza aleatorio_n y se
+    // reintenta sin ellas en vez de dejar el examen sin guardar.
+    const guardarUna = async (cuerpo) => {
       const q = supabase.from('examenes')
-      const { data, error } = esNuevo
-        ? await q.insert(payload).select().single()
-        : await q.update(payload).eq('id', examen.id).select().single()
+      return esNuevo
+        ? await q.insert(cuerpo).select().single()
+        : await q.update(cuerpo).eq('id', examen.id).select().single()
+    }
+    try {
+      let { data, error } = await guardarUna(payload)
+      if (error && /aleatorio_n|mezclar_opciones/.test(error.message || '')) {
+        const { aleatorio_n, mezclar_opciones, ...viejo } = payload
+        ;({ data, error } = await guardarUna(viejo))
+      }
       if (error) throw error
       onGuardado(data)
       onClose()
@@ -175,6 +194,20 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
             Al agotarlos se muestra <strong>solo la mejor calificación</strong>.
             Escribe <strong>0</strong> para dejar intentos ilimitados.
           </p>
+
+          <label>Preguntas por intento (aleatorio)</label>
+          <input type="number" min="0" value={aleatorioN}
+                 onChange={e => setAleatorioN(e.target.value)}
+                 placeholder="Vacío = todas" />
+          <p className="nota">
+            Si pones <strong>2</strong> en un examen de 5, a cada alumno le tocan
+            2 distintas. Vacío es lo mismo que hoy: todos ven todas.
+          </p>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={mezclar} onChange={e => setMezclar(e.target.checked)} />
+            Revolver el orden de las opciones en cada pregunta
+          </label>
 
           <CamposPlazo fecha={fechaLimite} cierra={cierraAlVencer}
                        onFecha={setFechaLimite} onCierra={setCierraAlVencer} />

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { tipoDe, puedeIntentar, resumenIntentos } from '../lib/examenes'
+import { limpiarPregunta } from '../lib/banco'
 import { estadoPlazo, fechaLarga } from '../lib/plazos'
 
 /* ============================================================
@@ -13,6 +14,8 @@ import { estadoPlazo, fechaLarga } from '../lib/plazos'
    ============================================================ */
 export default function ExamenModulo({ moduloId, cursoId, user }) {
   const [examen, setExamen] = useState(null)
+  const [juego, setJuego] = useState(null) // preguntas limpias del intento actual
+  const [intentoId, setIntentoId] = useState(null) // pendiente abierto por servir_examen
   const [prorroga, setProrroga] = useState(null)
   const [intentos, setIntentos] = useState([])
   const [respuestas, setRespuestas] = useState({})
@@ -31,10 +34,35 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
         .eq(columna, valor).eq('activo', true).maybeSingle()
       setExamen(ex)
       if (ex && user) {
-        const { data: int } = await supabase.from('intentos_examen')
-          .select('*').eq('usuario_id', user.id).eq('examen_id', ex.id)
-          .order('fecha', { ascending: false })
-        setIntentos(int || [])
+        // Los pendientes son sorteos abiertos, no intentos: no cuentan
+        // en el historial ni en el límite. Si la base aún no tiene la
+        // columna (SQL sin correr), el filtro falla y se lee sin él.
+        const leer = (conPendiente) => {
+          let q = supabase.from('intentos_examen')
+            .select('*').eq('usuario_id', user.id).eq('examen_id', ex.id)
+          if (conPendiente) q = q.eq('pendiente', false)
+          return q.order('fecha', { ascending: false })
+        }
+        const conFiltro = await leer(true)
+        // ¿La columna `pendiente` no existe (SQL sin correr)? Entonces el
+        // filtro falla: se lee sin él y se descarta lo pendiente aquí mismo.
+        const sinColumna = conFiltro.error && /pendiente/.test(conFiltro.error.message || '')
+        const ultimos = sinColumna ? await leer(false) : conFiltro
+        setIntentos((ultimos.data || []).filter(i => !sinColumna || !i.pendiente))
+        // El juego se sirve aparte: trae solo preguntas limpias (sin
+        // la respuesta) y abre el intento pendiente que luego se
+        // entrega. Si la base aún no tiene las funciones (SQL sin
+        // correr), se cae de vuelta al juego completo de hoy.
+        try {
+          const { data: servido, error: eServ } = await supabase
+            .rpc('servir_examen', { p_examen: ex.id })
+          if (eServ) throw eServ
+          setJuego(servido?.preguntas || null)
+          setIntentoId(servido?.intento_id || null)
+        } catch {
+          setJuego((ex.preguntas || []).map(limpiarPregunta))
+          setIntentoId(null)
+        }
       }
       setCargando(false)
     }
@@ -80,22 +108,59 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
   }
 
   const enviar = async () => {
-    const preguntas = examen.preguntas || []
+    const preguntas = juego || examen.preguntas || []
     if (Object.keys(respuestas).length < preguntas.length) {
       alert('Responde todas las preguntas antes de enviar.'); return
     }
     setEnviando(true)
+    // La nota la pone la base contra el juego guardado, no el
+    // navegador contra lo que ve. Sin intento pendiente (SQL aún
+    // sin correr) se califica como hoy en el cliente.
+    if (intentoId) {
+      const { data, error } = await supabase
+        .rpc('entregar_examen', { p_intento: intentoId, p_respuestas: respuestas })
+      if (error) { alert('Error al guardar: ' + error.message); setEnviando(false); return }
+      setResultado({ calificacion: data.calificacion, aprobado: data.aprobado })
+      setIntentos(prev => [{ calificacion: data.calificacion, aprobado: data.aprobado, fecha: new Date().toISOString() }, ...prev])
+      setEnviando(false)
+      return
+    }
     const { calificacion, aprobado } = calificar()
-    const { error } = await supabase.from('intentos_examen').insert({
-      usuario_id: user.id, examen_id: examen.id, respuestas, calificacion, aprobado
-    })
+    // Se guarda el juego respondido: la revisión lee de ahí y no del
+    // examen actual (que el editor pudo cambiar después). Si la base
+    // aún no tiene las columnas, se reintenta como hoy.
+    const intentoViejo = {
+      usuario_id: user.id, examen_id: examen.id, respuestas, calificacion, aprobado,
+      preguntas: examen.preguntas || [], pendiente: false,
+    }
+    let { error } = await supabase.from('intentos_examen').insert(intentoViejo)
+    if (error && /preguntas|pendiente/.test(error.message || '')) {
+      const { preguntas, pendiente, ...base } = intentoViejo
+      ;({ error } = await supabase.from('intentos_examen').insert(base))
+    }
     if (error) { alert('Error al guardar: ' + error.message); setEnviando(false); return }
     setResultado({ calificacion, aprobado })
     setIntentos(prev => [{ calificacion, aprobado, fecha: new Date().toISOString() }, ...prev])
     setEnviando(false)
   }
 
-  const reintentar = () => { setRespuestas({}); setResultado(null) }
+  const reintentar = async () => {
+    setRespuestas({}); setResultado(null)
+    // Cada intento merece su propio sorteo: se pide un juego nuevo
+    // en vez de reutilizar el ya respondido.
+    if (examen && user) {
+      try {
+        const { data: servido, error: eServ } = await supabase
+          .rpc('servir_examen', { p_examen: examen.id })
+        if (eServ) throw eServ
+        setJuego(servido?.preguntas || null)
+        setIntentoId(servido?.intento_id || null)
+        return
+      } catch { /* cae al juego completo de abajo */ }
+    }
+    setJuego((examen.preguntas || []).map(limpiarPregunta))
+    setIntentoId(null)
+  }
   const mejor = intentos.reduce((m, i) => Math.max(m, i.calificacion), 0)
   const resumen = resumenIntentos(intentos, examen.max_intentos)
   const quedanIntentos = puedeIntentar(intentos, examen.max_intentos)
@@ -173,7 +238,7 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
       ) : plazo.abierto ? (
         <>
           <ol className="examen-preguntas">
-            {(examen.preguntas || []).map((p) => {
+            {(juego || examen.preguntas || []).map((p) => {
               const tipo = tipoDe(p)
               return (
               <li key={p.id}>
@@ -199,9 +264,24 @@ export default function ExamenModulo({ moduloId, cursoId, user }) {
                     {(p.pares || []).map((par) => (
                       <label key={par.id} className="examen-opcion">
                         <span style={{ minWidth: 120 }}>{par.premisa}</span>
-                        <input type="text" value={respuestas[p.id]?.[par.id] || ''}
-                               onChange={e => setRespuestas(r => ({ ...r, [p.id]: { ...(r[p.id] || {}), [par.id]: e.target.value } }))}
-                               placeholder="Respuesta" style={{ flex: 1 }} />
+                        {/* Con el juego servido ya no se adivina escribiendo:
+                            la base manda respuestas_posibles solo con los
+                            textos, sin decir cuál va con cuál. En el modo
+                            viejo (sin SQL corrido) se escribe a mano. */}
+                        {p.respuestas_posibles ? (
+                          <select value={respuestas[p.id]?.[par.id] || ''}
+                                  onChange={e => setRespuestas(r => ({ ...r, [p.id]: { ...(r[p.id] || {}), [par.id]: e.target.value } }))}
+                                  style={{ flex: 1 }}>
+                            <option value="">Elige…</option>
+                            {p.respuestas_posibles.map((texto, k) => (
+                              <option key={k} value={texto}>{texto}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input type="text" value={respuestas[p.id]?.[par.id] || ''}
+                                 onChange={e => setRespuestas(r => ({ ...r, [p.id]: { ...(r[p.id] || {}), [par.id]: e.target.value } }))}
+                                 placeholder="Respuesta" style={{ flex: 1 }} />
+                        )}
                       </label>
                     ))}
                   </div>
