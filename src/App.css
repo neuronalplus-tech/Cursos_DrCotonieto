@@ -3345,3 +3345,37 @@ a { color: var(--primary); }
   .sesion-alta { grid-template-columns: 1fr 1fr; }
   .sesion-alta-botones { grid-column: 1 / -1; }
 }
+
+/* ============================================================
+   PLANTILLAS DE DOCUMENTOS
+   ============================================================ */
+.plantilla-editor { padding: 18px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.plantilla-editor label { display: block; margin-top: 12px; font-size: 13px;
+  font-weight: 600; color: var(--body); }
+.plantilla-editor .input { width: 100%; }
+.plantilla-texto { font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px; line-height: 1.5; }
+.plantilla-ejemplos { display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; margin-top: 12px; }
+.plantilla-ayuda { margin: 12px 0; }
+.plantilla-ayuda summary { cursor: pointer; font-size: 13.5px;
+  font-weight: 600; color: var(--primary); }
+.plantilla-ayuda code { font-size: 12.5px; }
+
+/* La hoja de la vista previa: proporcion de carta, para que lo que
+   se ve se parezca a lo que sale impreso. */
+.plantilla-previa { position: relative; background: var(--blanco);
+  border: 1px solid var(--borde); border-radius: 6px;
+  padding: 34px 40px; margin-top: 8px; overflow: hidden;
+  aspect-ratio: 8.5 / 11; max-height: 560px; overflow-y: auto;
+  font-size: 13px; line-height: 1.55; color: var(--body); }
+.plantilla-previa.horizontal { aspect-ratio: 11 / 8.5; }
+.plantilla-previa h1 { font-size: 19px; text-align: center; margin: 0 0 14px; }
+.plantilla-previa h2 { font-size: 16px; text-align: center; margin: 12px 0; }
+.plantilla-previa table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.plantilla-previa th,
+.plantilla-previa td { border: 1px solid var(--borde); padding: 5px 8px;
+  text-align: left; font-size: 12px; }
+.previa-membrete { display: block; width: 100%; margin-bottom: 18px; }
+.previa-firma { position: absolute; transform: translate(-50%, -50%); }

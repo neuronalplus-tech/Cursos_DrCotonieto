@@ -1,5 +1,5 @@
 -- =============================================================
---  SEGURIDAD Y LOGICA · generado el 2026-10-08
+--  SEGURIDAD Y LOGICA · generado el 2026-10-09
 --
 --  QUE ES
 --  Todas las funciones, politicas de acceso y disparadores de la
@@ -53,6 +53,47 @@ begin
     order by 1;
 end;
 $function$;
+
+create or replace function public.asistencia_de_generacion(p_generacion bigint)
+ RETURNS TABLE(usuario_id uuid, sesiones integer, presentes integer, retardos integer, ausencias integer, justificadas integer, porcentaje numeric)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_curso bigint;
+begin
+  select g.curso_id into v_curso from public.generaciones g where g.id = p_generacion;
+  if not public.puede_gestionar_curso(v_curso) then
+    raise exception 'No impartes este grupo.' using errcode = '42501';
+  end if;
+
+  return query
+  with sesiones_validas as (
+    select s.id from public.sesiones s
+     where s.generacion_id = p_generacion and not s.cancelada
+  ),
+  inscritos as (
+    select distinct a.usuario_id from public.acceso a
+     where a.generacion_id = p_generacion
+  )
+  select
+    i.usuario_id,
+    (select count(*)::int from sesiones_validas),
+    count(*) filter (where asi.estado = 'presente')::int,
+    count(*) filter (where asi.estado = 'retardo')::int,
+    count(*) filter (where asi.estado = 'ausente')::int,
+    count(*) filter (where asi.justificada)::int,
+    case when (select count(*) from sesiones_validas) > 0
+         then round(
+           count(*) filter (where asi.estado in ('presente', 'retardo'))::numeric
+           / (select count(*) from sesiones_validas) * 100, 1)
+         else null end
+  from inscritos i
+  left join public.asistencia asi
+         on asi.usuario_id = i.usuario_id
+        and asi.sesion_id in (select id from sesiones_validas)
+  group by i.usuario_id;
+end $function$;
 
 create or replace function public.bulk_grant_course_access(user_ids uuid[], target_course_id integer)
  RETURNS void
@@ -204,6 +245,18 @@ begin
   end if;
   return v_curso;
 end $function$;
+
+create or replace function public.curso_de_sesion(p_sesion bigint)
+ RETURNS bigint
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select g.curso_id
+  from public.sesiones s
+  join public.generaciones g on g.id = s.generacion_id
+  where s.id = p_sesion
+$function$;
 
 create or replace function public.curso_de_tarea(p_tarea bigint)
  RETURNS bigint
@@ -381,6 +434,63 @@ begin
 end
 $function$;
 
+create or replace function public.entregar_examen(p_intento bigint, p_respuestas jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_intento   public.intentos_examen%rowtype;
+  v_examen    public.examenes%rowtype;
+  v_juego     jsonb;
+  v_total     int;
+  v_correctas int := 0;
+  v_nota      int;
+  v_aprobado  boolean;
+  v_p         jsonb;
+begin
+  select * into v_intento
+    from public.intentos_examen i where i.id = p_intento;
+  if not found then
+    raise exception 'No existe el intento %', p_intento
+      using errcode = 'no_data_found';
+  end if;
+  if v_intento.usuario_id is distinct from auth.uid() then
+    raise exception 'Ese intento no es tuyo.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not coalesce(v_intento.pendiente, false) then
+    raise exception 'Ese intento ya fue entregado.'
+      using errcode = 'check_violation';
+  end if;
+  select * into v_examen from public.examenes e where e.id = v_intento.examen_id;
+  -- El juego guardado manda; el examen actual es el respaldo para
+  -- los intentos de antes de la aleatorización, que no traen juego.
+  v_juego := coalesce(v_intento.preguntas, v_examen.preguntas, '[]'::jsonb);
+  v_total := jsonb_array_length(v_juego);
+  for v_p in select x from jsonb_array_elements(v_juego) x loop
+    if public.es_correcta_examen(v_p, (p_respuestas -> (v_p ->> 'id'))) then
+      v_correctas := v_correctas + 1;
+    end if;
+  end loop;
+  v_nota := case when v_total > 0
+    then round((v_correctas::numeric / v_total) * 100)::int else 0 end;
+  v_aprobado := v_nota >= coalesce(v_examen.umbral_aprobacion, 0);
+  update public.intentos_examen i
+     set respuestas = coalesce(p_respuestas, '{}'::jsonb),
+         calificacion = v_nota,
+         aprobado = v_aprobado,
+         pendiente = false
+   where i.id = p_intento;
+  return jsonb_build_object(
+    'calificacion', v_nota,
+    'aprobado', v_aprobado,
+    'correctas', v_correctas,
+    'total', v_total
+  );
+end $function$;
+
 create or replace function public.es_admin()
  RETURNS boolean
  LANGUAGE sql
@@ -434,6 +544,47 @@ AS $function$
       and public.puede_gestionar_curso(ac.curso_id)
   )
 $function$;
+
+create or replace function public.es_correcta_examen(p jsonb, r jsonb)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_tipo     text := coalesce(p ->> 'tipo', 'opcion');
+  v_txt      text;
+  v_idx      int;
+  v_esperado text;
+  v_dada     text;
+begin
+  if r is null then return false; end if;
+  if v_tipo = 'opcion' or v_tipo = 'vf' then
+    v_txt := r #>> '{}';
+    if v_txt is null or v_txt !~ '^-?[0-9]+$' then return false; end if;
+    v_idx := v_txt::int;
+    return coalesce(((p -> 'opciones' -> v_idx) ->> 'correcta')::boolean, false);
+  elsif v_tipo = 'corta' then
+    v_esperado := nullif(btrim(lower(coalesce(p ->> 'respuesta', ''))), '');
+    if v_esperado is null then return false; end if;
+    v_dada := btrim(lower(r #>> '{}'));
+    if v_dada is null or v_dada = '' then return false; end if;
+    if v_dada = v_esperado then return true; end if;
+    return exists (
+      select 1
+        from unnest(string_to_array(replace(v_esperado, ';', '|'), '|')) x
+       where nullif(btrim(x), '') = v_dada);
+  elsif v_tipo = 'emparejar' then
+    if jsonb_typeof(r) is distinct from 'object' then return false; end if;
+    if jsonb_array_length(coalesce(p -> 'pares', '[]'::jsonb)) = 0 then return false; end if;
+    return coalesce((select bool_and(
+             btrim(coalesce(r ->> (x ->> 'id'), '')) = btrim(coalesce(x ->> 'respuesta', ''))
+           )
+           from jsonb_array_elements(p -> 'pares') x), false);
+  else
+    return false;
+  end if;
+end $function$;
 
 create or replace function public.es_facilitador()
  RETURNS boolean
@@ -537,6 +688,41 @@ AS $function$
   from public.organizaciones o
   left join public.planes p on p.id = o.plan_id
   where o.id = p_org
+$function$;
+
+create or replace function public.limpiar_pregunta(p jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'id', p -> 'id',
+    'tipo', coalesce(p ->> 'tipo', 'opcion'),
+    'pregunta', p -> 'pregunta',
+    'opciones', case
+      when coalesce(p ->> 'tipo', 'opcion') in ('opcion', 'vf') then
+        (select coalesce(jsonb_agg(
+           jsonb_build_object('texto', o -> 'texto')
+           order by s.n), '[]'::jsonb)
+         from jsonb_array_elements(coalesce(p -> 'opciones', '[]'::jsonb))
+           with ordinality as s(o, n))
+      else null end,
+    'pares', case
+      when coalesce(p ->> 'tipo', 'opcion') = 'emparejar' then
+        (select coalesce(jsonb_agg(
+           jsonb_build_object('id', x -> 'id', 'premisa', x -> 'premisa')
+           order by s.n), '[]'::jsonb)
+         from jsonb_array_elements(coalesce(p -> 'pares', '[]'::jsonb))
+           with ordinality as s(x, n))
+      else null end,
+    'respuestas_posibles', case
+      when coalesce(p ->> 'tipo', 'opcion') = 'emparejar' then
+        (select coalesce(jsonb_agg(x -> 'respuesta' order by s.n), '[]'::jsonb)
+         from jsonb_array_elements(coalesce(p -> 'pares', '[]'::jsonb))
+           with ordinality as s(x, n))
+      else null end
+  ))
 $function$;
 
 create or replace function public.listar_usuarios_con_accesos()
@@ -906,6 +1092,128 @@ BEGIN
   END LOOP;
 END;
 $function$;
+
+create or replace function public.servir_examen(p_examen bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_examen   public.examenes%rowtype;
+  v_todas    jsonb;
+  v_total    int;
+  v_n        int;
+  v_orden    int[];
+  v_i        int;
+  v_j        int;
+  v_tmp      int;
+  v_elegidas jsonb := '[]'::jsonb;
+  v_p        jsonb;
+  v_ops      jsonb;
+  v_pares    jsonb;
+  v_usados   int;
+  v_limite   int;
+  v_intento  bigint;
+  v_limpias  jsonb;
+begin
+  select * into v_examen from public.examenes e where e.id = p_examen;
+  if not found then
+    raise exception 'No existe el examen %', p_examen
+      using errcode = 'no_data_found';
+  end if;
+  if not coalesce(v_examen.activo, true) then
+    raise exception 'Este examen no está activo.'
+      using errcode = 'check_violation';
+  end if;
+  if not public.tiene_acceso_al_curso(
+    public.curso_del_examen(v_examen.curso_id, v_examen.modulo_id)) then
+    raise exception 'No tienes acceso a este examen.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not public.puede_entregar('examen', p_examen, auth.uid()) then
+    raise exception 'El plazo de este examen ya cerró.'
+      using errcode = 'check_violation';
+  end if;
+  -- Los pendientes no cuentan: son sorteos abiertos, no intentos.
+  select i.id into v_intento
+    from public.intentos_examen i
+   where i.examen_id = p_examen
+     and i.usuario_id = auth.uid()
+     and coalesce(i.pendiente, false) = true
+   order by i.fecha desc
+   limit 1;
+  select count(*) into v_usados
+    from public.intentos_examen i
+   where i.examen_id = p_examen
+     and i.usuario_id = auth.uid()
+     and coalesce(i.pendiente, false) = false;
+  v_limite := coalesce(v_examen.max_intentos, 0);
+  if v_limite > 0 and v_usados >= v_limite then
+    raise exception 'Ya usaste tus % intentos.', v_limite
+      using errcode = 'check_violation';
+  end if;
+  if v_intento is null then
+    v_todas := coalesce(v_examen.preguntas, '[]'::jsonb);
+    v_total := jsonb_array_length(v_todas);
+    v_n := coalesce(nullif(v_examen.aleatorio_n, 0), v_total);
+    v_n := least(greatest(v_n, 0), v_total);
+    v_orden := array(select g from generate_series(0, v_total - 1) g);
+    if coalesce(nullif(v_examen.aleatorio_n, 0), 0) > 0 then
+      v_i := v_total - 1;
+      while v_i > 0 loop
+        v_j := floor(random() * (v_i + 1))::int;
+        v_tmp := v_orden[v_i + 1];
+        v_orden[v_i + 1] := v_orden[v_j + 1];
+        v_orden[v_j + 1] := v_tmp;
+        v_i := v_i - 1;
+      end loop;
+    end if;
+    for v_i in 1 .. v_n loop
+      v_p := v_todas -> v_orden[v_i];
+      -- Se guarda el juego YA mezclado: la corrección lee la
+      -- posición correcta ahí, no en el examen original.
+      if v_examen.mezclar_opciones
+         and coalesce(v_p ->> 'tipo', 'opcion') in ('opcion', 'vf') then
+        select coalesce(jsonb_agg(o order by random()), '[]'::jsonb)
+          into v_ops
+          from jsonb_array_elements(coalesce(v_p -> 'opciones', '[]'::jsonb)) o;
+        v_p := jsonb_set(v_p, '{opciones}', v_ops);
+      end if;
+      if v_examen.mezclar_opciones
+         and coalesce(v_p ->> 'tipo', 'opcion') = 'emparejar' then
+        select coalesce(jsonb_agg(x order by random()), '[]'::jsonb)
+          into v_pares
+          from jsonb_array_elements(coalesce(v_p -> 'pares', '[]'::jsonb)) x;
+        v_p := jsonb_set(v_p, '{pares}', v_pares);
+      end if;
+      v_elegidas := v_elegidas || jsonb_build_array(v_p);
+    end loop;
+    insert into public.intentos_examen
+      (usuario_id, examen_id, respuestas, calificacion, aprobado, preguntas, pendiente)
+    values
+      (auth.uid(), p_examen, '{}'::jsonb, 0, false, v_elegidas, true)
+    returning id into v_intento;
+  end if;
+  select coalesce(jsonb_agg(
+      public.limpiar_pregunta(x) order by s.n), '[]'::jsonb)
+    into v_limpias
+    from public.intentos_examen i,
+         jsonb_array_elements(coalesce(i.preguntas, '[]'::jsonb))
+           with ordinality as s(x, n)
+   where i.id = v_intento;
+  return jsonb_build_object(
+    'intento_id', v_intento,
+    'examen_id', v_examen.id,
+    'titulo', v_examen.titulo,
+    'descripcion', v_examen.descripcion,
+    'umbral_aprobacion', v_examen.umbral_aprobacion,
+    'max_intentos', v_examen.max_intentos,
+    'preguntas', coalesce(v_limpias, '[]'::jsonb),
+    'intentos_usados', v_usados,
+    'intentos_limite', case when v_limite > 0 then v_limite else null end
+  );
+end $function$;
 
 create or replace function public.tablero_cursos(p_org bigint)
  RETURNS TABLE(curso_id bigint, titulo text, alumnos integer, avance_medio numeric, terminados integer, por_calificar integer, constancias integer, ultima_actividad timestamp with time zone)
@@ -1323,6 +1631,7 @@ end $function$;
 -- -------------------------------------------------------------
 alter table public.acceso enable row level security;
 alter table public.admins enable row level security;
+alter table public.asistencia enable row level security;
 alter table public.auditoria enable row level security;
 alter table public.banco_preguntas enable row level security;
 alter table public.categorias enable row level security;
@@ -1346,6 +1655,8 @@ alter table public.progreso_usuario enable row level security;
 alter table public.prorrogas enable row level security;
 alter table public.recursos enable row level security;
 alter table public.rubrica_criterios enable row level security;
+alter table public.sedes enable row level security;
+alter table public.sesiones enable row level security;
 alter table public.tareas enable row level security;
 
 -- -------------------------------------------------------------
@@ -1396,6 +1707,21 @@ create policy "admin_ver_propio" on public.admins
   for select
   to authenticated
   using ((email = (auth.jwt() ->> 'email'::text)));
+
+-- asistencia
+drop policy if exists "asistencia_escribir" on public.asistencia;
+create policy "asistencia_escribir" on public.asistencia
+  as permissive
+  for all
+  to authenticated
+  using (puede_gestionar_curso(curso_de_sesion(sesion_id)))
+  with check (puede_gestionar_curso(curso_de_sesion(sesion_id)));
+drop policy if exists "asistencia_select" on public.asistencia;
+create policy "asistencia_select" on public.asistencia
+  as permissive
+  for select
+  to authenticated
+  using (((usuario_id = auth.uid()) OR puede_gestionar_curso(curso_de_sesion(sesion_id))));
 
 -- auditoria
 drop policy if exists "auditoria_select_admin" on public.auditoria;
@@ -1684,7 +2010,7 @@ create policy "intentos_insert_own" on public.intentos_examen
   as permissive
   for insert
   to authenticated
-  with check ((usuario_id = auth.uid()));
+  with check (false);
 drop policy if exists "intentos_select_own" on public.intentos_examen;
 create policy "intentos_select_own" on public.intentos_examen
   as permissive
@@ -1974,6 +2300,45 @@ create policy "rubrica_select" on public.rubrica_criterios
   to authenticated
   using ((puede_gestionar_curso(curso_de_tarea(tarea_id)) OR tiene_acceso_al_curso(curso_de_tarea(tarea_id))));
 
+-- sedes
+drop policy if exists "sedes_escribir" on public.sedes;
+create policy "sedes_escribir" on public.sedes
+  as permissive
+  for all
+  to authenticated
+  using (es_admin_de(organizacion_id))
+  with check (es_admin_de(organizacion_id));
+drop policy if exists "sedes_select" on public.sedes;
+create policy "sedes_select" on public.sedes
+  as permissive
+  for select
+  to authenticated
+  using (true);
+
+-- sesiones
+drop policy if exists "sesiones_escribir" on public.sesiones;
+create policy "sesiones_escribir" on public.sesiones
+  as permissive
+  for all
+  to authenticated
+  using (puede_gestionar_curso(( SELECT g.curso_id
+   FROM generaciones g
+  WHERE (g.id = sesiones.generacion_id))))
+  with check (puede_gestionar_curso(( SELECT g.curso_id
+   FROM generaciones g
+  WHERE (g.id = sesiones.generacion_id))));
+drop policy if exists "sesiones_select" on public.sesiones;
+create policy "sesiones_select" on public.sesiones
+  as permissive
+  for select
+  to authenticated
+  using ((puede_gestionar_curso(( SELECT g.curso_id
+   FROM generaciones g
+  WHERE (g.id = sesiones.generacion_id))) OR (EXISTS ( SELECT 1
+   FROM (acceso a
+     JOIN generaciones g ON ((g.id = a.generacion_id)))
+  WHERE ((a.usuario_id = auth.uid()) AND (g.id = a.generacion_id))))));
+
 -- tareas
 drop policy if exists "tareas_delete" on public.tareas;
 create policy "tareas_delete" on public.tareas
@@ -2066,4 +2431,4 @@ select 'disparadores', count(*)::text from pg_trigger t
   join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and not t.tgisinternal;
 
--- Esperado: funciones 47 · politicas 91 · disparadores 23
+-- Esperado: funciones 53 · politicas 97 · disparadores 23

@@ -1,5 +1,5 @@
 -- =============================================================
---  ESQUEMA BASE · generado el 2026-10-08
+--  ESQUEMA BASE · generado el 2026-10-09
 --
 --  PARA QUE SIRVE
 --  Reconstruir la forma de la base desde cero. Hasta ahora no
@@ -39,6 +39,7 @@
 --  existe todavia.
 -- -------------------------------------------------------------
 create sequence if not exists public.acceso_id_seq;
+create sequence if not exists public.asistencia_id_seq;
 create sequence if not exists public.auditoria_id_seq;
 create sequence if not exists public.banco_preguntas_id_seq;
 create sequence if not exists public.categorias_id_seq;
@@ -61,6 +62,8 @@ create sequence if not exists public.progreso_usuario_id_seq;
 create sequence if not exists public.prorrogas_id_seq;
 create sequence if not exists public.recursos_id_seq;
 create sequence if not exists public.rubrica_criterios_id_seq;
+create sequence if not exists public.sedes_id_seq;
+create sequence if not exists public.sesiones_id_seq;
 create sequence if not exists public.tareas_id_seq;
 
 -- -------------------------------------------------------------
@@ -78,6 +81,19 @@ create table if not exists public.admins (
   email text not null,
   created_at timestamp with time zone default now(),
   organizacion_id bigint
+);
+
+-- -------------------------------------------------------------
+create table if not exists public.asistencia (
+  id bigint default nextval('asistencia_id_seq'::regclass) not null,
+  sesion_id bigint not null,
+  usuario_id uuid not null,
+  estado text default 'presente'::text not null,
+  justificada boolean default false not null,
+  motivo text,
+  nota text,
+  registrado_por text,
+  registrado_en timestamp with time zone default now() not null
 );
 
 -- -------------------------------------------------------------
@@ -200,7 +216,9 @@ create table if not exists public.examenes (
   curso_id bigint,
   max_intentos integer default 3 not null,
   fecha_limite timestamp with time zone,
-  cierra_al_vencer boolean default true not null
+  cierra_al_vencer boolean default true not null,
+  aleatorio_n integer,
+  mezclar_opciones boolean default false not null
 );
 
 -- -------------------------------------------------------------
@@ -257,7 +275,9 @@ create table if not exists public.generaciones (
   fecha_fin date,
   cupo integer,
   activa boolean default true not null,
-  creado_en timestamp with time zone default now() not null
+  creado_en timestamp with time zone default now() not null,
+  sede_id bigint,
+  modalidad text default 'linea'::text not null
 );
 
 -- -------------------------------------------------------------
@@ -268,7 +288,9 @@ create table if not exists public.intentos_examen (
   respuestas jsonb not null,
   calificacion integer not null,
   aprobado boolean not null,
-  fecha timestamp with time zone default now()
+  fecha timestamp with time zone default now(),
+  preguntas jsonb,
+  pendiente boolean default false not null
 );
 
 -- -------------------------------------------------------------
@@ -425,6 +447,34 @@ create table if not exists public.rubrica_criterios (
 );
 
 -- -------------------------------------------------------------
+create table if not exists public.sedes (
+  id bigint default nextval('sedes_id_seq'::regclass) not null,
+  organizacion_id bigint not null,
+  nombre text not null,
+  ciudad text,
+  direccion text,
+  responsable text,
+  activa boolean default true not null,
+  creado_en timestamp with time zone default now() not null
+);
+
+-- -------------------------------------------------------------
+create table if not exists public.sesiones (
+  id bigint default nextval('sesiones_id_seq'::regclass) not null,
+  generacion_id bigint not null,
+  modulo_id bigint,
+  titulo text,
+  fecha date not null,
+  hora_inicio time without time zone,
+  hora_fin time without time zone,
+  lugar text,
+  impartida_por text,
+  notas text,
+  cancelada boolean default false not null,
+  creado_en timestamp with time zone default now() not null
+);
+
+-- -------------------------------------------------------------
 create table if not exists public.tareas (
   id bigint default nextval('tareas_id_seq'::regclass) not null,
   curso_id bigint,
@@ -457,6 +507,13 @@ do $$ begin
                   where conname = 'admins_pkey'
                     and conrelid = 'public.admins'::regclass) then
     alter table public.admins add constraint admins_pkey PRIMARY KEY (email);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'asistencia_pkey'
+                    and conrelid = 'public.asistencia'::regclass) then
+    alter table public.asistencia add constraint asistencia_pkey PRIMARY KEY (id);
   end if;
 end $$;
 do $$ begin
@@ -622,6 +679,20 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'sedes_pkey'
+                    and conrelid = 'public.sedes'::regclass) then
+    alter table public.sedes add constraint sedes_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'sesiones_pkey'
+                    and conrelid = 'public.sesiones'::regclass) then
+    alter table public.sesiones add constraint sesiones_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'tareas_pkey'
                     and conrelid = 'public.tareas'::regclass) then
     alter table public.tareas add constraint tareas_pkey PRIMARY KEY (id);
@@ -650,6 +721,13 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'asistencia_estado_check'
+                    and conrelid = 'public.asistencia'::regclass) then
+    alter table public.asistencia add constraint asistencia_estado_check CHECK ((estado = ANY (ARRAY['presente'::text, 'retardo'::text, 'ausente'::text, 'permiso'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'banco_preguntas_dificultad_check'
                     and conrelid = 'public.banco_preguntas'::regclass) then
     alter table public.banco_preguntas add constraint banco_preguntas_dificultad_check CHECK (((dificultad IS NULL) OR ((dificultad >= 1) AND (dificultad <= 3))));
@@ -671,9 +749,23 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'examenes_aleatorio_n_check'
+                    and conrelid = 'public.examenes'::regclass) then
+    alter table public.examenes add constraint examenes_aleatorio_n_check CHECK (((aleatorio_n IS NULL) OR (aleatorio_n >= 0)));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'facilitadores_destino_check'
                     and conrelid = 'public.facilitadores'::regclass) then
     alter table public.facilitadores add constraint facilitadores_destino_check CHECK (((curso_id IS NOT NULL) <> (categoria_id IS NOT NULL)));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'generaciones_modalidad_check'
+                    and conrelid = 'public.generaciones'::regclass) then
+    alter table public.generaciones add constraint generaciones_modalidad_check CHECK ((modalidad = ANY (ARRAY['linea'::text, 'presencial'::text, 'mixta'::text])));
   end if;
 end $$;
 do $$ begin
@@ -744,6 +836,13 @@ do $$ begin
                   where conname = 'admins_organizacion_id_fkey'
                     and conrelid = 'public.admins'::regclass) then
     alter table public.admins add constraint admins_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'asistencia_sesion_id_fkey'
+                    and conrelid = 'public.asistencia'::regclass) then
+    alter table public.asistencia add constraint asistencia_sesion_id_fkey FOREIGN KEY (sesion_id) REFERENCES sesiones(id) ON DELETE CASCADE;
   end if;
 end $$;
 do $$ begin
@@ -846,6 +945,13 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'generaciones_sede_id_fkey'
+                    and conrelid = 'public.generaciones'::regclass) then
+    alter table public.generaciones add constraint generaciones_sede_id_fkey FOREIGN KEY (sede_id) REFERENCES sedes(id) ON DELETE SET NULL;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'intentos_examen_examen_id_fkey'
                     and conrelid = 'public.intentos_examen'::regclass) then
     alter table public.intentos_examen add constraint intentos_examen_examen_id_fkey FOREIGN KEY (examen_id) REFERENCES examenes(id) ON DELETE CASCADE;
@@ -944,6 +1050,27 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'sedes_organizacion_id_fkey'
+                    and conrelid = 'public.sedes'::regclass) then
+    alter table public.sedes add constraint sedes_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'sesiones_generacion_id_fkey'
+                    and conrelid = 'public.sesiones'::regclass) then
+    alter table public.sesiones add constraint sesiones_generacion_id_fkey FOREIGN KEY (generacion_id) REFERENCES generaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'sesiones_modulo_id_fkey'
+                    and conrelid = 'public.sesiones'::regclass) then
+    alter table public.sesiones add constraint sesiones_modulo_id_fkey FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE SET NULL;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'tareas_curso_id_fkey'
                     and conrelid = 'public.tareas'::regclass) then
     alter table public.tareas add constraint tareas_curso_id_fkey FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE;
@@ -963,6 +1090,7 @@ end $$;
 --  arriba, asi que aqui solo van los demas.
 -- -------------------------------------------------------------
 create index if not exists acceso_generacion_idx ON public.acceso USING btree (generacion_id);
+create unique index if not exists asistencia_sesion_usuario_idx ON public.asistencia USING btree (sesion_id, usuario_id);
 create index if not exists auditoria_creado_idx ON public.auditoria USING btree (creado_en DESC);
 create index if not exists auditoria_tabla_idx ON public.auditoria USING btree (tabla, registro_id);
 create index if not exists banco_preguntas_org_idx ON public.banco_preguntas USING btree (organizacion_id, tema);
@@ -987,6 +1115,7 @@ create index if not exists foro_respuestas_hilo_idx ON public.foro_respuestas US
 create index if not exists foro_respuestas_rama_idx ON public.foro_respuestas USING btree (responde_a);
 create index if not exists generaciones_curso_idx ON public.generaciones USING btree (curso_id, fecha_inicio DESC);
 create unique index if not exists generaciones_curso_nombre_idx ON public.generaciones USING btree (curso_id, lower(nombre));
+create index if not exists generaciones_sede_idx ON public.generaciones USING btree (sede_id);
 create index if not exists idx_intentos_usuario ON public.intentos_examen USING btree (usuario_id, examen_id);
 create index if not exists idx_mensajes_de_para ON public.mensajes USING btree (de_id, para_id, created_at DESC);
 create index if not exists idx_mensajes_para_leido ON public.mensajes USING btree (para_id, leido);
@@ -997,6 +1126,10 @@ create unique index if not exists planes_clave_idx ON public.planes USING btree 
 create unique index if not exists prorrogas_generacion_idx ON public.prorrogas USING btree (tipo, actividad_id, generacion_id) WHERE (generacion_id IS NOT NULL);
 create unique index if not exists prorrogas_usuario_idx ON public.prorrogas USING btree (tipo, actividad_id, usuario_id) WHERE (usuario_id IS NOT NULL);
 create index if not exists rubrica_tarea_idx ON public.rubrica_criterios USING btree (tarea_id, orden);
+create unique index if not exists sedes_nombre_idx ON public.sedes USING btree (organizacion_id, lower(nombre));
+create index if not exists sedes_org_idx ON public.sedes USING btree (organizacion_id);
+create index if not exists sesiones_generacion_idx ON public.sesiones USING btree (generacion_id, fecha);
+create index if not exists sesiones_modulo_idx ON public.sesiones USING btree (modulo_id);
 create index if not exists tareas_curso_idx ON public.tareas USING btree (curso_id);
 create index if not exists tareas_modulo_idx ON public.tareas USING btree (modulo_id);
 
@@ -1006,6 +1139,7 @@ create index if not exists tareas_modulo_idx ON public.tareas USING btree (modul
 --  se reinician al vaciarla.
 -- -------------------------------------------------------------
 alter sequence public.acceso_id_seq owned by public.acceso.id;
+alter sequence public.asistencia_id_seq owned by public.asistencia.id;
 alter sequence public.auditoria_id_seq owned by public.auditoria.id;
 alter sequence public.banco_preguntas_id_seq owned by public.banco_preguntas.id;
 alter sequence public.categorias_id_seq owned by public.categorias.id;
@@ -1025,6 +1159,8 @@ alter sequence public.progreso_usuario_id_seq owned by public.progreso_usuario.i
 alter sequence public.prorrogas_id_seq owned by public.prorrogas.id;
 alter sequence public.recursos_id_seq owned by public.recursos.id;
 alter sequence public.rubrica_criterios_id_seq owned by public.rubrica_criterios.id;
+alter sequence public.sedes_id_seq owned by public.sedes.id;
+alter sequence public.sesiones_id_seq owned by public.sesiones.id;
 alter sequence public.tareas_id_seq owned by public.tareas.id;
 
 -- =============================================================
@@ -1033,4 +1169,4 @@ alter sequence public.tareas_id_seq owned by public.tareas.id;
 select 'tablas' as que, count(*)::text as n from pg_class c
   join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and c.relkind='r';
--- Esperado: 26
+-- Esperado: 29

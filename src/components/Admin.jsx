@@ -12,6 +12,7 @@ import AdminOrganizaciones from './AdminOrganizaciones'
 import AdminSuscripciones, { ResumenPlan } from './AdminSuscripciones'
 import BancoPreguntas from './BancoPreguntas'
 import TableroOrg from './TableroOrg'
+import AdminPlantillas from './AdminPlantillas'
 import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
 import { usePermisos } from '../lib/permisos'
 import { useOrganizacion } from '../lib/organizacion'
@@ -35,6 +36,7 @@ const GRUPOS_PANEL = [
     ['banco', '🗂️ Banco de preguntas'],
     ['examenes', '📝 Exámenes'],
     ['foro', '💬 Foro'],
+    ['plantillas', '📄 Plantillas'],
   ]],
   ['Personas', [
     ['inscripciones', '📋 Inscripciones'],
@@ -1656,6 +1658,7 @@ function Admin({ user }) {
       {vista === 'cursos' && <AdminCursos />}
       {vista === 'tablero' && <TableroOrg />}
       {vista === 'banco' && <BancoPreguntas />}
+      {vista === 'plantillas' && <AdminPlantillas />}
       {vista === 'bitacora' && <AdminBitacora />}
       {vista === 'organizaciones' && esAdminPlataforma && <AdminOrganizaciones />}
       {vista === 'suscripciones' && esAdminPlataforma && <AdminSuscripciones />}

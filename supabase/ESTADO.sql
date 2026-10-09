@@ -36,7 +36,8 @@ with esperado(orden, script, objeto, tipo) as (
     (24, 'ALMACEN_CHAT_PRIVADO.sql',    'chat_adjuntos_ver',        'politica'),
     (25, 'FECHAS_LIMITE.sql',           'prorrogas',                'tabla'),
     (26, 'EXAMENES_ALEATORIOS.sql',     'servir_examen',            'funcion'),
-    (27, 'ASISTENCIA.sql',              'asistencia',               'tabla')
+    (27, 'ASISTENCIA.sql',              'asistencia',               'tabla'),
+    (28, 'PLANTILLAS.sql',              'plantillas_documento',     'tabla')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,

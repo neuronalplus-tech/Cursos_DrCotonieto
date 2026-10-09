@@ -1,6 +1,6 @@
 # Estructura de la base de datos
 
-Generado el 2026-10-08 leyendo el catálogo de Postgres.
+Generado el 2026-10-09 leyendo el catálogo de Postgres.
 
 ## Por qué existe este archivo
 
@@ -56,6 +56,22 @@ Protección de filas: **activada** · políticas: 1
 | `email` | `text` | sí | — |
 | `created_at` | `timestamp with time zone` | — | `now()` |
 | `organizacion_id` | `bigint` | — | — |
+
+### `asistencia`
+
+Protección de filas: **activada** · políticas: 2
+
+| Columna | Tipo | Obligatoria | Por omisión |
+|---|---|---|---|
+| `id` | `bigint` | sí | `nextval('asistencia_id_seq'::regclass)` |
+| `sesion_id` | `bigint` | sí | — |
+| `usuario_id` | `uuid` | sí | — |
+| `estado` | `text` | sí | `'presente'::text` |
+| `justificada` | `boolean` | sí | `false` |
+| `motivo` | `text` | — | — |
+| `nota` | `text` | — | — |
+| `registrado_por` | `text` | — | — |
+| `registrado_en` | `timestamp with time zone` | sí | `now()` |
 
 ### `auditoria`
 
@@ -200,6 +216,8 @@ Protección de filas: **activada** · políticas: 5
 | `max_intentos` | `integer` | sí | `3` |
 | `fecha_limite` | `timestamp with time zone` | — | — |
 | `cierra_al_vencer` | `boolean` | sí | `true` |
+| `aleatorio_n` | `integer` | — | — |
+| `mezclar_opciones` | `boolean` | sí | `false` |
 
 ### `facilitadores`
 
@@ -269,6 +287,8 @@ Protección de filas: **activada** · políticas: 4
 | `cupo` | `integer` | — | — |
 | `activa` | `boolean` | sí | `true` |
 | `creado_en` | `timestamp with time zone` | sí | `now()` |
+| `sede_id` | `bigint` | — | — |
+| `modalidad` | `text` | sí | `'linea'::text` |
 
 ### `intentos_examen`
 
@@ -283,6 +303,8 @@ Protección de filas: **activada** · políticas: 3
 | `calificacion` | `integer` | sí | — |
 | `aprobado` | `boolean` | sí | — |
 | `fecha` | `timestamp with time zone` | — | `now()` |
+| `preguntas` | `jsonb` | — | — |
+| `pendiente` | `boolean` | sí | `false` |
 
 ### `leads_talleres`
 
@@ -470,6 +492,40 @@ Protección de filas: **activada** · políticas: 2
 | `niveles` | `jsonb` | sí | `'[]'::jsonb` |
 | `orden` | `integer` | sí | `100` |
 
+### `sedes`
+
+Protección de filas: **activada** · políticas: 2
+
+| Columna | Tipo | Obligatoria | Por omisión |
+|---|---|---|---|
+| `id` | `bigint` | sí | `nextval('sedes_id_seq'::regclass)` |
+| `organizacion_id` | `bigint` | sí | — |
+| `nombre` | `text` | sí | — |
+| `ciudad` | `text` | — | — |
+| `direccion` | `text` | — | — |
+| `responsable` | `text` | — | — |
+| `activa` | `boolean` | sí | `true` |
+| `creado_en` | `timestamp with time zone` | sí | `now()` |
+
+### `sesiones`
+
+Protección de filas: **activada** · políticas: 2
+
+| Columna | Tipo | Obligatoria | Por omisión |
+|---|---|---|---|
+| `id` | `bigint` | sí | `nextval('sesiones_id_seq'::regclass)` |
+| `generacion_id` | `bigint` | sí | — |
+| `modulo_id` | `bigint` | — | — |
+| `titulo` | `text` | — | — |
+| `fecha` | `date` | sí | — |
+| `hora_inicio` | `time without time zone` | — | — |
+| `hora_fin` | `time without time zone` | — | — |
+| `lugar` | `text` | — | — |
+| `impartida_por` | `text` | — | — |
+| `notas` | `text` | — | — |
+| `cancelada` | `boolean` | sí | `false` |
+| `creado_en` | `timestamp with time zone` | sí | `now()` |
+
 ### `tareas`
 
 Protección de filas: **activada** · políticas: 4
@@ -494,27 +550,32 @@ Protección de filas: **activada** · políticas: 4
 | Función | Argumentos | Devuelve | security definer |
 |---|---|---|---|
 | `alumnos_de_curso` | `p_curso_id bigint` | `TABLE(email text, nombre_completo text)` | sí |
+| `asistencia_de_generacion` | `p_generacion bigint` | `TABLE(usuario_id uuid, sesiones integer, presentes integer, retardos integer, ausencias integer, justificadas integer, porcentaje numeric)` | sí |
 | `bulk_grant_course_access` | `user_ids uuid[], target_course_id integer` | `void` | sí |
 | `bulk_remove_course_access` | `user_ids uuid[], target_course_id integer` | `void` | sí |
 | `completo_el_curso` | `p_usuario uuid, p_curso bigint` | `boolean` | sí |
 | `consumo_organizaciones` | `` | `TABLE(organizacion_id bigint, alumnos integer, cursos integer, facilitadores integer)` | sí |
 | `correo_de` | `p_usuario uuid` | `text` | sí |
 | `curso_de_actividad` | `p_tipo text, p_id bigint` | `bigint` | sí |
+| `curso_de_sesion` | `p_sesion bigint` | `bigint` | sí |
 | `curso_de_tarea` | `p_tarea bigint` | `bigint` | sí |
 | `curso_del_examen` | `p_curso bigint, p_modulo bigint` | `bigint` | sí |
 | `curso_del_modulo` | `p_modulo bigint` | `bigint` | sí |
 | `duplicar_curso` | `p_curso bigint, p_titulo text` | `bigint` | sí |
 | `emitir_constancia` | `p_curso bigint` | `text` | sí |
+| `entregar_examen` | `p_intento bigint, p_respuestas jsonb` | `jsonb` | sí |
 | `es_admin` | `` | `boolean` | sí |
 | `es_admin_de` | `p_org bigint` | `boolean` | sí |
 | `es_alumno_de_org_que_administro` | `p_usuario uuid` | `boolean` | sí |
 | `es_alumno_mio` | `p_usuario uuid` | `boolean` | sí |
+| `es_correcta_examen` | `p jsonb, r jsonb` | `boolean` | — |
 | `es_facilitador` | `` | `boolean` | sí |
 | `es_facilitador_de_org` | `p_org bigint` | `boolean` | sí |
 | `fecha_limite_efectiva` | `p_tipo text, p_id bigint, p_usuario uuid` | `timestamp with time zone` | sí |
 | `get_admin_id` | `` | `uuid` | sí |
 | `inscritos_en_generacion` | `p_gen bigint` | `integer` | sí |
 | `limites_organizacion` | `p_org bigint` | `TABLE(max_alumnos integer, max_facilitadores integer, max_cursos integer, exenta boolean)` | sí |
+| `limpiar_pregunta` | `p jsonb` | `jsonb` | — |
 | `listar_usuarios_con_accesos` | `` | `TABLE(usuario_id uuid, email text, nombre_completo text, profesion text, notas_admin text, cursos_inscritos bigint, ultimo_ingreso timestamp with time zone)` | sí |
 | `mover_hilo_al_responder` | `` | `trigger` | sí |
 | `obtener_usuario_por_email` | `p_email text` | `uuid` | sí |
@@ -527,6 +588,7 @@ Protección de filas: **activada** · políticas: 4
 | `registrar_auditoria` | `` | `trigger` | sí |
 | `registrar_pago` | `p_org bigint, p_monto numeric, p_meses integer, p_metodo text, p_referencia text, p_nota text` | `date` | sí |
 | `rls_auto_enable` | `` | `event_trigger` | sí |
+| `servir_examen` | `p_examen bigint` | `jsonb` | sí |
 | `tablero_cursos` | `p_org bigint` | `TABLE(curso_id bigint, titulo text, alumnos integer, avance_medio numeric, terminados integer, por_calificar integer, constancias integer, ultima_actividad timestamp with time zone)` | sí |
 | `tablero_organizacion` | `p_org bigint` | `TABLE(alumnos integer, alumnos_activos integer, inscripciones integer, cursos integer, facilitadores integer, generaciones integer, por_calificar integer, constancias integer, avance_medio numeric)` | sí |
 | `tiene_acceso_al_curso` | `p_curso bigint` | `boolean` | sí |
