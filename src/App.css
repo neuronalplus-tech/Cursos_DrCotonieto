@@ -71,11 +71,23 @@ a { color: var(--primary); }
 
 /* ---------- HEADER ---------- */
 .app-header { background: var(--primary); color: #fff; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.12); }
+/* La barra ocupa TODO el ancho, a diferencia del contenido de las
+   páginas, que se acota a 1150 px para que una línea de texto no se
+   vuelva ilegible de tan larga. Una barra de aplicación no tiene ese
+   problema —son un logo y unos botones— y encerrarla dejaba el nombre
+   pegado al centro con los extremos vacíos.
+
+   El relleno lateral crece con la pantalla (`clamp`) en vez de saltar
+   en un punto fijo: así el logo queda a una distancia parecida del
+   borde en un teléfono y en un monitor ancho. */
 .header-content { display: flex; justify-content: space-between; align-items: center;
-  max-width: 1150px; margin: 0 auto; padding: 12px 24px; gap: 16px; }
-.logo-area { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.logo-header { height: 42px; width: auto; display: block; }
-.brand-name { font-family: var(--titulo); font-weight: 600; font-size: 17px; white-space: nowrap; }
+  width: 100%; padding: 6px clamp(14px, 2.5vw, 40px); gap: 16px; }
+.logo-area { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+/* 34 px y no 42: la barra es fija y se lleva ese alto de CADA pantalla,
+   en cada página, para siempre. En un teléfono apaisado son más de un
+   diez por ciento de lo que se ve. */
+.logo-header { height: 34px; width: auto; display: block; }
+.brand-name { font-family: var(--titulo); font-weight: 600; font-size: 16px; white-space: nowrap; }
 .menu-toggle { display: none; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
 .header-actions { display: flex; align-items: center; gap: 14px; }
 .nav-link { background: none; border: none; color: #fff; font-family: var(--texto);
@@ -381,7 +393,12 @@ a { color: var(--primary); }
   .header-actions { display: none; width: 100%; flex-direction: column; align-items: stretch;
     gap: 6px; padding: 12px 0 4px; border-top: 1px solid rgba(255,255,255,.15); margin-top: 10px; }
   .header-actions.abierto { display: flex; }
-  .header-content { flex-wrap: wrap; }
+  .header-content { flex-wrap: wrap; padding: 6px 14px; }
+  .logo-header { height: 30px; }
+  .brand-name { font-size: 15px; }
+  /* En un teléfono el nombre completo deja sin sitio a los iconos, y
+     el icono importa más: es lo que se pulsa. */
+  .header-cuenta-nombre { max-width: 92px; }
   .nav-link { text-align: left; padding: 9px 4px; }
   .user-email { max-width: none; }
   .hero { padding: 34px 0 30px; }
@@ -1163,7 +1180,7 @@ a { color: var(--primary); }
    ------------------------------------------------------------ */
 /* ---- Barra superior: buzon y menu de cuenta ----------------- */
 .header-icono { position: relative; background: none; border: 0; cursor: pointer;
-  font-size: 19px; line-height: 1; padding: 6px 8px; border-radius: 8px; }
+  font-size: 18px; line-height: 1; padding: 5px 7px; border-radius: 8px; }
 .header-icono:hover { background: rgba(255,255,255,.12); }
 
 /* El globo del contador se ancla al icono, no al flujo, para que
@@ -1175,11 +1192,11 @@ a { color: var(--primary); }
 .header-cuenta { position: relative; }
 .header-cuenta-btn { display: flex; align-items: center; gap: 8px;
   background: none; border: 0; color: inherit; cursor: pointer;
-  padding: 5px 8px; border-radius: 999px; font: inherit; }
+  padding: 3px 8px; border-radius: 999px; font: inherit; }
 .header-cuenta-btn:hover { background: rgba(255,255,255,.12); }
 .header-cuenta-nombre { max-width: 170px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }
-.header-avatar { display: grid; place-items: center; width: 30px; height: 30px;
+.header-avatar { display: grid; place-items: center; width: 28px; height: 28px;
   border-radius: 50%; background: rgba(255,255,255,.18);
   font-size: 12px; font-weight: 700; flex-shrink: 0; }
 
@@ -2990,7 +3007,7 @@ a { color: var(--primary); }
 
 /* La foto real del perfil en la cabecera; las iniciales se quedan
    como repliegue para quien no ha subido ninguna. */
-.header-avatar-img { width: 30px; height: 30px; border-radius: 50%;
+.header-avatar-img { width: 28px; height: 28px; border-radius: 50%;
   object-fit: cover; flex-shrink: 0; }
 
 /* La calificación del curso, alineada a la derecha de su cabecera:
