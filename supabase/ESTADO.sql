@@ -40,7 +40,8 @@ with esperado(orden, script, objeto, tipo) as (
     (28, 'PLANTILLAS.sql',              'plantillas_documento',     'tabla'),
     (29, 'ROLES_5_PERMISOS.sql',        'tiene_permiso',            'funcion'),
     (30, 'ROLES_6_POLITICAS.sql',       'puedo_en_generacion',      'funcion'),
-    (31, 'ROLES_7_CONTENIDO.sql',       'cursos_que_puedo',         'funcion')
+    (31, 'ROLES_7_CONTENIDO.sql',       'cursos_que_puedo',         'funcion'),
+    (32, 'MODULOS.sql',                 'modulos_plataforma',       'tabla')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,

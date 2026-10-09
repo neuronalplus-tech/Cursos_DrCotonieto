@@ -203,3 +203,51 @@ export function useMisPermisos(user, orgId) {
     tieneAlguno: Object.keys(indice).length > 0,
   }
 }
+
+/* ------------------------------------------------------------
+   MÓDULOS CONTRATADOS (MODULOS.sql)
+   ------------------------------------------------------------
+   Distinto de los permisos: el permiso dice qué PUEDE hacer esta
+   persona; el módulo, qué partes tiene contratadas su institución.
+   Alguien con permiso para editar plantillas no las ve si su
+   organización no contrató el módulo de documentos.
+   ------------------------------------------------------------ */
+
+import { conjuntoModulos } from './modulos'
+
+let cacheModulos = { orgId: null, set: new Set(), cargado: false }
+let enVueloModulos = null
+
+async function cargarModulos(orgId) {
+  const { data, error } = await supabase.rpc('modulos_activos', { p_org: orgId })
+  // Si falla —o falta correr MODULOS.sql— se deja vacío, y `modulos.js`
+  // interpreta el conjunto vacío como «enseña todo». Esconder medio
+  // panel por una consulta que no respondió sería mucho peor.
+  cacheModulos = { orgId, set: error ? new Set() : conjuntoModulos(data), cargado: true }
+  avisarPermisos()
+}
+
+export function olvidarModulos() {
+  cacheModulos = { orgId: null, set: new Set(), cargado: false }
+  enVueloModulos = null
+}
+
+export function useModulos(orgId) {
+  const [, redibujar] = useReducer((n) => n + 1, 0)
+
+  useEffect(() => {
+    suscriptoresPermisos.add(redibujar)
+    return () => { suscriptoresPermisos.delete(redibujar) }
+  }, [])
+
+  useEffect(() => {
+    if (!orgId) return
+    if (cacheModulos.orgId === orgId || enVueloModulos) return
+    enVueloModulos = cargarModulos(orgId).finally(() => { enVueloModulos = null })
+  }, [orgId])
+
+  return {
+    cargado: cacheModulos.cargado && cacheModulos.orgId === orgId,
+    modulos: cacheModulos.orgId === orgId ? cacheModulos.set : new Set(),
+  }
+}

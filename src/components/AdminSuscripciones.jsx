@@ -21,6 +21,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ModalPortal } from './ui'
+import { planSinModulos } from '../lib/modulos'
 import {
   situacion, requiereAtencion, limites, nivelUso,
   pesos, precioVigente, ingresoMensual, fechaCorta, diasPara,
@@ -62,6 +63,12 @@ export default function AdminSuscripciones() {
   const [contrato, setContrato] = useState(null)   // org en edición
   const [pago, setPago] = useState(null)           // alta de pago
   const [planEdit, setPlanEdit] = useState(null)   // plan en edición
+  // Qué módulos trae cada plan. Es lo que convierte la lista de
+  // precios en algo que se puede explicar: el Semilla trae el aula,
+  // el Institucional añade control escolar.
+  const [catalogoModulos, setCatalogoModulos] = useState([])
+  const [modulosPorPlan, setModulosPorPlan] = useState({})
+  const [modulosEdit, setModulosEdit] = useState(new Set())
   const [guardando, setGuardando] = useState(false)
 
   const [historial, setHistorial] = useState({})   // org id -> pagos
@@ -72,12 +79,18 @@ export default function AdminSuscripciones() {
 
   const recargar = async () => {
     setCargando(true)
-    const [{ data: o, error: eo }, { data: p }, { data: c }] = await Promise.all([
-      supabase.from('organizaciones').select('*').order('nombre'),
-      supabase.from('planes').select('*').order('orden'),
-      supabase.rpc('consumo_organizaciones'),
-    ])
-    if (eo) setMsg({ tipo: 'error', texto: 'No se pudo cargar la cartera: ' + eo.message })
+    const [{ data: o, error: eo }, { data: p }, { data: c }, { data: mods }, { data: pm }] =
+      await Promise.all([
+        supabase.from('organizaciones').select('*').order('nombre'),
+        supabase.from('planes').select('*').order('orden'),
+        supabase.rpc('consumo_organizaciones'),
+        supabase.from('modulos_plataforma').select('*').order('orden'),
+        supabase.from('plan_modulos').select('*'),
+      ])
+    const porPlan = {}
+    for (const x of pm || []) (porPlan[x.plan_id] ||= []).push(x.modulo)
+    setCatalogoModulos(mods || [])
+    setModulosPorPlan(porPlan)
     setOrgs(o || [])
     setPlanes(p || [])
     setConsumo(Object.fromEntries(
@@ -204,6 +217,7 @@ export default function AdminSuscripciones() {
       orden: p?.orden ?? 50,
       activo: p ? !!p.activo : true,
     })
+    setModulosEdit(new Set(p ? (modulosPorPlan[p.id] || []) : []))
     setMsg(null)
   }
 
@@ -240,6 +254,18 @@ export default function AdminSuscripciones() {
           ? 'Ya existe un plan con esa clave.'
           : 'No se pudo guardar: ' + error.message,
       })
+    }
+    // Los módulos del plan se reemplazan enteros: borrar y volver a
+    // poner es lo único que deja el estado final igual a lo marcado.
+    const planId = planEdit.id === 'nuevo'
+      ? (await supabase.from('planes').select('id').eq('clave', clave).maybeSingle()).data?.id
+      : planEdit.id
+    if (planId) {
+      await supabase.from('plan_modulos').delete().eq('plan_id', planId)
+      if (modulosEdit.size) {
+        await supabase.from('plan_modulos')
+          .insert([...modulosEdit].map(m => ({ plan_id: planId, modulo: m })))
+      }
     }
     setPlanEdit(null)
     await recargar()
@@ -709,6 +735,35 @@ export default function AdminSuscripciones() {
                   <span>Activo <em className="nota">(lo sigues ofreciendo)</em></span>
                 </label>
               </div>
+            </div>
+
+            <h4 className="susc-sub">Qué incluye este plan</h4>
+            <p className="nota" style={{ marginTop: 0 }}>
+              Lo que no esté marcado no se le enseña al cliente. El aula no
+              se puede quitar: sin ella no hay plataforma.
+            </p>
+            {planSinModulos([...modulosEdit]) && (
+              <p className="nota pond-aviso">
+                Este plan no incluye nada más que el aula.
+              </p>
+            )}
+            <div className="plan-modulos">
+              {catalogoModulos.map(m => (
+                <label key={m.clave} className="permiso-fila">
+                  <input type="checkbox"
+                         checked={m.esencial || modulosEdit.has(m.clave)}
+                         disabled={m.esencial}
+                         onChange={() => setModulosEdit(prev => {
+                           const n = new Set(prev)
+                           if (n.has(m.clave)) n.delete(m.clave); else n.add(m.clave)
+                           return n
+                         })} />
+                  <span>
+                    <strong>{m.nombre}</strong>
+                    {m.descripcion && <em className="nota">{m.descripcion}</em>}
+                  </span>
+                </label>
+              ))}
             </div>
 
             <div className="modal-botones">

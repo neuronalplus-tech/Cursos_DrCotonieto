@@ -15,7 +15,8 @@ import TableroOrg from './TableroOrg'
 import AdminPlantillas from './AdminPlantillas'
 import AdminRoles from './AdminRoles'
 import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
-import { usePermisos, useMisPermisos } from '../lib/permisos'
+import { usePermisos, useMisPermisos, useModulos } from '../lib/permisos'
+import { seccionVisible } from '../lib/modulos'
 import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
@@ -97,6 +98,10 @@ function Admin({ user }) {
   // `admins`, así que sin esto el panel le diría que no tiene
   // permisos y el rol no serviría de nada.
   const permisosRol = useMisPermisos(user, organizacion?.id)
+  // Qué partes tiene contratadas esta institución. Distinto del
+  // permiso: alguien con permiso para editar plantillas no las ve si
+  // su organización no contrató el módulo de documentos.
+  const { modulos } = useModulos(organizacion?.id)
   const puedeEntrar = esAdmin || permisosRol.tieneAlguno
   const [vista, setVista] = useState('inscripciones')
 
@@ -1230,9 +1235,17 @@ function Admin({ user }) {
         {GRUPOS_PANEL.map(([grupo, pestañas]) => {
           const visibles = pestañas.filter(([clave, , soloPlataforma]) => {
             if (soloPlataforma && !esAdminPlataforma) return false
-            // Quien administra la organización ve todo lo suyo.
+
+            // El MÓDULO va antes que el permiso, y antes que el atajo
+            // de administrador: lo que no se contrató no se enseña ni
+            // a quien dirige la institución. Lo de la plataforma no se
+            // filtra —no se contrata, es tuyo—.
+            if (!soloPlataforma && !seccionVisible(clave, modulos)) return false
+
+            // Quien administra la organización ve todo lo que contrató.
             if (esAdmin) return true
-            if (clave === 'roles') return false   // repartir permisos no es de quien los recibe
+            // Repartir permisos no es de quien los recibió.
+            if (clave === 'roles') return false
             const pide = PERMISO_DE[clave]
             return pide === null || permisosRol.puedeAlguno(pide)
           })

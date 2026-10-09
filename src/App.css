@@ -3413,3 +3413,11 @@ a { color: var(--primary); }
   .rol-alta { grid-template-columns: 1fr 1fr; }
   .rol-alta > div:first-child { grid-column: 1 / -1; }
 }
+
+/* ============================================================
+   MODULOS CONTRATABLES
+   ============================================================ */
+.plan-modulos { display: grid; gap: 2px; margin: 10px 0 4px;
+  padding: 12px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--borde); }
+.plan-modulos .permiso-fila input:disabled + span strong { color: var(--gris); }
