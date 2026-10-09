@@ -38,7 +38,8 @@ with esperado(orden, script, objeto, tipo) as (
     (26, 'EXAMENES_ALEATORIOS.sql',     'servir_examen',            'funcion'),
     (27, 'ASISTENCIA.sql',              'asistencia',               'tabla'),
     (28, 'PLANTILLAS.sql',              'plantillas_documento',     'tabla'),
-    (29, 'ROLES_5_PERMISOS.sql',        'tiene_permiso',            'funcion')
+    (29, 'ROLES_5_PERMISOS.sql',        'tiene_permiso',            'funcion'),
+    (30, 'ROLES_6_POLITICAS.sql',       'puedo_en_generacion',      'funcion')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,

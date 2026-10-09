@@ -15,10 +15,30 @@ import TableroOrg from './TableroOrg'
 import AdminPlantillas from './AdminPlantillas'
 import AdminRoles from './AdminRoles'
 import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
-import { usePermisos } from '../lib/permisos'
+import { usePermisos, useMisPermisos } from '../lib/permisos'
 import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
 import MensajesInbox, { MensajesPage } from './MensajesInbox'
+
+/* Qué permiso pide cada sección. `null` significa que basta con
+   poder entrar al panel. El administrador de la organización los
+   tiene todos, así que para ti no cambia nada: esto solo decide qué
+   ve quien entra con un rol. */
+const PERMISO_DE = {
+  cursos: ['cursos.ver', 'cursos.editar'],
+  banco: ['examenes.editar'],
+  examenes: ['examenes.editar'],
+  foro: ['foro.moderar'],
+  plantillas: ['documentos.plantillas'],
+  inscripciones: ['alumnos.ver', 'alumnos.inscribir'],
+  usuarios: ['alumnos.ver'],
+  facilitadores: ['facilitadores.asignar'],
+  tablero: ['indicadores.ver'],
+  metricas: ['indicadores.ver'],
+  comunicados: ['alumnos.ver'],
+  mensajes: null,
+  roles: null,          // solo el admin de la organización; se filtra aparte
+}
 
 /* ------------------------------------------------------------
    LAS SECCIONES DEL PANEL
@@ -73,6 +93,11 @@ function Admin({ user }) {
   // tuyo, y el responsable de un cliente en el suyo. Lo que solo te
   // toca a ti cuelga de `esAdminPlataforma`.
   const esAdmin = esAdminDe(organizacion?.id)
+  // Los roles configurables (ROLES_5). Un coordinador no está en
+  // `admins`, así que sin esto el panel le diría que no tiene
+  // permisos y el rol no serviría de nada.
+  const permisosRol = useMisPermisos(user, organizacion?.id)
+  const puedeEntrar = esAdmin || permisosRol.tieneAlguno
   const [vista, setVista] = useState('inscripciones')
 
   const [filas, setFilas] = useState([])
@@ -1177,7 +1202,13 @@ function Admin({ user }) {
 
   if (!user) return null
   if (!permisosCargados || !orgCargada) return <div className="loading">Cargando…</div>
-  if (!esAdmin) return <div className="contenedor"><p className="aviso-error">No tienes permisos para ver esta sección.</p></div>
+  if (!puedeEntrar) {
+    return (
+      <div className="contenedor">
+        <p className="aviso-error">No tienes permisos para ver esta sección.</p>
+      </div>
+    )
+  }
   if (cargando) return <div className="loading">Cargando panel...</div>
   if (error) return <div className="contenedor"><p className="aviso-error">Error: {error}</p></div>
 
@@ -1197,8 +1228,14 @@ function Admin({ user }) {
           contenido, personas o dinero?". */}
       <nav className="admin-tabs" aria-label="Secciones del panel">
         {GRUPOS_PANEL.map(([grupo, pestañas]) => {
-          const visibles = pestañas.filter(([, , soloPlataforma]) =>
-            !soloPlataforma || esAdminPlataforma)
+          const visibles = pestañas.filter(([clave, , soloPlataforma]) => {
+            if (soloPlataforma && !esAdminPlataforma) return false
+            // Quien administra la organización ve todo lo suyo.
+            if (esAdmin) return true
+            if (clave === 'roles') return false   // repartir permisos no es de quien los recibe
+            const pide = PERMISO_DE[clave]
+            return pide === null || permisosRol.puedeAlguno(pide)
+          })
           if (!visibles.length) return null
           return (
             <div key={grupo} className="admin-grupo">

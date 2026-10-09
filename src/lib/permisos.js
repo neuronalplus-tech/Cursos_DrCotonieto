@@ -120,3 +120,75 @@ export function usePermisos(user) {
 export function usePuedeGestionar(user, cursoId) {
   return usePermisos(user).puedeGestionar(cursoId)
 }
+
+/* ============================================================
+   PERMISOS POR ROL (ROLES_5 / ROLES_6)
+   ------------------------------------------------------------
+   Lo de arriba contesta «¿eres admin?» y «¿gestionas este curso?».
+   Esto contesta «¿qué puedes hacer en esta organización?», que es
+   la pregunta que hace falta desde que los roles los define cada
+   cliente.
+
+   Van separados a propósito: los de arriba los usan decenas de
+   pantallas y no dependen de la organización; estos sí, y se piden
+   una vez por sesión y por organización.
+   ============================================================ */
+
+import { indicePermisos, puede as puedeEn, puedeAlguno as puedeAlgunoEn } from './roles'
+
+let cachePermisos = { orgId: null, indice: {}, cargado: false }
+let enVueloPermisos = null
+const suscriptoresPermisos = new Set()
+
+function avisarPermisos() {
+  for (const fn of suscriptoresPermisos) fn()
+}
+
+async function cargarPermisos(orgId) {
+  const { data, error } = await supabase.rpc('mis_permisos', { p_org: orgId })
+  // Si la función todavía no existe —porque falta correr el SQL—, se
+  // sigue sin permisos de rol en vez de romper el panel entero.
+  cachePermisos = {
+    orgId,
+    indice: error ? {} : indicePermisos(data),
+    cargado: true,
+  }
+  avisarPermisos()
+}
+
+export function olvidarMisPermisos() {
+  cachePermisos = { orgId: null, indice: {}, cargado: false }
+  enVueloPermisos = null
+  avisarPermisos()
+}
+
+/**
+ * Lo que esta persona puede hacer en esta organización.
+ *
+ * `puede(clave)` sin sitio contesta «en algún ámbito», que es lo que
+ * decide si se enseña una sección. Con `{ sede, categoria }` afina.
+ */
+export function useMisPermisos(user, orgId) {
+  const [, redibujar] = useReducer((n) => n + 1, 0)
+
+  useEffect(() => {
+    suscriptoresPermisos.add(redibujar)
+    return () => { suscriptoresPermisos.delete(redibujar) }
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id || !orgId) return
+    if (cachePermisos.orgId === orgId || enVueloPermisos) return
+    enVueloPermisos = cargarPermisos(orgId).finally(() => { enVueloPermisos = null })
+  }, [user?.id, orgId])
+
+  const indice = cachePermisos.orgId === orgId ? cachePermisos.indice : {}
+  return {
+    cargado: cachePermisos.cargado && cachePermisos.orgId === orgId,
+    indice,
+    puede: (clave, donde) => puedeEn(indice, clave, donde),
+    puedeAlguno: (claves, donde) => puedeAlgunoEn(indice, claves, donde),
+    // Tener cualquiera es lo que decide si se le deja entrar al panel.
+    tieneAlguno: Object.keys(indice).length > 0,
+  }
+}
