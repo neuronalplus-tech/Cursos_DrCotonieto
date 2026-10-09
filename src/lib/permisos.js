@@ -48,9 +48,17 @@ async function cargar(user) {
   //
   // `facilitadores` ya filtra por RLS: esa consulta solo devuelve las
   // asignaciones de quien pregunta.
-  const [{ data: filasAdmin }, { data: asignados }] = await Promise.all([
+  // `cursos_que_puedo` contesta por ROL: qué cursos puede editar esta
+  // persona por la categoría a la que alcanza su rol. Antes la única
+  // respuesta venía de `facilitadores`, así que un «Docente» por rol
+  // veía el curso sin un solo botón de edición.
+  //
+  // Si la función todavía no existe —falta correr ROLES_7— se sigue
+  // con lo de siempre en vez de romper el panel.
+  const [{ data: filasAdmin }, { data: asignados }, porRol] = await Promise.all([
     supabase.from('admins').select('email, organizacion_id').eq('email', user.email),
     supabase.from('facilitadores').select('curso_id'),
+    supabase.rpc('cursos_que_puedo', { p_permiso: 'cursos.editar' }),
   ])
 
   const filas = filasAdmin || []
@@ -61,7 +69,10 @@ async function cargar(user) {
     organizaciones: new Set(
       filas.filter((a) => a.organizacion_id != null)
         .map((a) => Number(a.organizacion_id))),
-    cursos: new Set((asignados || []).map((f) => Number(f.curso_id))),
+    cursos: new Set([
+      ...(asignados || []).map((f) => Number(f.curso_id)),
+      ...(porRol?.error ? [] : (porRol?.data || []).map((c) => Number(c.curso_id))),
+    ]),
   }
   usuarioCargado = user.id
   avisar()
