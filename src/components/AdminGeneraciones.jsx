@@ -10,11 +10,17 @@
    lo cursaste; la ruta, por dónde. Se combinan.
    ============================================================ */
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useOrganizacion } from '../lib/organizacion'
+import { MODALIDADES, llevaAsistencia } from '../lib/asistencia'
+import PaseDeLista from './PaseDeLista'
 
 const VACIA = {
   nombre: '', fecha_inicio: '', fecha_fin: '', cupo: '', activa: true,
+  // En línea por omisión: es lo que son casi todos, y así nadie
+  // ve un pase de lista que no va a usar.
+  modalidad: 'linea', sede_id: '',
 }
 
 export default function AdminGeneraciones({ cursoId }) {
@@ -25,6 +31,18 @@ export default function AdminGeneraciones({ cursoId }) {
   const [form, setForm] = useState(VACIA)
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState(null)
+  const { organizacion } = useOrganizacion()
+  const [sedes, setSedes] = useState([])
+  const [listaAbierta, setListaAbierta] = useState(null)
+
+  useEffect(() => {
+    if (!organizacion?.id) return
+    let vivo = true
+    supabase.from('sedes').select('id, nombre')
+      .eq('organizacion_id', organizacion.id).eq('activa', true).order('nombre')
+      .then(({ data }) => { if (vivo) setSedes(data || []) })
+    return () => { vivo = false }
+  }, [organizacion?.id])
 
   const recargar = async () => {
     setCargando(true)
@@ -67,6 +85,8 @@ export default function AdminGeneraciones({ cursoId }) {
       fecha_fin: g.fecha_fin || '',
       cupo: g.cupo ?? '',
       activa: !!g.activa,
+      modalidad: g.modalidad || 'linea',
+      sede_id: g.sede_id ?? '',
     })
     setEditando(g.id)
     setMsg(null)
@@ -84,6 +104,8 @@ export default function AdminGeneraciones({ cursoId }) {
       // llenaría la base de cupos que nadie respeta.
       cupo: form.cupo === '' ? null : Number(form.cupo),
       activa: !!form.activa,
+      modalidad: form.modalidad || 'linea',
+      sede_id: form.sede_id === '' ? null : Number(form.sede_id),
     }
     const { error } = editando === 'nueva'
       ? await supabase.from('generaciones').insert(payload)
@@ -161,6 +183,32 @@ export default function AdminGeneraciones({ cursoId }) {
             </div>
           </div>
 
+          <div className="gen-editor-fila">
+            <div>
+              <label>Modalidad</label>
+              <select className="input" value={form.modalidad}
+                      onChange={e => campo('modalidad', e.target.value)}>
+                {MODALIDADES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+              <p className="nota">
+                {llevaAsistencia(form.modalidad)
+                  ? 'Este grupo tendrá pase de lista.'
+                  : 'Sin pase de lista. Cámbialo a mixta si hay sesiones en vivo.'}
+              </p>
+            </div>
+            <div>
+              <label>Sede</label>
+              <select className="input" value={form.sede_id}
+                      onChange={e => campo('sede_id', e.target.value)}>
+                <option value="">Sin sede</option>
+                {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+              {!sedes.length && (
+                <p className="nota">Aún no hay sedes. Se dan de alta en Organizaciones.</p>
+              )}
+            </div>
+          </div>
+
           <label className="gen-activa">
             <input type="checkbox" checked={form.activa}
                    onChange={e => campo('activa', e.target.checked)} />
@@ -183,7 +231,8 @@ export default function AdminGeneraciones({ cursoId }) {
             const n = conteo[g.id] || 0
             const lleno = g.cupo && n >= g.cupo
             return (
-              <div key={g.id} className={`gen-fila ${g.activa ? '' : 'cerrada'}`}>
+              <Fragment key={g.id}>
+              <div className={`gen-fila ${g.activa ? '' : 'cerrada'}`}>
                 <div className="gen-fila-datos">
                   <strong>{g.nombre}</strong>
                   <span className="celda-sub">
@@ -198,9 +247,25 @@ export default function AdminGeneraciones({ cursoId }) {
                 {!g.activa && <span className="badge neutro">Cerrada</span>}
                 <button type="button" className="button texto"
                         onClick={() => abrirEdicion(g)}>✏️</button>
+                {llevaAsistencia(g.modalidad) && (
+                  <button type="button" className="button secondary"
+                          onClick={() => setListaAbierta(listaAbierta?.id === g.id ? null : g)}>
+                    {listaAbierta?.id === g.id ? '▲ Cerrar lista' : '🗓️ Pase de lista'}
+                  </button>
+                )}
                 <button type="button" className="button texto peligro"
                         onClick={() => borrar(g)}>🗑️</button>
               </div>
+
+              {/* El pase de lista se abre DEBAJO del grupo y no en
+                  otra pantalla: quien lo usa está de pie en el salón
+                  y no quiere navegar. */}
+              {listaAbierta?.id === g.id && (
+                <div className="gen-lista-panel">
+                  <PaseDeLista generacion={g} cursoId={cursoId} />
+                </div>
+              )}
+              </Fragment>
             )
           })}
           {!gens.length && (

@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import ExportarDatos from './ExportarDatos'
+import Sedes from './Sedes'
 
 const VACIA = {
   slug: '', nombre: '', dominio: '', logo_url: '',
@@ -32,6 +33,7 @@ export default function AdminOrganizaciones() {
   // Una institución que no puede llevarse lo suyo está atrapada, y eso
   // se pregunta ANTES de firmar, no al irse.
   const [exportando, setExportando] = useState(null)
+  const [sedesDe, setSedesDe] = useState(null)
 
   const recargar = async () => {
     setCargando(true)
@@ -210,8 +212,21 @@ export default function AdminOrganizaciones() {
               <button type="button" className="button texto"
                       title="Descargar todos sus datos en CSV"
                       onClick={() => setExportando(o)}>⬇️ Datos</button>
+              <button type="button" className="button texto"
+                      title="Sus sedes o planteles"
+                      onClick={() => setSedesDe(sedesDe?.id === o.id ? null : o)}>
+                {sedesDe?.id === o.id ? '▲ Sedes' : '🏫 Sedes'}
+              </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {sedesDe && (
+        <div className="org-editor" style={{ marginTop: 16 }}>
+          <Sedes organizacion={sedesDe} />
+          <button type="button" className="button texto"
+                  onClick={() => setSedesDe(null)}>Cerrar</button>
         </div>
       )}
 
