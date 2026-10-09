@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
 import { MODALIDADES, llevaAsistencia } from '../lib/asistencia'
 import PaseDeLista from './PaseDeLista'
+import GenerarDocumento from './GenerarDocumento'
 
 const VACIA = {
   nombre: '', fecha_inicio: '', fecha_fin: '', cupo: '', activa: true,
@@ -34,6 +35,7 @@ export default function AdminGeneraciones({ cursoId }) {
   const { organizacion } = useOrganizacion()
   const [sedes, setSedes] = useState([])
   const [listaAbierta, setListaAbierta] = useState(null)
+  const [docAbierto, setDocAbierto] = useState(null)
 
   useEffect(() => {
     if (!organizacion?.id) return
@@ -247,6 +249,12 @@ export default function AdminGeneraciones({ cursoId }) {
                 {!g.activa && <span className="badge neutro">Cerrada</span>}
                 <button type="button" className="button texto"
                         onClick={() => abrirEdicion(g)}>✏️</button>
+                {/* En todos los grupos, no solo en los presenciales: un
+                    acta la pide igual un grupo en línea. */}
+                <button type="button" className="button texto"
+                        onClick={() => setDocAbierto(docAbierto?.id === g.id ? null : g)}>
+                  {docAbierto?.id === g.id ? '▲ Documentos' : '📄 Documentos'}
+                </button>
                 {llevaAsistencia(g.modalidad) && (
                   <button type="button" className="button secondary"
                           onClick={() => setListaAbierta(listaAbierta?.id === g.id ? null : g)}>
@@ -256,6 +264,13 @@ export default function AdminGeneraciones({ cursoId }) {
                 <button type="button" className="button texto peligro"
                         onClick={() => borrar(g)}>🗑️</button>
               </div>
+
+              {docAbierto?.id === g.id && (
+                <div className="gen-lista-panel">
+                  <GenerarDocumento generacion={g} cursoId={cursoId}
+                                    onCerrar={() => setDocAbierto(null)} />
+                </div>
+              )}
 
               {/* El pase de lista se abre DEBAJO del grupo y no en
                   otra pantalla: quien lo usa está de pie en el salón

@@ -58,6 +58,7 @@ create sequence if not exists public.modulos_id_seq;
 create sequence if not exists public.organizaciones_id_seq;
 create sequence if not exists public.pagos_suscripcion_id_seq;
 create sequence if not exists public.planes_id_seq;
+create sequence if not exists public.plantillas_documento_id_seq;
 create sequence if not exists public.progreso_usuario_id_seq;
 create sequence if not exists public.prorrogas_id_seq;
 create sequence if not exists public.recursos_id_seq;
@@ -398,6 +399,27 @@ create table if not exists public.planes (
 );
 
 -- -------------------------------------------------------------
+create table if not exists public.plantillas_documento (
+  id bigint default nextval('plantillas_documento_id_seq'::regclass) not null,
+  organizacion_id bigint not null,
+  tipo text not null,
+  nombre text not null,
+  descripcion text,
+  contenido text default ''::text not null,
+  membrete_url text,
+  firma_url text,
+  firma_nombre text,
+  firma_cargo text,
+  firma_x numeric default 50 not null,
+  firma_y numeric default 80 not null,
+  firma_ancho numeric default 25 not null,
+  orientacion text default 'vertical'::text not null,
+  activa boolean default true not null,
+  creado_en timestamp with time zone default now() not null,
+  actualizado_en timestamp with time zone default now() not null
+);
+
+-- -------------------------------------------------------------
 create table if not exists public.progreso_usuario (
   id integer default nextval('progreso_usuario_id_seq'::regclass) not null,
   usuario_id uuid,
@@ -651,6 +673,13 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'plantillas_documento_pkey'
+                    and conrelid = 'public.plantillas_documento'::regclass) then
+    alter table public.plantillas_documento add constraint plantillas_documento_pkey PRIMARY KEY (id);
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'progreso_usuario_pkey'
                     and conrelid = 'public.progreso_usuario'::regclass) then
     alter table public.progreso_usuario add constraint progreso_usuario_pkey PRIMARY KEY (id);
@@ -780,6 +809,27 @@ do $$ begin
                   where conname = 'organizaciones_periodo_check'
                     and conrelid = 'public.organizaciones'::regclass) then
     alter table public.organizaciones add constraint organizaciones_periodo_check CHECK ((periodo = ANY (ARRAY['mensual'::text, 'anual'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'plantillas_firma_check'
+                    and conrelid = 'public.plantillas_documento'::regclass) then
+    alter table public.plantillas_documento add constraint plantillas_firma_check CHECK ((((firma_x >= (0)::numeric) AND (firma_x <= (100)::numeric)) AND ((firma_y >= (0)::numeric) AND (firma_y <= (100)::numeric)) AND ((firma_ancho >= (1)::numeric) AND (firma_ancho <= (100)::numeric))));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'plantillas_orientacion_check'
+                    and conrelid = 'public.plantillas_documento'::regclass) then
+    alter table public.plantillas_documento add constraint plantillas_orientacion_check CHECK ((orientacion = ANY (ARRAY['vertical'::text, 'horizontal'::text])));
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'plantillas_tipo_check'
+                    and conrelid = 'public.plantillas_documento'::regclass) then
+    alter table public.plantillas_documento add constraint plantillas_tipo_check CHECK ((tipo = ANY (ARRAY['constancia'::text, 'acta'::text, 'lista'::text, 'boleta'::text, 'informe'::text, 'libre'::text])));
   end if;
 end $$;
 do $$ begin
@@ -1015,6 +1065,13 @@ do $$ begin
 end $$;
 do $$ begin
   if not exists (select 1 from pg_constraint
+                  where conname = 'plantillas_documento_organizacion_id_fkey'
+                    and conrelid = 'public.plantillas_documento'::regclass) then
+    alter table public.plantillas_documento add constraint plantillas_documento_organizacion_id_fkey FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id) ON DELETE CASCADE;
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint
                   where conname = 'progreso_usuario_recurso_id_fkey'
                     and conrelid = 'public.progreso_usuario'::regclass) then
     alter table public.progreso_usuario add constraint progreso_usuario_recurso_id_fkey FOREIGN KEY (recurso_id) REFERENCES recursos(id) ON DELETE CASCADE;
@@ -1123,6 +1180,7 @@ create unique index if not exists organizaciones_dominio_idx ON public.organizac
 create unique index if not exists organizaciones_slug_idx ON public.organizaciones USING btree (lower(slug));
 create index if not exists pagos_suscripcion_org_idx ON public.pagos_suscripcion USING btree (organizacion_id, pagado_en DESC);
 create unique index if not exists planes_clave_idx ON public.planes USING btree (lower(clave));
+create index if not exists plantillas_org_idx ON public.plantillas_documento USING btree (organizacion_id, tipo);
 create unique index if not exists prorrogas_generacion_idx ON public.prorrogas USING btree (tipo, actividad_id, generacion_id) WHERE (generacion_id IS NOT NULL);
 create unique index if not exists prorrogas_usuario_idx ON public.prorrogas USING btree (tipo, actividad_id, usuario_id) WHERE (usuario_id IS NOT NULL);
 create index if not exists rubrica_tarea_idx ON public.rubrica_criterios USING btree (tarea_id, orden);
@@ -1155,6 +1213,7 @@ alter sequence public.modulos_id_seq owned by public.modulos.id;
 alter sequence public.organizaciones_id_seq owned by public.organizaciones.id;
 alter sequence public.pagos_suscripcion_id_seq owned by public.pagos_suscripcion.id;
 alter sequence public.planes_id_seq owned by public.planes.id;
+alter sequence public.plantillas_documento_id_seq owned by public.plantillas_documento.id;
 alter sequence public.progreso_usuario_id_seq owned by public.progreso_usuario.id;
 alter sequence public.prorrogas_id_seq owned by public.prorrogas.id;
 alter sequence public.recursos_id_seq owned by public.recursos.id;
@@ -1169,4 +1228,4 @@ alter sequence public.tareas_id_seq owned by public.tareas.id;
 select 'tablas' as que, count(*)::text as n from pg_class c
   join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and c.relkind='r';
--- Esperado: 29
+-- Esperado: 30

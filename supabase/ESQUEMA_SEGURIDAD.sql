@@ -291,6 +291,48 @@ AS $function$
   select m.curso_id from public.modulos m where m.id = p_modulo
 $function$;
 
+create or replace function public.datos_de_grupo(p_generacion bigint)
+ RETURNS TABLE(usuario_id uuid, nombre text, profesion text, asistencia_pct numeric, faltas integer, sesiones integer)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_curso bigint;
+begin
+  select g.curso_id into v_curso from public.generaciones g where g.id = p_generacion;
+  if not public.puede_gestionar_curso(v_curso) then
+    raise exception 'No impartes este grupo.' using errcode = '42501';
+  end if;
+
+  return query
+  with sesiones_validas as (
+    select s.id from public.sesiones s
+     where s.generacion_id = p_generacion and not s.cancelada
+  ),
+  inscritos as (
+    select distinct a.usuario_id as uid from public.acceso a
+     where a.generacion_id = p_generacion
+  )
+  select
+    i.uid,
+    coalesce(pe.nombre_completo, '(sin nombre)')::text,
+    pe.profesion::text,
+    case when (select count(*) from sesiones_validas) > 0
+         then round(
+           count(asi.id) filter (where asi.estado in ('presente', 'retardo'))::numeric
+           / (select count(*) from sesiones_validas) * 100, 1)
+         else null end,
+    count(asi.id) filter (where asi.estado = 'ausente')::int,
+    (select count(*)::int from sesiones_validas)
+  from inscritos i
+  left join public.perfiles pe on pe.id = i.uid
+  left join public.asistencia asi
+         on asi.usuario_id = i.uid
+        and asi.sesion_id in (select id from sesiones_validas)
+  group by i.uid, pe.nombre_completo, pe.profesion
+  order by coalesce(pe.nombre_completo, '');
+end $function$;
+
 create or replace function public.duplicar_curso(p_curso bigint, p_titulo text DEFAULT NULL::text)
  RETURNS bigint
  LANGUAGE plpgsql
@@ -1392,6 +1434,15 @@ begin
   return new;
 end $function$;
 
+create or replace function public.tocar_plantilla()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.actualizado_en := now();
+  return new;
+end $function$;
+
 create or replace function public.usuario_id_por_correo(p_email text)
  RETURNS uuid
  LANGUAGE sql
@@ -1651,6 +1702,7 @@ alter table public.organizaciones enable row level security;
 alter table public.pagos_suscripcion enable row level security;
 alter table public.perfiles enable row level security;
 alter table public.planes enable row level security;
+alter table public.plantillas_documento enable row level security;
 alter table public.progreso_usuario enable row level security;
 alter table public.prorrogas enable row level security;
 alter table public.recursos enable row level security;
@@ -2198,6 +2250,21 @@ create policy "planes_update" on public.planes
   using (es_admin())
   with check (es_admin());
 
+-- plantillas_documento
+drop policy if exists "plantillas_escribir" on public.plantillas_documento;
+create policy "plantillas_escribir" on public.plantillas_documento
+  as permissive
+  for all
+  to authenticated
+  using (es_admin_de(organizacion_id))
+  with check (es_admin_de(organizacion_id));
+drop policy if exists "plantillas_select" on public.plantillas_documento;
+create policy "plantillas_select" on public.plantillas_documento
+  as permissive
+  for select
+  to authenticated
+  using ((es_admin_de(organizacion_id) OR es_facilitador_de_org(organizacion_id)));
+
 -- progreso_usuario
 drop policy if exists "progreso_insert" on public.progreso_usuario;
 create policy "progreso_insert" on public.progreso_usuario
@@ -2409,6 +2476,8 @@ drop trigger if exists auditar_modulos on public.modulos;
 create trigger auditar_modulos AFTER INSERT OR DELETE OR UPDATE ON public.modulos FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
 drop trigger if exists organizaciones_protege_contrato on public.organizaciones;
 create trigger organizaciones_protege_contrato BEFORE UPDATE ON public.organizaciones FOR EACH ROW EXECUTE FUNCTION proteger_contrato_organizacion();
+drop trigger if exists plantillas_tocar on public.plantillas_documento;
+create trigger plantillas_tocar BEFORE UPDATE ON public.plantillas_documento FOR EACH ROW EXECUTE FUNCTION tocar_plantilla();
 drop trigger if exists auditar_recursos on public.recursos;
 create trigger auditar_recursos AFTER INSERT OR DELETE OR UPDATE ON public.recursos FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
 drop trigger if exists auditar_rubrica_criterios on public.rubrica_criterios;
@@ -2431,4 +2500,4 @@ select 'disparadores', count(*)::text from pg_trigger t
   join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and not t.tgisinternal;
 
--- Esperado: funciones 53 · politicas 97 · disparadores 23
+-- Esperado: funciones 55 · politicas 99 · disparadores 24

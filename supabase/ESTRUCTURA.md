@@ -431,6 +431,30 @@ Protección de filas: **activada** · políticas: 4
 | `activo` | `boolean` | sí | `true` |
 | `creado_en` | `timestamp with time zone` | sí | `now()` |
 
+### `plantillas_documento`
+
+Protección de filas: **activada** · políticas: 2
+
+| Columna | Tipo | Obligatoria | Por omisión |
+|---|---|---|---|
+| `id` | `bigint` | sí | `nextval('plantillas_documento_id_seq'::regclass)` |
+| `organizacion_id` | `bigint` | sí | — |
+| `tipo` | `text` | sí | — |
+| `nombre` | `text` | sí | — |
+| `descripcion` | `text` | — | — |
+| `contenido` | `text` | sí | `''::text` |
+| `membrete_url` | `text` | — | — |
+| `firma_url` | `text` | — | — |
+| `firma_nombre` | `text` | — | — |
+| `firma_cargo` | `text` | — | — |
+| `firma_x` | `numeric` | sí | `50` |
+| `firma_y` | `numeric` | sí | `80` |
+| `firma_ancho` | `numeric` | sí | `25` |
+| `orientacion` | `text` | sí | `'vertical'::text` |
+| `activa` | `boolean` | sí | `true` |
+| `creado_en` | `timestamp with time zone` | sí | `now()` |
+| `actualizado_en` | `timestamp with time zone` | sí | `now()` |
+
 ### `progreso_usuario`
 
 Protección de filas: **activada** · políticas: 3
@@ -561,6 +585,7 @@ Protección de filas: **activada** · políticas: 4
 | `curso_de_tarea` | `p_tarea bigint` | `bigint` | sí |
 | `curso_del_examen` | `p_curso bigint, p_modulo bigint` | `bigint` | sí |
 | `curso_del_modulo` | `p_modulo bigint` | `bigint` | sí |
+| `datos_de_grupo` | `p_generacion bigint` | `TABLE(usuario_id uuid, nombre text, profesion text, asistencia_pct numeric, faltas integer, sesiones integer)` | sí |
 | `duplicar_curso` | `p_curso bigint, p_titulo text` | `bigint` | sí |
 | `emitir_constancia` | `p_curso bigint` | `text` | sí |
 | `entregar_examen` | `p_intento bigint, p_respuestas jsonb` | `jsonb` | sí |
@@ -593,6 +618,7 @@ Protección de filas: **activada** · políticas: 4
 | `tablero_organizacion` | `p_org bigint` | `TABLE(alumnos integer, alumnos_activos integer, inscripciones integer, cursos integer, facilitadores integer, generaciones integer, por_calificar integer, constancias integer, avance_medio numeric)` | sí |
 | `tiene_acceso_al_curso` | `p_curso bigint` | `boolean` | sí |
 | `tocar_banco_pregunta` | `` | `trigger` | — |
+| `tocar_plantilla` | `` | `trigger` | — |
 | `usuario_id_por_correo` | `p_email text` | `uuid` | sí |
 | `validar_rama_foro` | `` | `trigger` | sí |
 | `verificar_constancia` | `p_folio text` | `TABLE(folio text, nombre_completo text, profesion text, curso_titulo text, fecha_emision timestamp with time zone)` | sí |
@@ -627,6 +653,7 @@ Protección de filas: **activada** · políticas: 4
 | `intentos_examen` | `intentos_plazo` |
 | `modulos` | `auditar_modulos` |
 | `organizaciones` | `organizaciones_protege_contrato` |
+| `plantillas_documento` | `plantillas_tocar` |
 | `recursos` | `auditar_recursos` |
 | `rubrica_criterios` | `auditar_rubrica_criterios` |
 | `tareas` | `auditar_tareas` |
