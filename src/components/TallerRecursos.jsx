@@ -356,7 +356,7 @@ export default function TallerRecursos({ curso, user, gestiona, onActualizado })
 
       {/* Examen del curso completo (nivel curso). Los talleres no tienen módulos,
           así que aquí es donde vive su evaluación. */}
-      <ExamenModulo cursoId={curso.id} user={user} />
+      <ExamenModulo cursoId={curso.id} user={user} gestiona={gestiona} etiquetaDestino={`el curso "${curso.titulo}"`} />
     </section>
   )
 }

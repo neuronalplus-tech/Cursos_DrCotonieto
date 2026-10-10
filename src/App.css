@@ -604,9 +604,30 @@ a { color: var(--primary); }
    ============================================================ */
 .examen-bloque { margin-top: 30px; background: var(--blanco); border: 1px solid var(--borde);
   border-left: 4px solid var(--accent); border-radius: var(--radio); padding: 24px 28px; }
+.examen-plegable-cabecera { display: flex; align-items: center; gap: 12px; }
+.examen-plegable { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; text-align: left;
+  border: 0; background: transparent; color: var(--primary); padding: 0; cursor: pointer; }
+.examen-plegable-texto { display: grid; gap: 4px; min-width: 0; }
+.examen-plegable-texto strong { font: 700 20px var(--titulo); }
+.examen-plegable-texto small { color: var(--gris); font-size: 13px; }
+.examen-flecha { font-size: 22px; margin-left: auto; color: var(--accent); }
+.examen-nota-badge { flex: none; }
+.examen-editar { flex: none; }
+.examen-desplegado { padding-top: 20px; }
+.examen-temporizador { position: sticky; top: 8px; z-index: 1; width: fit-content; margin: 0 0 14px auto;
+  padding: 8px 13px; border-radius: 20px; background: #fff4da; color: #754d00; font-weight: 700; }
+.examen-temporizador.urgente { background: #fde8e7; color: #9b2c20; }
+.examen-admin-vacio { margin-top: 20px; display: flex; align-items: center; gap: 12px; color: var(--gris); }
 .examen-header { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; }
 .examen-header h3 { margin: 0 0 4px; font-size: 18px; }
 .examen-meta { font-size: 13px; color: var(--gris); margin: 6px 0 0; }
+@media (max-width: 600px) {
+  .examen-bloque { padding: 16px; }
+  .examen-plegable-cabecera { align-items: flex-start; }
+  .examen-plegable { gap: 8px; }
+  .examen-plegable-texto strong { font-size: 17px; }
+  .examen-nota-badge { display: none; }
+}
 
 .examen-preguntas { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 20px; counter-reset: pq; }
 .examen-preguntas > li { counter-increment: pq; background: var(--bg-card); padding: 16px 18px; border-radius: 10px; }

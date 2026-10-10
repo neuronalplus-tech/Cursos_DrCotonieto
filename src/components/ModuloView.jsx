@@ -321,7 +321,7 @@ function ModuloView({ user }) {
             ))}
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
           </div>
-          <ExamenModulo moduloId={modulo.id} user={user} />
+          <ExamenModulo moduloId={modulo.id} user={user} gestiona={gestiona} etiquetaDestino={`el módulo "${modulo.titulo}"`} />
 
           <TareasAlumno moduloId={modulo.id} user={user} miGrupo={miGrupo} />
           <nav className="navegacion-modulos">

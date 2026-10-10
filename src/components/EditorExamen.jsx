@@ -29,6 +29,7 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
   const [descripcion, setDescripcion] = useState(examen?.descripcion || '')
   const [umbral, setUmbral] = useState(examen?.umbral_aprobacion ?? 70)
   const [maxIntentos, setMaxIntentos] = useState(examen?.max_intentos ?? 3)
+  const [limiteMinutos, setLimiteMinutos] = useState(examen?.limite_minutos ?? '')
   // Cuántas preguntas servir por intento (nulo = todas) y si se revuelve
   // el orden de las opciones. Lo usa servir_examen() en la base.
   const [aleatorioN, setAleatorioN] = useState(examen?.aleatorio_n ?? '')
@@ -110,6 +111,9 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
       descripcion: descripcion.trim() || null,
       umbral_aprobacion: Math.max(0, Math.min(100, parseInt(umbral, 10) || 0)),
       max_intentos: Math.max(0, parseInt(maxIntentos, 10) || 0),
+      ...(limiteMinutos === ''
+        ? (Object.prototype.hasOwnProperty.call(examen || {}, 'limite_minutos') ? { limite_minutos: null } : {})
+        : { limite_minutos: Math.min(600, Math.max(1, parseInt(limiteMinutos, 10) || 1)) }),
       // Vacío = todas (lo mismo que hoy). Solo se manda si la base ya
       // tiene las columnas; si el SQL aún no se corrió, PostgREST
       // rechaza la columna y se reintenta sin ella.
@@ -194,6 +198,11 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
             Al agotarlos se muestra <strong>solo la mejor calificación</strong>.
             Escribe <strong>0</strong> para dejar intentos ilimitados.
           </p>
+
+          <label>Límite de tiempo por intento (minutos)</label>
+          <input type="number" min="1" max="600" value={limiteMinutos}
+                 onChange={e => setLimiteMinutos(e.target.value)} placeholder="Sin límite" />
+          <p className="nota">Al terminar el tiempo, las respuestas se envían automáticamente.</p>
 
           <label>Preguntas por intento (aleatorio)</label>
           <input type="number" min="0" value={aleatorioN}
