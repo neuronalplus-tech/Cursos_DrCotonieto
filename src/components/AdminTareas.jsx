@@ -412,6 +412,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                 ⬇️ Descargar plantilla de rúbrica
               </button>
             </div>
+            <img className="plantilla-carga-ejemplo" src="/plantillas/ejemplo-rubrica.svg" alt="Ejemplo de las columnas criterio, peso y descripción para llenar la rúbrica" />
 
             {criterios.length > 0 && (
               <>

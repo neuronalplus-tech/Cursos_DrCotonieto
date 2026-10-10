@@ -95,6 +95,7 @@ function Home({ user }) {
           {CATALOGO_PLANTILLAS.map(p => (
             <article className="servicio-card" key={p.archivo}>
               <h3>{p.nombre}</h3><p>{p.detalle}</p>
+              {p.imagen && <img className="plantilla-carga-ejemplo" src={p.imagen} alt={`Ejemplo de columnas para ${p.nombre}`} />}
               <button type="button" className="button secondary" onClick={() => descargarPlantilla(p)}>
                 ⬇️ Descargar {p.archivo}
               </button>

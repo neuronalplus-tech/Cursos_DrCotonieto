@@ -5,15 +5,13 @@ export const PLANTILLA_RUBRICA = [
   ['Presentación y fuentes', 25, 'Organiza el trabajo y cita las fuentes consultadas.'],
 ].map(f => f.join('\t')).join('\n')
 
-export const PLANTILLA_PADRON_CSV = [
-  ['nombre', 'apellidos', 'correo', 'curso', 'grupo'],
-  ['Ana', 'Ejemplo', 'ana@example.com', 'Curso', 'Grupo A'],
-].map(f => f.join(',')).join('\n')
+import { PLANTILLA_TSV } from './examenes'
+import { PLANTILLA_PADRON } from './padron'
 
 export const CATALOGO_PLANTILLAS = [
-  { nombre: 'Rúbrica de tarea', archivo: 'plantilla-rubrica.tsv', contenido: PLANTILLA_RUBRICA, detalle: 'Criterios, peso y descripción. Importable desde la opción Excel de la rúbrica.' },
-  { nombre: 'Preguntas para examen o banco', archivo: 'plantilla-preguntas.tsv', contenido: 'tipo\tpregunta\top1\top2\top3\top4\top5\tcorrecta\trespuesta\tpares\nopcion\tEscribe aquí la pregunta\tOpción correcta\tDistractor 1\tDistractor 2\tDistractor 3\t\t1\t\t', detalle: 'Preguntas de opción, verdadero/falso, respuesta corta o emparejar.' },
-  { nombre: 'Padrón de alumnos', archivo: 'plantilla-padron.csv', contenido: PLANTILLA_PADRON_CSV, detalle: 'Ejemplo de tabla para preparar altas e inscripciones masivas.' },
+  { nombre: 'Rúbrica de tarea', archivo: 'plantilla-rubrica.tsv', contenido: PLANTILLA_RUBRICA, imagen: '/plantillas/ejemplo-rubrica.svg', detalle: 'Criterios, peso y descripción. Importable desde la opción Excel de la rúbrica.' },
+  { nombre: 'Preguntas para examen o banco', archivo: 'plantilla-preguntas.tsv', contenido: PLANTILLA_TSV, imagen: '/plantillas/ejemplo-preguntas.svg', detalle: 'Preguntas de opción, verdadero/falso, respuesta corta o emparejar.' },
+  { nombre: 'Padrón de alumnos', archivo: 'plantilla-padron.tsv', contenido: PLANTILLA_PADRON, imagen: '/plantillas/ejemplo-padron.svg', detalle: 'Columnas nombre, correo, generación y ruta, como las solicita el importador masivo.' },
 ]
 
 export function descargarPlantilla(plantilla) {

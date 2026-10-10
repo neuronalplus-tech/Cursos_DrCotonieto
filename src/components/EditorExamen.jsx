@@ -244,6 +244,7 @@ export default function EditorExamen({ examen, destino, onClose, onGuardado }) {
               <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
                      style={{ display: 'none' }} onChange={leerArchivo} />
             </div>
+            <img className="plantilla-carga-ejemplo" src="/plantillas/ejemplo-preguntas.svg" alt="Ejemplo de columnas TSV para cargar preguntas al examen" />
             <textarea className="examen-textarea" rows={6} value={pegado}
                       onChange={e => setPegado(e.target.value)}
                       placeholder={'tipo\tpregunta\top1\top2\top3\top4\top5\tcorrecta\trespuesta\tpares\n' +
