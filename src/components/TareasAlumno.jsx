@@ -33,6 +33,7 @@ function UnaTarea({ tarea, user }) {
   const [prorroga, setProrroga] = useState(null)
   const [msg, setMsg] = useState(null)
   const [comentario, setComentario] = useState('')
+  const [actualizandoCalificacion, setActualizandoCalificacion] = useState(false)
 
   useEffect(() => {
     let vivo = true
@@ -108,8 +109,21 @@ function UnaTarea({ tarea, user }) {
     window.open(data.signedUrl, '_blank', 'noopener')
   }
 
+  const actualizarEntrega = async () => {
+    setActualizandoCalificacion(true)
+    const { data, error } = await supabase.from('entregas').select('*')
+      .eq('tarea_id', tarea.id).eq('usuario_id', user.id).maybeSingle()
+    setActualizandoCalificacion(false)
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo actualizar el estado: ' + error.message })
+    setEntrega(data || null)
+    if (data) setComentario(data.comentario || '')
+  }
+
   const plazo = estadoPlazo(tarea, prorroga)
-  const calificada = entrega?.calificado_en != null
+  // La fecha marca el flujo nuevo; `calificacion` también cubre notas
+  // guardadas por versiones anteriores que no escribían calificado_en.
+  const calificada = entrega?.calificado_en != null || entrega?.calificacion != null
+  const hayDesglose = criterios.some(c => entrega?.rubrica_detalle?.[c.id] != null)
   // El cierre real lo impone la base (FECHAS_LIMITE.sql). Aquí solo
   // se evita ofrecer un botón que iba a fallar.
   const puedeEntregar = (!entrega || tarea.permite_reentrega) && plazo.abierto
@@ -140,6 +154,10 @@ function UnaTarea({ tarea, user }) {
 
       {tarea.instrucciones && <p className="tarea-instrucciones">{tarea.instrucciones}</p>}
 
+      {entrega && !calificada && <button type="button" className="button texto tarea-actualizar-calificacion" onClick={actualizarEntrega} disabled={actualizandoCalificacion}>
+        {actualizandoCalificacion ? 'Actualizando…' : 'Actualizar estado de calificación'}
+      </button>}
+
       {criterios.length > 0 && (
         <details className="tarea-rubrica">
           <summary>{calificada ? 'Desglose de tu calificación' : `Criterios de evaluación (${criterios.length})`}</summary>
@@ -153,11 +171,21 @@ function UnaTarea({ tarea, user }) {
                 const nivel = (c.niveles || []).find(n => n.etiqueta === etiqueta)
                   || (puntos != null ? (c.niveles || []).find(n => Number(n.puntos) === Number(puntos)) : null)
                 const etiquetaResultado = etiqueta || nivel?.etiqueta
+                const cumple = etiquetaResultado === 'Cumple'
+                  || (!etiquetaResultado && puntos != null && Number(puntos) > 0)
                 return <tr key={c.id}>
                   <th scope="row">{c.titulo}</th>
                   <td><div>{c.descripcion || '—'}</div>{!calificada && (c.niveles || []).length > 0 && <ul className="tarea-niveles">{c.niveles.map((n, j) => <li key={j}><strong>{n.etiqueta}</strong> · {n.puntos} pts{n.descripcion && <> — {n.descripcion}</>}</li>)}</ul>}</td>
                   <td>{c.peso} pts</td>
-                  {calificada && <td>{puntos == null ? '—' : <><strong>{puntos} / {c.peso} pts</strong>{etiquetaResultado && <div><span className="badge ok">{etiquetaResultado}</span>{(guardado?.descripcion || nivel?.descripcion) && <p className="nota">{guardado?.descripcion || nivel?.descripcion}</p>}</div>}{!etiquetaResultado && <div className="nota">Calificación manual</div>}</>}</td>}
+                  {calificada && <td>{puntos == null ? <span className="nota">{hayDesglose ? 'Sin resultado para este criterio' : 'No se guardó el desglose de la rúbrica'}</span> : <><strong>{puntos} / {c.peso} pts</strong>
+                    <ul className="tarea-rubrica-checklist">
+                      {(c.niveles || []).length ? c.niveles.map((n, i) => {
+                        const seleccionado = etiquetaResultado ? etiquetaResultado === n.etiqueta : nivel?.etiqueta === n.etiqueta
+                        return <li key={i} className={seleccionado ? 'seleccionado' : ''}><span aria-hidden="true">{seleccionado ? '☑' : '☐'}</span><span><strong>{n.etiqueta}</strong> · {n.puntos} pts{n.descripcion && <small>{n.descripcion}</small>}</span></li>
+                      }) : <li className={cumple ? 'seleccionado' : ''}><span aria-hidden="true">{cumple ? '☑' : '☐'}</span><span><strong>{etiquetaResultado || (Number(puntos) === 0 ? 'No cumple' : Number(puntos) === Number(c.peso) ? 'Cumple' : 'Puntaje asignado')}</strong>{Number(puntos) > 0 && Number(puntos) < Number(c.peso) && <small>Cumplimiento parcial</small>}</span></li>}
+                    </ul>
+                    {(guardado?.descripcion || nivel?.descripcion) && <p className="nota">{guardado?.descripcion || nivel?.descripcion}</p>}
+                  </>}</td>}
                 </tr>
               })}</tbody>
             </table>

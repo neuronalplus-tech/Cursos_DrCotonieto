@@ -937,6 +937,12 @@ a { color: var(--primary); }
 .tarea-rubrica-tabla thead { background: var(--bg-card); color: var(--primary); }
 .tarea-rubrica-tabla tbody th { min-width: 145px; color: var(--primary); }
 .tarea-rubrica-tabla .tarea-niveles { font-size: 12.5px; }
+.tarea-rubrica-checklist { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; min-width: 190px; }
+.tarea-rubrica-checklist li { display: grid; grid-template-columns: 20px 1fr; gap: 6px; align-items: start; margin: 0; color: var(--muted); }
+.tarea-rubrica-checklist li.seleccionado { color: var(--ok); }
+.tarea-rubrica-checklist li > span:first-child { font-size: 17px; line-height: 1.2; }
+.tarea-rubrica-checklist small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.tarea-actualizar-calificacion { margin: 8px 0; }
 .tarea-entregado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 10px 12px; margin: 12px 0; border-radius: 10px; background: var(--bg-card); }
 .tarea-retro { padding: 12px; margin: 12px 0; border-radius: 10px;
