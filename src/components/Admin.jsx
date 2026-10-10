@@ -64,8 +64,12 @@ async function enviarEnlaceRecuperacion(email, asunto) {
 
   const enlace = String(datos.action_link).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const envio = await enviarCorreo({
+    tipo: 'aviso',
     email: email.trim().toLowerCase(),
     asunto,
+    // Incluye la URL directa en el texto plano: si el Apps Script desplegado
+    // todavía usa una plantilla HTML anterior, Gmail la detecta como enlace.
+    cuerpoTexto: `Abre este enlace para crear tu contraseña del aula virtual:\n\n${datos.action_link}\n\nSi no solicitaste este cambio, puedes ignorar este correo.`,
     cuerpoHtml: '<p>Usa este enlace para crear tu contraseña del aula virtual:</p>' +
       `<p style="margin:24px 0"><a href="${enlace}" style="background:#1d3b4a;color:#fff;padding:13px 20px;border-radius:8px;text-decoration:none;font-weight:700">Crear contraseña</a></p>` +
       '<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>',
