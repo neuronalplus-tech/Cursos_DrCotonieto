@@ -191,12 +191,17 @@ export function EditorBotonesExtra({ botones, onChange }) {
   const actualizar = (i, campo, valor) =>
     onChange(botones.map((b, idx) => idx === i ? { ...b, [campo]: valor } : b))
   const agregar = () => onChange([...botones, { texto: '', url: '', estilo: 'azul', activo: true }])
-  const eliminar = (i) => onChange(botones.filter((_, idx) => idx !== i))
+  const eliminar = (i) => onChange(botones.flatMap((b, idx) => idx !== i ? [b] :
+    b.tipo === 'entregables' ? [{ ...b, eliminado: true }] : []))
 
   return (
     <>
       {botones.map((b, i) => (
         <div key={i} className="boton-extra-fila">
+          {b.eliminado ? <>
+            <span>Entregables eliminado</span>
+            <button type="button" className="button texto" onClick={() => actualizar(i, 'eliminado', false)}>Restaurar</button>
+          </> : <>
           <select value={b.estilo} onChange={e => actualizar(i, 'estilo', e.target.value)}>
             {ESTILOS_BOTON.map(e => <option key={e.valor} value={e.valor}>{e.etiqueta}</option>)}
           </select>
@@ -207,6 +212,7 @@ export function EditorBotonesExtra({ botones, onChange }) {
           <label className="boton-extra-activo"><input type="checkbox" checked={b.activo !== false}
             onChange={e => actualizar(i, 'activo', e.target.checked)} /> Activo</label>
           <button type="button" className="boton-extra-quitar" onClick={() => eliminar(i)} title="Quitar botón">✕</button>
+          </>}
         </div>
       ))}
       <button type="button" className="button secondary" style={{ marginTop: 8 }} onClick={agregar}>

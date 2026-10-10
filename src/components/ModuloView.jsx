@@ -268,7 +268,7 @@ function ModuloView({ user }) {
           {mostrarDiapositivas && <DiapositivasPresentarCaso />}
           {mostrarEntregables && (() => {
             const enlace = (modulo.botones_extra || []).find(b => b.tipo === 'entregables')
-            if (enlace?.activo === false || (!enlace && Array.isArray(modulo.botones_extra))) return null
+            if (enlace?.eliminado || enlace?.activo === false) return null
             return <Entregables url={enlace?.url} />
           })()}
 
