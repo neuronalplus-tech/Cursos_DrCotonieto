@@ -122,9 +122,9 @@ export default function Recuperar() {
   }
 
   return (
-    <main className="login-main">
-      <section className="login-card">
-        <img src={LOGO_CLARO} alt="Dr. Ernesto Cotonieto" className="login-logo" />
+    <main className="portal centered">
+      <section className="card login-card">
+        <img src={LOGO_CLARO} alt="Dr. Ernesto Cotonieto" className="logo-login" />
         <p className="eyebrow">Aula virtual</p>
 
         {modo === 'pedir' ? (

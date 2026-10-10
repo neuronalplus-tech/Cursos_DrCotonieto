@@ -102,6 +102,7 @@ export default function MisCalificaciones({ user }) {
 
         // --- Exámenes ---
         const { data: exs } = await supabase
+          .from('examenes')
           // `examenes` NO tiene puntos_max: pedirla hacia que PostgREST
           // devolviera error y `exs` llegara nulo, asi que los examenes no
           // aparecian en esta pantalla. Se califican sobre 100.
