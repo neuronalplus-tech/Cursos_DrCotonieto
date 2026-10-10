@@ -930,6 +930,13 @@ a { color: var(--primary); }
 .tarea-rubrica summary { cursor: pointer; color: var(--accent); font-size: 14px; }
 .tarea-rubrica ul { margin: 10px 0 0; padding-left: 20px; }
 .tarea-rubrica li { margin-bottom: 8px; }
+.tarea-rubrica h4 { margin: 0 0 10px; color: var(--primary); }
+.tarea-rubrica-tabla-scroll { width: 100%; overflow-x: auto; }
+.tarea-rubrica-tabla { width: 100%; border-collapse: collapse; min-width: 560px; font-size: 13.5px; }
+.tarea-rubrica-tabla th, .tarea-rubrica-tabla td { padding: 10px 12px; border: 1px solid var(--borde); text-align: left; vertical-align: top; }
+.tarea-rubrica-tabla thead { background: var(--bg-card); color: var(--primary); }
+.tarea-rubrica-tabla tbody th { min-width: 145px; color: var(--primary); }
+.tarea-rubrica-tabla .tarea-niveles { font-size: 12.5px; }
 .tarea-entregado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 10px 12px; margin: 12px 0; border-radius: 10px; background: var(--bg-card); }
 .tarea-retro { padding: 12px; margin: 12px 0; border-radius: 10px;
@@ -959,6 +966,16 @@ a { color: var(--primary); }
 .calificar-nivel.activo { border-color: var(--accent); background: var(--bg-card); }
 .calificar-nivel > span:first-child { font-weight: 600; }
 .calificar-nivel-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.calificar-criterio-rapido { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.calificar-decision { border: 1px solid var(--borde); background: var(--blanco); color: var(--body); border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit; }
+.calificar-decision.activo { border-color: var(--accent); background: var(--bg-card); color: var(--primary); font-weight: 700; }
+.calificar-pantalla-completa { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; padding: clamp(12px, 2vw, 28px); background: var(--blanco); overflow: hidden; }
+.calificar-pantalla-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--borde); }
+.calificar-pantalla-cabecera h2 { margin: 2px 0 0; color: var(--primary); }
+.calificar-pantalla-completa .calificar { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.calificar-pantalla-completa .calificar-cuerpo { flex: 1; min-height: 0; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); }
+.calificar-pantalla-completa .calificar-lista,
+.calificar-pantalla-completa .calificar-detalle { max-height: none; min-height: 0; overflow: auto; }
 
 .tarea-niveles { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
 .tarea-niveles li { margin-bottom: 3px; }
@@ -999,6 +1016,8 @@ a { color: var(--primary); }
 @media (max-width: 760px) {
   .calificar-cuerpo { grid-template-columns: 1fr; }
   .calificar-lista { max-height: 200px; }
+  .calificar-pantalla-completa .calificar-cuerpo { grid-template-columns: minmax(0, 1fr); }
+  .calificar-pantalla-completa .calificar-lista { max-height: 26vh; }
 }
 
 /* ---- Tareas y rúbrica --------------------------------------- */

@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Prorrogas from './Prorrogas'
 import CalificarTarea from './CalificarTarea'
+import { ModalPortal } from './ui'
 import { descargarPlantilla, CATALOGO_PLANTILLAS } from '../lib/plantillasCarga'
 
 const VACIA = {
@@ -288,12 +289,15 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
       {msg && <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'}>{msg.texto}</p>}
 
       {calificando && (
-        <div className="calificar-envoltorio">
-          <button type="button" className="enlace-texto"
-                  onClick={() => setCalificando(null)}>← Volver a las tareas</button>
-          <h3>{calificando.titulo}</h3>
-          <CalificarTarea tarea={calificando} />
-        </div>
+        <ModalPortal>
+          <section className="calificar-pantalla-completa" role="dialog" aria-modal="true" aria-label={`Calificar ${calificando.titulo}`}>
+            <header className="calificar-pantalla-cabecera">
+              <div><span className="nota">Calificación de tarea</span><h2>{calificando.titulo}</h2></div>
+              <button type="button" className="button secondary" onClick={() => setCalificando(null)}>Cerrar calificación</button>
+            </header>
+            <CalificarTarea tarea={calificando} />
+          </section>
+        </ModalPortal>
       )}
 
       {editando === null && !calificando && (

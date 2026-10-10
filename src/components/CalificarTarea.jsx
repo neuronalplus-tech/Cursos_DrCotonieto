@@ -21,6 +21,7 @@ export default function CalificarTarea({ tarea, onCerrar }) {
 
   const [activo, setActivo] = useState(null)      // usuario_id
   const [puntos, setPuntos] = useState({})        // criterio_id -> puntos
+  const [nivelesElegidos, setNivelesElegidos] = useState({}) // criterio_id -> etiqueta
   const [nota, setNota] = useState('')
   const [retro, setRetro] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -89,8 +90,18 @@ export default function CalificarTarea({ tarea, onCerrar }) {
     setMsg(null)
     const detalle = a.entrega?.rubrica_detalle || {}
     const p = {}
-    for (const c of cs) p[c.id] = detalle[c.id] ?? ''
+    const niveles = {}
+    for (const c of cs) {
+      const guardado = detalle[c.id]
+      p[c.id] = guardado && typeof guardado === 'object' ? guardado.puntos : guardado ?? ''
+      if (guardado && typeof guardado === 'object' && guardado.nivel) niveles[c.id] = guardado.nivel
+      else if (p[c.id] !== '') {
+        const coincide = (c.niveles || []).find(n => Number(n.puntos) === Number(p[c.id]))
+        if (coincide) niveles[c.id] = coincide.etiqueta
+      }
+    }
     setPuntos(p)
+    setNivelesElegidos(niveles)
     setNota(a.entrega?.calificacion ?? '')
     setRetro(a.entrega?.retroalimentacion || '')
   }
@@ -118,7 +129,14 @@ export default function CalificarTarea({ tarea, onCerrar }) {
     setGuardando(true)
     const detalle = {}
     for (const c of criterios) {
-      if (puntos[c.id] !== '' && puntos[c.id] != null) detalle[c.id] = Number(puntos[c.id])
+      if (puntos[c.id] !== '' && puntos[c.id] != null) {
+        const nivel = (c.niveles || []).find(n => n.etiqueta === nivelesElegidos[c.id])
+        detalle[c.id] = {
+          puntos: Number(puntos[c.id]),
+          nivel: nivel?.etiqueta || nivelesElegidos[c.id] || null,
+          descripcion: nivel?.descripcion || null,
+        }
+      }
     }
     const { data, error: e } = await supabase.from('entregas').update({
       calificacion: notaFinal,
@@ -225,15 +243,17 @@ ${retro.trim()}`
                         {/* Con niveles se elige; sin ellos se teclea. Elegir
                             es mas rapido y, sobre todo, mide a todos con la
                             misma vara: el descriptor esta a la vista. */}
-                        {(c.niveles || []).length > 0 && (
+                        {(c.niveles || []).length > 0 ? (
                           <div className="calificar-niveles">
                             {c.niveles.map((n, j) => {
-                              const elegido = String(puntos[c.id]) === String(n.puntos)
+                              const elegido = nivelesElegidos[c.id]
+                                ? nivelesElegidos[c.id] === n.etiqueta
+                                : String(puntos[c.id]) === String(n.puntos)
                               return (
                                 <button key={j} type="button"
                                         className={`calificar-nivel ${elegido ? 'activo' : ''}`}
                                         title={n.descripcion || undefined}
-                                        onClick={() => setPuntos(p => ({ ...p, [c.id]: n.puntos }))}>
+                                        onClick={() => { setPuntos(p => ({ ...p, [c.id]: n.puntos })); setNivelesElegidos(p => ({ ...p, [c.id]: n.etiqueta })) }}>
                                   <span>{n.etiqueta}</span>
                                   <span className="nota">{n.puntos} pts</span>
                                   {n.descripcion && (
@@ -243,11 +263,16 @@ ${retro.trim()}`
                               )
                             })}
                           </div>
+                        ) : (
+                          <div className="calificar-criterio-rapido" role="group" aria-label={`¿Cumplió el criterio ${c.titulo}?`}>
+                            <button type="button" className={`calificar-decision ${Number(puntos[c.id]) === Number(c.peso) && puntos[c.id] !== '' ? 'activo' : ''}`} onClick={() => { setPuntos(p => ({ ...p, [c.id]: Number(c.peso) })); setNivelesElegidos(p => ({ ...p, [c.id]: 'Cumple' })) }}>✓ Cumple · {c.peso} pts</button>
+                            <button type="button" className={`calificar-decision ${Number(puntos[c.id]) === 0 && puntos[c.id] !== '' ? 'activo' : ''}`} onClick={() => { setPuntos(p => ({ ...p, [c.id]: 0 })); setNivelesElegidos(p => ({ ...p, [c.id]: 'No cumple' })) }}>✕ No cumple · 0 pts</button>
+                          </div>
                         )}
                       </div>
                       <input className="input" type="number" min="0" max={c.peso}
                              value={puntos[c.id] ?? ''}
-                             onChange={e => setPuntos(p => ({ ...p, [c.id]: e.target.value }))} />
+                             onChange={e => { setPuntos(p => ({ ...p, [c.id]: e.target.value })); setNivelesElegidos(p => ({ ...p, [c.id]: '' })) }} />
                     </div>
                   ))}
                   {/* Con rúbrica la nota no se escribe: se deriva. Dejar

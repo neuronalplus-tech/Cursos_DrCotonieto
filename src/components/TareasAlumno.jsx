@@ -142,29 +142,26 @@ function UnaTarea({ tarea, user }) {
 
       {criterios.length > 0 && (
         <details className="tarea-rubrica">
-          <summary>Cómo se califica ({criterios.length} criterios)</summary>
-          <ul>
-            {criterios.map(c => (
-              <li key={c.id}>
-                <strong>{c.titulo}</strong> <span className="nota">({c.peso} pts)</span>
-                {c.descripcion && <div className="nota">{c.descripcion}</div>}
-                {/* Los niveles son lo mas util que puede leer antes de
-                    entregar: le dicen que separa un trabajo suficiente
-                    de uno excelente, con palabras concretas. */}
-                {(c.niveles || []).length > 0 && (
-                  <ul className="tarea-niveles">
-                    {c.niveles.map((n, j) => (
-                      <li key={j}>
-                        <strong>{n.etiqueta}</strong>
-                        <span className="nota"> ({n.puntos} pts)</span>
-                        {n.descripcion && <> — {n.descripcion}</>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
+          <summary>{calificada ? 'Desglose de tu calificación' : `Criterios de evaluación (${criterios.length})`}</summary>
+          <div className="tarea-rubrica-tabla-scroll">
+            <table className="tarea-rubrica-tabla">
+              <thead><tr><th>Criterio</th><th>Qué se evalúa</th><th>Valor</th>{calificada && <th>Tu resultado</th>}</tr></thead>
+              <tbody>{criterios.map(c => {
+                const guardado = entrega?.rubrica_detalle?.[c.id]
+                const puntos = guardado && typeof guardado === 'object' ? guardado.puntos : guardado
+                const etiqueta = guardado && typeof guardado === 'object' ? guardado.nivel : null
+                const nivel = (c.niveles || []).find(n => n.etiqueta === etiqueta)
+                  || (puntos != null ? (c.niveles || []).find(n => Number(n.puntos) === Number(puntos)) : null)
+                const etiquetaResultado = etiqueta || nivel?.etiqueta
+                return <tr key={c.id}>
+                  <th scope="row">{c.titulo}</th>
+                  <td><div>{c.descripcion || '—'}</div>{!calificada && (c.niveles || []).length > 0 && <ul className="tarea-niveles">{c.niveles.map((n, j) => <li key={j}><strong>{n.etiqueta}</strong> · {n.puntos} pts{n.descripcion && <> — {n.descripcion}</>}</li>)}</ul>}</td>
+                  <td>{c.peso} pts</td>
+                  {calificada && <td>{puntos == null ? '—' : <><strong>{puntos} / {c.peso} pts</strong>{etiquetaResultado && <div><span className="badge ok">{etiquetaResultado}</span>{(guardado?.descripcion || nivel?.descripcion) && <p className="nota">{guardado?.descripcion || nivel?.descripcion}</p>}</div>}{!etiquetaResultado && <div className="nota">Calificación manual</div>}</>}</td>}
+                </tr>
+              })}</tbody>
+            </table>
+          </div>
         </details>
       )}
 
