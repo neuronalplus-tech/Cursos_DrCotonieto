@@ -1,252 +1,310 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { jsPDF } from 'jspdf'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { MARCA, CONTACTO_EMAIL, rutaAcceso, wa } from '../config'
+import { CONTACTO_EMAIL, rutaAcceso, wa } from '../config'
 import { emiteConstancia } from '../lib/helpers'
-import { Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
+import { conLetra, fechaConLetra } from '../lib/plantillas'
+import { Breadcrumb, BandaRedes } from './ui'
+
+// Estos IDs son los mismos que usa el formato de constancias v11 del
+// usuario. La imagen debe estar compartida como visible para el alumnado;
+// si no carga, se bloquea el PDF para no emitirlo sin firma.
+const FIRMA_DRIVE_ID = '1WwC1nljxUO4qEgDwlAffGebNn4skVcMU'
+const FIRMA_DRIVE_URL = `https://drive.google.com/uc?export=view&id=${FIRMA_DRIVE_ID}`
+const LOGO_URL = '/logo_terracota_1024.png'
+
+const escapar = (valor) => String(valor ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+function esperarImagen(url, timeout = 9000) {
+  return new Promise(resolve => {
+    const img = new Image()
+    const reloj = setTimeout(() => resolve(false), timeout)
+    img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
+    img.onerror = () => { clearTimeout(reloj); resolve(false) }
+    img.src = url
+  })
+}
+
+function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaUrl }) {
+  const nombreLimpio = escapar(nombre)
+  const profesionLimpia = escapar(profesion)
+  const cursoLimpio = escapar(curso)
+  const nota = Number(nota10).toFixed(1).replace(/\.0$/, '')
+  const nombreFont = nombre.length > 34 ? 25 : nombre.length > 25 ? 28 : 30
+  const cursoFont = curso.length > 48 ? 15 : curso.length > 34 ? 17 : 19
+  const firma = escapar(firmaUrl)
+  const folioHtml = escapar(folio)
+  const verificar = `${window.location.origin}/verificar/${encodeURIComponent(folio)}`
+  const contacto = escapar(CONTACTO_EMAIL)
+  const telefono = '56 3784 1931'
+  const cargo = 'Cédula profesional 10521804'
+  const nombreFirma = 'Dr. Ernesto Cotonieto Martínez'
+
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Constancia · ${cursoLimpio}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: 10in 5.625in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 10in; height: 5.625in; }
+  body { font-family: Inter, Arial, sans-serif; color: #1B3A4B; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hoja { position: relative; width: 10in; height: 5.625in; overflow: hidden; background: #FAFAF8; }
+  .franja { position: absolute; inset: 0 0 auto; height: 5pt; background: #1B3A4B; }
+  .logo { position: absolute; left: 50%; top: 4%; width: 4.167%; height: auto; transform: translateX(-50%); }
+  .antetitulo { position: absolute; top: 12.8%; left: 10%; width: 80%; text-align: center; font-size: 11pt; letter-spacing: .25em; font-weight: 600; }
+  .acento { position: absolute; top: 17.8%; left: 47.22%; width: 5.56%; height: 1.5pt; background: #C17A5E; }
+  .se-otorga { position: absolute; top: 20.2%; left: 10%; width: 80%; text-align: center; font-size: 11pt; }
+  .nombre { position: absolute; top: 24.2%; left: 5%; width: 90%; text-align: center; font: 600 ${nombreFont}pt Fraunces, Georgia, serif; color: #1B3A4B; line-height: 1.15; }
+  .profesion { position: absolute; top: 31.1%; left: 10%; width: 80%; text-align: center; color: #8A9BAD; font-size: 8.5pt; }
+  .separador { position: absolute; top: 35.1%; left: 36%; width: 28%; height: .9pt; background: #D6DCE3; }
+  .motivo { position: absolute; top: 37%; left: 10%; width: 80%; text-align: center; font-size: 11pt; }
+  .curso { position: absolute; top: 41%; left: 10%; width: 80%; text-align: center; font: 600 ${cursoFont}pt Fraunces, Georgia, serif; line-height: 1.15; }
+  .calificacion { position: absolute; top: 52.3%; left: 10%; width: 80%; text-align: center; color: #C17A5E; font-size: 10pt; font-weight: 600; }
+  .verificacion { position: absolute; top: 61%; left: 8%; width: 84%; text-align: center; color: #8A9BAD; font-size: 7pt; overflow-wrap: anywhere; }
+  .firma { position: absolute; left: 50%; top: 80.5%; width: 19%; height: auto; transform: translate(-50%, -83%); object-fit: contain; }
+  .linea-firma { position: absolute; top: 80.5%; left: 33%; width: 34%; height: 1pt; background: #1B3A4B; }
+  .firmante { position: absolute; top: 84.5%; left: 10%; width: 80%; text-align: center; font-size: 9pt; font-weight: 700; }
+  .cargo { position: absolute; top: 88.5%; left: 10%; width: 80%; text-align: center; font-size: 7.5pt; color: #8A9BAD; }
+  .pie { position: absolute; bottom: 0; left: 0; width: 100%; height: 6.2%; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; padding: 0 4.5%; background: #1B3A4B; color: #D6DCE3; font-size: 6.4pt; }
+  .pie strong { text-align: center; color: #FAFAF8; font-size: 8pt; }
+  .pie span:last-child { text-align: right; }
+  @media screen { body { background: #e8e5df; padding: 24px; } .hoja { margin: auto; box-shadow: 0 8px 30px #0002; } }
+</style></head><body><main class="hoja">
+  <div class="franja"></div>
+  <img class="logo" src="${LOGO_URL}" alt="">
+  <div class="antetitulo">CONSTANCIA DE ACREDITACIÓN</div>
+  <div class="acento"></div>
+  <div class="se-otorga">Se otorga a</div>
+  <div class="nombre">${nombreLimpio}</div>
+  ${profesionLimpia ? `<div class="profesion">${profesionLimpia}</div>` : ''}
+  <div class="separador"></div>
+  <div class="motivo">por haber acreditado satisfactoriamente el curso</div>
+  <div class="curso">«${cursoLimpio}»</div>
+  <div class="calificacion">Calificación final: ${nota}/10 · ${escapar(conLetra(nota10))}</div>
+  <div class="verificacion">${fecha} · Verificable en ${escapar(verificar)} · ${contacto}</div>
+  <div class="linea-firma"></div>
+  <img id="firma-escaneada" class="firma" src="${firma}" alt="Firma autógrafa digital de ${escapar(nombreFirma)}">
+  <div class="firmante">${escapar(nombreFirma)}</div>
+  <div class="cargo">${escapar(cargo)}</div>
+  <footer class="pie"><span>Folio ${folioHtml}</span><strong>@dr.cotonieto</strong><span>${telefono}</span></footer>
+</main></body></html>`
+}
 
 function Constancia({ user }) {
   const { cursoId } = useParams()
+  const navigate = useNavigate()
   const [perfil, setPerfil] = useState({ nombre: '', profesion: '' })
+  const [curso, setCurso] = useState(null)
+  const [estado, setEstado] = useState(null)
+  const [error, setError] = useState('')
   const [cargando, setCargando] = useState(true)
   const [generando, setGenerando] = useState(false)
-  const [curso, setCurso] = useState(null)
-  const [puede, setPuede] = useState(false)
-  // Qué falta, por partes. Un "aún no" sin más obliga a la persona a
-  // adivinar qué le queda, y a ti a responder el mensaje preguntándolo.
-  const [requisitos, setRequisitos] = useState([])
   const [noEmite, setNoEmite] = useState(false)
-  // El folio de ESTA emisión: se lee de la base al cargar y se crea
-  // solo si aún no existe. Regenerar el PDF reutiliza el mismo.
+  const [firmaLista, setFirmaLista] = useState(false)
   const [folio, setFolio] = useState(null)
-  const navigate = useNavigate()
+
+  const firmaUrl = FIRMA_DRIVE_URL
 
   useEffect(() => {
     if (!user) { navigate(rutaAcceso(`/constancia/${cursoId}`)); return }
-    async function load() {
-      const { data: p } = await supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).maybeSingle()
-      if (p) setPerfil({ nombre: p.nombre_completo || '', profesion: p.profesion || '' })
-      const { data: c } = await supabase.from('cursos')
-        .select('titulo, constancia, gratuito').eq('id', cursoId).maybeSingle()
-      setCurso(c)
-      if (!c || !emiteConstancia(c)) {
-        setNoEmite(true)
-        setCargando(false)
-        return
-      }
-      const { data: mods } = await supabase.from('modulos')
-        .select('id, disponible').eq('curso_id', cursoId)
-      const modsActivos = (mods || []).filter(m => m.disponible !== false)
-      const idsMod = modsActivos.map(m => m.id)
-      const req = []
-
-      // --- Recursos ---
-      const { data: rs } = idsMod.length
-        ? await supabase.from('recursos').select('id').in('modulo_id', idsMod)
-        : { data: [] }
-      const idsRec = (rs || []).map(r => r.id)
-      if (idsRec.length) {
-        const { data: comp } = await supabase.from('progreso_usuario')
-          .select('recurso_id').eq('usuario_id', user.id)
-          .in('recurso_id', idsRec).eq('completado', true)
-        const hechos = comp?.length || 0
-        req.push({
-          titulo: 'Material del curso',
-          cumple: hechos === idsRec.length,
-          detalle: `${hechos} de ${idsRec.length} recursos`,
-        })
-      }
-
-      // --- Tareas: hay que haber entregado Y estar calificado ---
-      const { data: tC } = await supabase.from('tareas')
-        .select('id, titulo').eq('curso_id', cursoId).eq('activo', true)
-      const { data: tM } = idsMod.length
-        ? await supabase.from('tareas').select('id, titulo')
-            .in('modulo_id', idsMod).eq('activo', true)
-        : { data: [] }
-      const tareas = [...(tC || []), ...(tM || [])]
-      if (tareas.length) {
-        const { data: ents } = await supabase.from('entregas')
-          .select('tarea_id, calificado_en').eq('usuario_id', user.id)
-          .in('tarea_id', tareas.map(t => t.id))
-        const calificadas = (ents || []).filter(e => e.calificado_en).length
-        req.push({
-          titulo: 'Entregas',
-          cumple: calificadas === tareas.length,
-          detalle: `${calificadas} de ${tareas.length} calificadas`,
-        })
-      }
-
-      // --- Exámenes: basta un intento aprobado de cada uno ---
-      const { data: exC } = await supabase.from('examenes')
-        .select('id').eq('curso_id', cursoId).eq('activo', true)
-      const { data: exM } = idsMod.length
-        ? await supabase.from('examenes').select('id')
-            .in('modulo_id', idsMod).eq('activo', true)
-        : { data: [] }
-      const examenes = [...(exC || []), ...(exM || [])]
-      if (examenes.length) {
-        const { data: its } = await supabase.from('intentos_examen')
-          .select('examen_id, aprobado').eq('usuario_id', user.id)
-          .in('examen_id', examenes.map(e => e.id))
-        const aprobados = new Set(
-          (its || []).filter(x => x.aprobado).map(x => x.examen_id)).size
-        req.push({
-          titulo: 'Exámenes',
-          cumple: aprobados === examenes.length,
-          detalle: `${aprobados} de ${examenes.length} aprobados`,
-        })
-      }
-
-      setRequisitos(req)
-      // Sin requisitos no hay nada que exigir: un curso sin material ni
-      // evaluaciones no debe bloquear la constancia por un tecnicismo.
-      setPuede(req.length === 0 || req.every(r => r.cumple))
-      // El folio vive en la base, no en el PDF: si ya se emitió para
-      // este alumno+curso, se reutiliza para no invalidar impresos.
+    let vivo = true
+    ;(async () => {
+      setCargando(true)
+      setError('')
+      setNoEmite(false)
+      setEstado(null)
+      setFolio(null)
       try {
-        const { data: existente } = await supabase.from('constancias')
-          .select('folio').eq('usuario_id', user.id).eq('curso_id', cursoId).maybeSingle()
-        if (existente?.folio) setFolio(existente.folio)
-      } catch { /* la tabla puede no existir aún: se crea al generar */ }
-      setCargando(false)
-    }
-    load()
+        const [{ data: p, error: ePerfil }, { data: c, error: eCurso }] = await Promise.all([
+          supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).maybeSingle(),
+          supabase.from('cursos').select('id, titulo, constancia, gratuito').eq('id', cursoId).maybeSingle(),
+        ])
+        if (ePerfil) throw ePerfil
+        if (eCurso) throw eCurso
+        if (!c || !emiteConstancia(c)) {
+          if (vivo) { setCurso(c); setNoEmite(true) }
+          return
+        }
+        const { data: resultado, error: eEstado } = await supabase
+          .rpc('estado_constancia', { p_curso: Number(cursoId) })
+        if (eEstado) throw eEstado
+        if (vivo) {
+          setCurso(c)
+          setPerfil({ nombre: p?.nombre_completo || '', profesion: p?.profesion || '' })
+          setEstado(resultado)
+          setFolio(resultado?.folio || null)
+        }
+      } catch (e) {
+        if (vivo) setError(e.message || 'No se pudo verificar si ya puedes descargar tu constancia.')
+      } finally {
+        if (vivo) setCargando(false)
+      }
+    })()
+    return () => { vivo = false }
   }, [cursoId, user, navigate])
 
+  useEffect(() => {
+    let vivo = true
+    esperarImagen(firmaUrl).then(ok => { if (vivo) setFirmaLista(ok) })
+    return () => { vivo = false }
+  }, [firmaUrl])
+
   const guardar = async () => {
-    const { error } = await supabase.from('perfiles').upsert(
-      { id: user.id, nombre_completo: perfil.nombre, profesion: perfil.profesion }, { onConflict: 'id' })
-    alert(error ? 'Error: ' + error.message : 'Datos guardados.')
+    const { error: e } = await supabase.from('perfiles').upsert(
+      { id: user.id, nombre_completo: perfil.nombre.trim(), profesion: perfil.profesion.trim() },
+      { onConflict: 'id' })
+    if (e) setError('No se pudieron guardar tus datos: ' + e.message)
+    else setError('')
   }
 
   const generar = async () => {
-    if (!perfil.nombre || !perfil.profesion) return alert('Completa tu nombre y profesión.')
+    if (!estado?.disponible) return setError('La constancia solo se habilita al completar el curso y alcanzar la calificación mínima.')
+    if (!firmaLista) return setError('La firma escaneada no está disponible desde esta página. No se generó un documento sin firma.')
+    if (!perfil.nombre.trim() || !perfil.profesion.trim()) {
+      return setError('Completa tu nombre y profesión para que aparezcan en la constancia.')
+    }
+
+    const ventana = window.open('', '_blank')
+    if (!ventana) return setError('El navegador bloqueó la ventana del PDF. Permite las ventanas emergentes de este sitio e inténtalo otra vez.')
     setGenerando(true)
+    setError('')
     try {
-      // El folio lo emite la BASE, no esta pantalla.
-      //
-      // Antes se insertaba aquí directamente, con la comprobación de
-      // requisitos viviendo solo en React. Eso permitía crearse una
-      // constancia de un curso no cursado desde la consola del
-      // navegador, y la URL pública la habría dado por auténtica.
-      //
-      // Ahora `emitir_constancia` recomprueba los requisitos en el
-      // servidor, toma el nombre del perfil y genera el folio. Si ya
-      // se emitió antes devuelve el mismo, para no invalidar los
-      // impresos que esa persona ya repartió.
+      const { error: ePerfil } = await supabase.from('perfiles').upsert(
+        { id: user.id, nombre_completo: perfil.nombre.trim(), profesion: perfil.profesion.trim() },
+        { onConflict: 'id' })
+      if (ePerfil) throw ePerfil
+
+      // Revalida inmediatamente antes de emitir: la condición no depende
+      // de lo que haya quedado en memoria en el navegador.
+      const { data: revision, error: eEstado } = await supabase
+        .rpc('estado_constancia', { p_curso: Number(cursoId) })
+      if (eEstado) throw eEstado
+      if (!revision?.disponible) throw new Error('Ya no cumples los requisitos o la calificación mínima del curso.')
+
       const { data: folioEmitido, error: eFolio } = await supabase
         .rpc('emitir_constancia', { p_curso: Number(cursoId) })
-      if (eFolio) throw new Error(eFolio.message)
-      const miFolio = folioEmitido
-      if (!miFolio) throw new Error('No se pudo emitir la constancia.')
-      setFolio(miFolio)
+      if (eFolio) throw eFolio
+      if (!folioEmitido) throw new Error('No se pudo emitir el folio de la constancia.')
 
-      const urlVerificar = `${window.location.origin}/verificar/${miFolio}`
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-      const W = 297, H = 210
-      doc.setFillColor(250, 250, 248); doc.rect(0, 0, W, H, 'F')
-      doc.setDrawColor(193, 122, 94); doc.setLineWidth(1.5); doc.rect(10, 10, W - 20, H - 20)
-      doc.setDrawColor(27, 58, 75); doc.setLineWidth(0.3); doc.rect(13, 13, W - 26, H - 26)
-      doc.setTextColor(27, 58, 75); doc.setFont('times', 'normal'); doc.setFontSize(13)
-      doc.text('DR. ERNESTO COTONIETO', W / 2, 32, { align: 'center' })
-      doc.setFontSize(28); doc.setFont('times', 'bold')
-      doc.text('CONSTANCIA', W / 2, 52, { align: 'center' })
-      doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(122, 136, 145)
-      doc.text('Se otorga la presente a', W / 2, 68, { align: 'center' })
-      doc.setFontSize(24); doc.setFont('times', 'bold'); doc.setTextColor(27, 58, 75)
-      doc.text(perfil.nombre.toUpperCase(), W / 2, 84, { align: 'center' })
-      doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(122, 136, 145)
-      doc.text(perfil.profesion, W / 2, 93, { align: 'center' })
-      doc.text('por haber concluido satisfactoriamente', W / 2, 108, { align: 'center' })
-      doc.setFontSize(15); doc.setFont('times', 'bold'); doc.setTextColor(193, 122, 94)
-      doc.text(doc.splitTextToSize(curso?.titulo || '', W - 80), W / 2, 120, { align: 'center' })
-      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(122, 136, 145)
-      doc.text(`Verificable en: ${urlVerificar}`, W / 2, 134, { align: 'center' })
-      doc.setDrawColor(27, 58, 75); doc.setLineWidth(0.4); doc.line(W / 2 - 45, 165, W / 2 + 45, 165)
-      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(27, 58, 75)
-      doc.text('Dr. Ernesto Cotonieto Martínez', W / 2, 172, { align: 'center' })
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(122, 136, 145)
-      doc.text('Cédula profesional 10521804', W / 2, 178, { align: 'center' })
-      doc.setFontSize(8)
-      doc.text(`Folio: ${miFolio}`, 22, H - 20)
-      doc.text(new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }), W - 22, H - 20, { align: 'right' })
-      doc.save(`constancia-${miFolio}.pdf`)
-    } catch (e) { alert('Error: ' + e.message) }
-    setGenerando(false)
+      setEstado(revision)
+      setFolio(folioEmitido)
+      ventana.document.open()
+      ventana.document.write(htmlConstancia({
+        nombre: perfil.nombre.trim(),
+        profesion: perfil.profesion.trim(),
+        curso: curso?.titulo || '',
+        nota10: revision.nota10,
+        folio: folioEmitido,
+        fecha: fechaConLetra(new Date()),
+        firmaUrl,
+      }))
+      ventana.document.close()
+
+      const imagenes = [...ventana.document.images]
+      const cargaron = await Promise.all(imagenes.map(img => img.complete
+        ? Promise.resolve(img.naturalWidth > 0)
+        : new Promise(resolve => {
+          const reloj = setTimeout(() => resolve(false), 9000)
+          img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
+          img.onerror = () => { clearTimeout(reloj); resolve(false) }
+        })))
+      if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma en el PDF. Revisa que la imagen de Drive permita verla con el enlace.')
+      if (ventana.document.fonts?.ready) await ventana.document.fonts.ready
+      ventana.focus()
+      ventana.print()
+    } catch (e) {
+      ventana.close()
+      setError(e.message || 'No se pudo generar la constancia.')
+    } finally {
+      setGenerando(false)
+    }
   }
 
   if (!user) return null
   if (cargando) return <div className="loading">Cargando...</div>
 
-  if (noEmite) {
-    return (
-      <section className="contenedor estrecho">
-        <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Constancia' }]} />
-        <h1>Constancia no disponible</h1>
-        <p className="sutil">Este curso no emite constancia de participación.</p>
-        <div className="bloque-cerrado">
-          <p className="bloque-icono">ℹ️</p>
-          <p>Si necesitas un comprobante de tu participación, escríbeme por WhatsApp y lo vemos.</p>
-          <div className="bloque-botones">
-            <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
-               href={wa(`Hola, quiero un comprobante del curso "${curso?.titulo || ''}".`)}>Escríbeme por WhatsApp</a>
-            <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
-          </div>
+  if (noEmite) return (
+    <section className="contenedor estrecho">
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Constancia' }]} />
+      <h1>Constancia no disponible</h1>
+      <p className="sutil">Este curso no emite constancia de acreditación.</p>
+      <div className="bloque-cerrado">
+        <p>Si necesitas un comprobante de tu participación, escríbeme por WhatsApp y lo vemos.</p>
+        <div className="bloque-botones">
+          <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
+             href={wa(`Hola, quiero un comprobante del curso "${curso?.titulo || ''}".`)}>Escríbeme por WhatsApp</a>
+          <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
         </div>
-        <BandaRedes />
-      </section>
-    )
-  }
+      </div>
+      <BandaRedes />
+    </section>
+  )
 
   return (
     <section className="contenedor estrecho">
-      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Constancia' }]} />
-      <h1>Constancia de participación</h1>
-      <p className="sutil">Verifica tus datos: así aparecerán impresos en el documento.</p>
+      <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Mis calificaciones', to: '/mis-calificaciones' }, { label: 'Constancia' }]} />
+      <h1>Constancia de acreditación</h1>
+      <p className="sutil">Se habilita cuando completas el curso y alcanzas la mínima ponderada que configuró el administrador.</p>
+      {error && <p className="aviso-error">{error}</p>}
+
+      {estado?.nota10 != null && (
+        <div className="bloque-cerrado constancia-nota">
+          <strong>{Number(estado.nota10).toFixed(1).replace(/\.0$/, '')}/10</strong>
+          <span>Calificación final acumulada · mínimo {Number(estado.minima10).toFixed(1).replace(/\.0$/, '')}/10</span>
+        </div>
+      )}
+
       <div className="formulario-datos">
-        <label>Nombre completo</label>
-        <input type="text" value={perfil.nombre} onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })} />
-        <label>Profesión o especialidad</label>
-        <input type="text" value={perfil.profesion} onChange={(e) => setPerfil({ ...perfil, profesion: e.target.value })} />
+        <label htmlFor="constancia-nombre">Nombre completo</label>
+        <input id="constancia-nombre" type="text" value={perfil.nombre}
+          onChange={e => setPerfil({ ...perfil, nombre: e.target.value })} />
+        <label htmlFor="constancia-profesion">Profesión o especialidad</label>
+        <input id="constancia-profesion" type="text" value={perfil.profesion}
+          onChange={e => setPerfil({ ...perfil, profesion: e.target.value })} />
         <button className="button secondary" onClick={guardar}>Guardar datos</button>
       </div>
+
       <div className="bloque-cerrado">
-        {puede
-          ? <>
-              <p className="aviso-ok">✔ Completaste todo el curso.</p>
-              <button className="button primary" onClick={generar} disabled={generando}>
-                {generando ? 'Generando...' : 'Descargar constancia'}
-              </button>
-              {folio && (
-                <p className="constancia-folio">
-                  <span className="sutil">Folio {folio} ·</span>
-                  <Link className="enlace-texto" to={`/verificar/${folio}`}>
-                    ver cómo se verifica
-                  </Link>
-                </p>
-              )}
-            </>
-          : (
-            <>
-              {/* El desglose evita el mensaje más inútil de cualquier
-                  plataforma: "aún no cumples los requisitos", sin decir
-                  cuáles. */}
-              <p className="sutil">Para descargar tu constancia falta:</p>
-              <ul className="constancia-requisitos">
-                {requisitos.map(r => (
-                  <li key={r.titulo} className={r.cumple ? 'cumple' : ''}>
-                    <span>{r.cumple ? '✔' : '○'}</span>
-                    <span>{r.titulo}</span>
-                    <span className="nota">{r.detalle}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+        {estado?.disponible ? (
+          <>
+            <p className="aviso-ok">✓ Cumples los requisitos para la constancia.</p>
+            {!firmaLista && <p className="aviso-error">La firma autógrafa escaneada no se puede cargar. El PDF se mantiene deshabilitado hasta que la imagen de Drive sea accesible para el alumnado.</p>}
+            <button className="button primary" onClick={generar}
+              disabled={generando || !firmaLista || !perfil.nombre.trim() || !perfil.profesion.trim()}>
+              {generando ? 'Preparando PDF…' : folio ? 'Descargar constancia' : 'Generar constancia'}
+            </button>
+            {folio && <p className="constancia-folio">
+              <span className="sutil">Folio {folio} ·</span>{' '}
+              <Link className="enlace-texto" to={`/verificar/${folio}`}>verificar constancia</Link>
+            </p>}
+            <p className="nota">Al continuar, el navegador abre el PDF para descargarlo o guardarlo.</p>
+          </>
+        ) : (
+          <>
+            <p className="sutil">Para obtener la constancia falta:</p>
+            <ul className="constancia-requisitos">
+              {(estado?.requisitos || []).map(r => (
+                <li key={r.titulo} className={r.cumple ? 'cumple' : ''}>
+                  <span>{r.cumple ? '✓' : '○'}</span>
+                  <span>{r.titulo}</span>
+                  <span className="nota">{r.detalle}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
-      <button className="button secondary" onClick={() => navigate(`/curso/${cursoId}`)}>Volver al curso</button>
+      <div className="bloque-botones" style={{ justifyContent: 'flex-start' }}>
+        <Link className="button secondary" to="/mis-calificaciones">Volver a mis calificaciones</Link>
+        <Link className="button texto" to={`/curso/${cursoId}`}>Ver curso</Link>
+      </div>
       <BandaRedes />
     </section>
   )

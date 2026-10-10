@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso } from '../config'
+import { emiteConstancia } from '../lib/helpers'
 import { Breadcrumb, BandaRedes } from './ui'
 import { calcular } from '../lib/calificacion'
 
@@ -90,7 +91,7 @@ export default function MisCalificaciones({ user }) {
         }
 
         const { data: cs } = await supabase
-          .from('cursos').select('id, titulo, ponderacion').in('id', ids).order('orden')
+          .from('cursos').select('id, titulo, ponderacion, gratuito, constancia').in('id', ids).order('orden')
         const { data: mods } = await supabase
           .from('modulos').select('id, curso_id').in('curso_id', ids)
         const idsMod = (mods || []).map(m => m.id)
@@ -196,7 +197,12 @@ export default function MisCalificaciones({ user }) {
           }
         })
 
-        if (vivo) setCursos(porCurso)
+        const conEstadoConstancia = await Promise.all(porCurso.map(async c => {
+          if (!emiteConstancia(c)) return { ...c, constanciaDisponible: false }
+          const { data: estado } = await supabase.rpc('estado_constancia', { p_curso: Number(c.id) })
+          return { ...c, constanciaDisponible: !!estado?.disponible }
+        }))
+        if (vivo) setCursos(conEstadoConstancia)
       } catch (e) {
         if (vivo) setError(e.message || String(e))
       } finally {
@@ -278,6 +284,11 @@ export default function MisCalificaciones({ user }) {
                 <span className="badge rol-facil" title={`Folio ${c.constancia.folio}`}>
                   Constancia · {c.constancia.folio}
                 </span>
+              )}
+              {(c.constancia || c.constanciaDisponible) && (
+                <Link className="button constancia-btn" to={`/constancia/${c.id}`}>
+                  {c.constancia ? 'Descargar constancia' : 'Obtener constancia'}
+                </Link>
               )}
             </header>
 
@@ -374,6 +385,11 @@ export default function MisCalificaciones({ user }) {
                 <Link to={`/verificar/${c.constancia.folio}`}>Verificarla</Link>
                 {' · '}
                 <Link to={`/constancia/${c.id}`}>Descargarla</Link>
+              </p>
+            )}
+            {!c.constancia && !c.constanciaDisponible && nota?.minima != null && (
+              <p className="nota">
+                La constancia se habilitará cuando alcances {nota.minima}/10 y completes los requisitos del curso.
               </p>
             )}
           </article>

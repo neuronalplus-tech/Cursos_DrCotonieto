@@ -62,12 +62,35 @@ check('entradas nulas no truenan', calcular(null, null) === null)
 console.log('\n=== PONDERADA ===')
 const P = { examenes: 40, tareas: 40, foro: 20 }
 {
+  const config = {
+    version: 2, escala: 10, minima10: 7,
+    grupos: [{
+      id: 'modulo:1', moduloId: 1, peso: 100, modo: 'rubrica',
+      criterios: [{ id: 'tareas', peso: 100, fuente: 'tipos', tipos: ['tareas'], distribucion: 'igual' }],
+    }],
+  }
+  const parcial = calcular({ tareas: [
+    { id: 1, moduloId: 1, valor: 66, maximo: 100 },
+    { id: 2, moduloId: 1, valor: null, maximo: 100 },
+  ] }, config)
+  check('una tarea de dos aporta 3.3/10 y conserva el 50% pendiente',
+    parcial.equivalente10 === 3.3 && parcial.pesoEvaluado === 50 && parcial.aprobado === null,
+    `${parcial.equivalente10}/10 · ${parcial.pesoEvaluado}% evaluado`)
+  const completa = calcular({ tareas: [
+    { id: 1, moduloId: 1, valor: 66, maximo: 100 },
+    { id: 2, moduloId: 1, valor: 100, maximo: 100 },
+  ] }, config)
+  check('66 y 100 en dos tareas iguales dan 8.3/10',
+    completa.equivalente10 === 8.3 && completa.aprobado === true,
+    `${completa.equivalente10}/10`)
+}
+{
   const r = calcular({
     examenes: [n(100, 100)], tareas: [n(50, 100)], foro: [n(10, 10)],
   }, P)
   check('aplica los pesos', r.valor === 80, String(r.valor))  // 40+20+20
   check('se marca como ponderada', r.ponderada === true)
-  check('explica cada componente', r.detalle.length === 3)
+  check('explica solo los componentes configurados', r.detalle.length === 3)
   check('el detalle trae la media del componente',
     r.detalle.find(d => d.clave === 'tareas').media === 50)
 }
@@ -78,12 +101,12 @@ const P = { examenes: 40, tareas: 40, foro: 20 }
     r.valor === 90, String(r.valor))  // (80*.5)+(100*.5)
 }
 {
-  // La tercera regla: el peso del componente ausente se reparte.
+  // El total se calcula sobre el curso completo; lo pendiente conserva su peso.
   const r = calcular({ examenes: [n(80, 100)] }, P)
-  check('un componente sin notas no arrastra la nota a cero',
-    r.valor === 80, String(r.valor))
-  check('y el peso efectivo se renormaliza al 100',
-    r.detalle.find(d => d.clave === 'examenes').pesoEfectivo === 100)
+  check('muestra el desempeño de lo calificado', r.valor === 80, String(r.valor))
+  check('conserva el peso pendiente en la nota acumulada',
+    r.equivalente10 === 3.2 && r.pesoEvaluado === 40,
+    `${r.equivalente10}/10 con ${r.pesoEvaluado}% evaluado`)
 }
 {
   const r = calcular({ examenes: [n(80, 100)], foro: [n(10, 10)] }, P)
@@ -102,8 +125,7 @@ const P = { examenes: 40, tareas: 40, foro: 20 }
 }
 {
   const r = calcular({ examenes: [n(90, 100)] }, { examenes: 0, tareas: 100 })
-  check('si lo calificado no tiene peso, cae al promedio simple en vez de dar 0',
-    r.valor === 90 && r.ponderada === false, JSON.stringify(r && r.valor))
+  check('una actividad con peso cero no entra a la nota', r === null)
 }
 
 console.log('\n=== AVANCE DEL MATERIAL ===')
@@ -128,7 +150,9 @@ console.log('\n=== APROBADO ===')
   const r2 = calcular({ examenes: [n(69, 100)] }, { examenes: 100, minima: 70 })
   check('un punto abajo no', r2.aprobado === false)
   const r3 = calcular({ examenes: [n(50, 100)] }, { examenes: 100 })
-  check('sin mínimo definido no opina', r3.aprobado === null)
+  check('usa 7/10 si no se configuró otro mínimo', r3.minima === 7 && r3.aprobado === false)
+  const r4 = calcular({ examenes: [n(75, 100)] }, { minima: 80 })
+  check('respeta el mínimo aunque use promedio simple', r4.minima === 8 && r4.aprobado === false)
 }
 
 console.log('\n=== ¿HAY PONDERACIÓN? ===')

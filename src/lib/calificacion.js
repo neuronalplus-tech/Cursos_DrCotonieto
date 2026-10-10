@@ -175,7 +175,8 @@ function calcularJerarquico(actividades, config) {
   const acumulado = redondear(puntos)
   const pesoConNota = redondear(pesoEvaluado)
   if (!evaluadas) return null
-  const minima10 = config.minima10 == null ? null : Number(config.minima10)
+  const minima10 = config.minima10 == null ? 7
+    : Math.max(0, Math.min(10, Number(config.minima10)))
   return {
     valor, acumulado, equivalente10: redondearDos(acumulado / 10),
     pesoEvaluado: pesoConNota, ponderada: true,
@@ -202,7 +203,7 @@ function calcularPlano(actividades, config) {
   const pesoEvaluadoPorTipo = new Map()
   for (const [tipo] of COMPONENTES) {
     const delTipo = activos.filter(a => a.tipo === tipo)
-    if (!delTipo.length && (!configPonderada || Number(config[tipo]) <= 0)) continue
+    if (!delTipo.length && (!configPonderada || !(Number(config[tipo]) > 0))) continue
     const pesoTipo = configPonderada
       ? (Math.max(0, Number(config[tipo]) || 0) / (pesosTipo || 1)) * 100
       : 100 * delTipo.length / activos.length
@@ -244,7 +245,9 @@ function calcularPlano(actividades, config) {
   if (!evaluadas) return null
   const acumulado = redondear(puntos)
   const valor = pesoEvaluado > 0 ? redondear(puntos * 100 / pesoEvaluado) : null
-  const minima = configPonderada && config?.minima != null ? Number(config.minima) / 10 : null
+  const minima = config?.minima != null
+    ? Math.max(0, Math.min(10, Number(config.minima) / 10))
+    : 7
   return {
     valor, acumulado, equivalente10: redondearDos(acumulado / 10),
     pesoEvaluado: redondear(pesoEvaluado), ponderada: configPonderada,

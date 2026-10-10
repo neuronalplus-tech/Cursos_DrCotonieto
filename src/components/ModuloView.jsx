@@ -26,6 +26,7 @@ function ModuloView({ user }) {
   const [recursos, setRecursos] = useState([])
   const [modulosCurso, setModulosCurso] = useState([])
   const [progresoRecursos, setProgresoRecursos] = useState({})
+  const [constanciaDisponible, setConstanciaDisponible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -84,6 +85,11 @@ function ModuloView({ user }) {
         setModulo(m)
         const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito, constancia').eq('id', m.curso_id).maybeSingle()
         setCurso(c)
+        setConstanciaDisponible(false)
+        if (user && c && emiteConstancia(c)) {
+          const { data: estado } = await supabase.rpc('estado_constancia', { p_curso: Number(c.id) })
+          setConstanciaDisponible(!!estado?.disponible)
+        }
         const { data: rs, error: eR } = await supabase.from('recursos').select('*').eq('modulo_id', id).order('orden')
         if (eR) throw eR
         setRecursos(rs || [])
@@ -168,7 +174,7 @@ function ModuloView({ user }) {
   const next = idx >= 0 && idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
   const vistos = recursos.filter(r => progresoRecursos[r.id]).length
   const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(modulo)
-  const mostrarConstancia = emiteConstancia(curso)
+  const mostrarConstancia = emiteConstancia(curso) && constanciaDisponible
   const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
   const mostrarEntregables = curso && esCursoProblemasContemporaneos(curso)
   const mostrarJuegoS4 = mostrarEntregables && /sesi[oó]n\s*4/i.test(modulo.titulo || '')

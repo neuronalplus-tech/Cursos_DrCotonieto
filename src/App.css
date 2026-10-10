@@ -2866,6 +2866,8 @@ a { color: var(--primary); }
 .verificar-datos dd { margin: 0; font-weight: 600; }
 .constancia-folio { display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap; margin-top: 10px; }
+.constancia-nota { display: flex; align-items: baseline; gap: 12px; }
+.constancia-nota strong { color: var(--primary); font-size: 24px; }
 
 /* ---- Ramas del foro ----------------------------------------- */
 /* La sangría se corta al tercer nivel: más allá, en un móvil la
