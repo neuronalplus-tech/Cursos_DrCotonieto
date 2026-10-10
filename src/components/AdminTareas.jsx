@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Prorrogas from './Prorrogas'
 import CalificarTarea from './CalificarTarea'
+import { descargarPlantilla, CATALOGO_PLANTILLAS } from '../lib/plantillasCarga'
 
 const VACIA = {
   titulo: '', instrucciones: '', fecha_limite: '', cierra_al_vencer: true,
@@ -180,8 +181,15 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
       // Carga diferida: la librería son cientos de kB y casi ningún
       // visitante va a importar una rúbrica. Así no la paga quien
       // solo entra a ver un curso.
-      const { default: leerExcel } = await import('read-excel-file/browser')
-      const filas = await leerExcel(archivo)
+      let filas
+      if (/\.(csv|tsv|txt)$/i.test(archivo.name)) {
+        const texto = (await archivo.text()).replace(/^\uFEFF/, '')
+        const sep = archivo.name.toLowerCase().endsWith('.csv') ? ',' : '\t'
+        filas = texto.split(/\r?\n/).filter(Boolean).map(f => f.split(sep))
+      } else {
+        const { default: leerExcel } = await import('read-excel-file/browser')
+        filas = await leerExcel(archivo)
+      }
       const leidos = filasACriterios(filas)
       if (!leidos.length) {
         setMsg({ tipo: 'error', texto: 'No encontré criterios en ese archivo. Revisa que la primera columna tenga el nombre de cada criterio.' })
@@ -397,9 +405,12 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
               </button>
               <label className="button secondary rubrica-excel">
                 {leyendoExcel ? 'Leyendo…' : '📊 Importar de Excel'}
-                <input type="file" accept=".xlsx,.xls" hidden disabled={leyendoExcel}
+                <input type="file" accept=".xlsx,.xls,.tsv,.csv" hidden disabled={leyendoExcel}
                        onChange={e => { importarExcel(e.target.files?.[0]); e.target.value = '' }} />
               </label>
+              <button type="button" className="button texto" onClick={() => descargarPlantilla(CATALOGO_PLANTILLAS[0])}>
+                ⬇️ Descargar plantilla de rúbrica
+              </button>
             </div>
 
             {criterios.length > 0 && (

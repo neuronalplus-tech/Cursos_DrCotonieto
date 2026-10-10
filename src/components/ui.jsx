@@ -190,7 +190,7 @@ export function EmbedFrame({ url }) {
 export function EditorBotonesExtra({ botones, onChange }) {
   const actualizar = (i, campo, valor) =>
     onChange(botones.map((b, idx) => idx === i ? { ...b, [campo]: valor } : b))
-  const agregar = () => onChange([...botones, { texto: '', url: '', estilo: 'azul' }])
+  const agregar = () => onChange([...botones, { texto: '', url: '', estilo: 'azul', activo: true }])
   const eliminar = (i) => onChange(botones.filter((_, idx) => idx !== i))
 
   return (
@@ -204,6 +204,8 @@ export function EditorBotonesExtra({ botones, onChange }) {
                  onChange={e => actualizar(i, 'texto', e.target.value)} />
           <input type="url" placeholder="https://..." value={b.url}
                  onChange={e => actualizar(i, 'url', e.target.value)} />
+          <label className="boton-extra-activo"><input type="checkbox" checked={b.activo !== false}
+            onChange={e => actualizar(i, 'activo', e.target.checked)} /> Activo</label>
           <button type="button" className="boton-extra-quitar" onClick={() => eliminar(i)} title="Quitar botón">✕</button>
         </div>
       ))}

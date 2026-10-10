@@ -749,7 +749,8 @@ export function DiapositivasPresentarCaso() {
   )
 }
 
-export function Entregables() {
+export function Entregables({ url = ENLACE_ENTREGABLES }) {
+  if (!url) return null
   return (
     <section className="entregables-bloque">
       <header className="entregables-header">
@@ -764,7 +765,7 @@ export function Entregables() {
         </div>
       </header>
       <div className="entregables-acciones">
-        <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer" href={ENLACE_ENTREGABLES}>
+        <a className="button whatsapp" target="_blank" rel="noopener noreferrer" href={url}>
           📤 Subir mi entregable a OneDrive
         </a>
         <p className="nota" style={{ marginTop: 8 }}>Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.</p>

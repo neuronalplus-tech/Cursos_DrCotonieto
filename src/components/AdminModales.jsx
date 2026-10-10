@@ -123,8 +123,14 @@ export function ModalNuevoModulo({ cursoId, orden, onClose, onCreado }) {
 }
 
 /* Botones extra de un módulo concreto. */
-export function ModalEditarBotonesModulo({ modulo, onClose, onGuardado }) {
-  const [botones, setBotones] = useState(modulo.botones_extra?.length ? modulo.botones_extra : [])
+export function ModalEditarBotonesModulo({ modulo, onClose, onGuardado, incluirEntregables = false }) {
+  const [botones, setBotones] = useState(() => {
+    const actuales = modulo.botones_extra || []
+    return !incluirEntregables || actuales.some(b => b.tipo === 'entregables') ? actuales : [
+      ...actuales,
+      { tipo: 'entregables', texto: '📤 Subir mi entregable a OneDrive', url: 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u1wjqSYKpW0N7eSgzAWc1XQw02u1GwWpkduAL9EI?e=h9CAvA', estilo: 'whatsapp', activo: true },
+    ]
+  })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
 

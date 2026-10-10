@@ -256,7 +256,7 @@ function ModuloView({ user }) {
             )}
             {(modulo.botones_extra || []).length > 0 && (
               <div className="modulo-botones-extra">
-                {modulo.botones_extra.map((b, i) => (
+                {modulo.botones_extra.filter(b => b.activo !== false && b.tipo !== 'entregables').map((b, i) => (
                   <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
                     {b.texto}
                   </a>
@@ -266,7 +266,11 @@ function ModuloView({ user }) {
           </header>
 
           {mostrarDiapositivas && <DiapositivasPresentarCaso />}
-          {mostrarEntregables && <Entregables />}
+          {mostrarEntregables && (() => {
+            const enlace = (modulo.botones_extra || []).find(b => b.tipo === 'entregables')
+            if (enlace?.activo === false || (!enlace && Array.isArray(modulo.botones_extra))) return null
+            return <Entregables url={enlace?.url} />
+          })()}
 
           {/* ✨ NUEVO: botón de "Nuevo recurso" solo para admin */}
           {gestiona && (
@@ -361,6 +365,7 @@ function ModuloView({ user }) {
       {editandoBotonesModulo && (
         <ModalEditarBotonesModulo
           modulo={modulo}
+          incluirEntregables={!!mostrarEntregables}
           onClose={() => setEditandoBotonesModulo(false)}
           onGuardado={(m) => setModulo(m)}
         />

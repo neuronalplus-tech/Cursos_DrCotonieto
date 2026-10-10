@@ -728,12 +728,14 @@ a { color: var(--primary); }
   border: 1px solid var(--borde);
   border-left: 4px solid var(--accent);
   border-radius: var(--radio);
-  padding: 22px 26px;
-  margin-bottom: 24px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
 }
-.entregables-header { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
-.entregables-header h3 { margin: 0 0 4px; font-size: 18px; color: var(--primary); }
+.entregables-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
+.entregables-header h3 { margin: 0 0 4px; font-size: 17px; color: var(--primary); }
 .entregables-acciones { display: flex; flex-direction: column; }
+.entregables-acciones .button { align-self: flex-start; padding: 9px 16px; }
+.boton-extra-activo { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12px; }
 
 /* ============================================================
    FORMULARIO DE NUEVO USUARIO (panel admin)
