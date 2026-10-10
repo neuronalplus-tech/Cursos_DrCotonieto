@@ -33,17 +33,44 @@ export default function Recuperar() {
   const [msg, setMsg] = useState(null)
 
   useEffect(() => {
-    // Al abrir el enlace del correo, Supabase deja una sesión de
-    // recuperación y avisa con este evento. Si ya hay sesión al
-    // entrar (porque el enlace se abrió hace un momento), también
-    // se pasa a cambiar.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento) => {
-      if (evento === 'PASSWORD_RECOVERY') setModo('cambiar')
+    let vivo = true
+    const activarCambio = (session) => {
+      if (!vivo || !session) return false
+      setModo('cambiar')
+      setMsg(null)
+      return true
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento, session) => {
+      if (evento === 'PASSWORD_RECOVERY') {
+        if (!activarCambio(session)) {
+          setMsg({ tipo: 'error', texto: 'El enlace no abrió una sesión válida. Solicita uno nuevo y vuelve a abrirlo.' })
+        }
+      }
     })
-    supabase.auth.getSession().then(({ data }) => {
-      if (data?.session) setModo('cambiar')
-    })
-    return () => subscription.unsubscribe()
+
+    const revisarEnlace = async () => {
+      const { data } = await supabase.auth.getSession()
+      if (!vivo) return
+      if (activarCambio(data?.session)) return
+
+      // Con PKCE el cliente suele intercambiar este código al inicializarse.
+      // Si la inicialización aún no lo procesó, hacemos un intento explícito.
+      const url = new URL(window.location.href)
+      const code = url.searchParams.get('code')
+      if (code) {
+        const { data: canje, error } = await supabase.auth.exchangeCodeForSession(code)
+        if (activarCambio(canje?.session)) return
+        if (error && vivo) setMsg({ tipo: 'error', texto: 'No se pudo validar el enlace. Puede haber vencido o haberse abierto fuera del navegador donde se pidió. Solicita uno nuevo.' })
+      }
+
+      const params = new URLSearchParams(url.hash.replace(/^#/, ''))
+      const detalle = params.get('error_description') || url.searchParams.get('error_description')
+      if (detalle && vivo) {
+        setMsg({ tipo: 'error', texto: 'El enlace no es válido o ya venció. Solicita uno nuevo para crear tu contraseña.' })
+      }
+    }
+    revisarEnlace()
+    return () => { vivo = false; subscription.unsubscribe() }
   }, [])
 
   const pedirEnlace = async (e) => {
@@ -73,6 +100,12 @@ export default function Recuperar() {
       return setMsg({ tipo: 'error', texto: 'Las dos contraseñas no coinciden.' })
     }
     setCargando(true)
+    const { data: sesion } = await supabase.auth.getSession()
+    if (!sesion?.session) {
+      setCargando(false)
+      setModo('pedir')
+      return setMsg({ tipo: 'error', texto: 'El enlace ya no tiene una sesión válida. Solicita uno nuevo para cambiar tu contraseña.' })
+    }
     const { error } = await supabase.auth.updateUser({ password: nueva })
     setCargando(false)
     if (error) return setMsg({ tipo: 'error', texto: 'No se pudo cambiar: ' + error.message })

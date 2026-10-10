@@ -41,6 +41,38 @@ const PERMISO_DE = {
   roles: null,          // solo el admin de la organización; se filtra aparte
 }
 
+async function enviarEnlaceRecuperacion(email, asunto) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) return { ok: false, motivo: 'Tu sesión del panel caducó. Vuelve a entrar.' }
+
+  const respuesta = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify({
+      accion: 'enlace-recuperacion',
+      email: email.trim().toLowerCase(),
+    }),
+  })
+  const datos = await respuesta.json().catch(() => ({}))
+  if (!respuesta.ok || !datos.action_link) {
+    return { ok: false, motivo: datos.error || `No se pudo generar el enlace (HTTP ${respuesta.status}).` }
+  }
+
+  const enlace = String(datos.action_link).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const envio = await enviarCorreo({
+    email: email.trim().toLowerCase(),
+    asunto,
+    cuerpoHtml: '<p>Usa este enlace para crear tu contraseña del aula virtual:</p>' +
+      `<p style="margin:24px 0"><a href="${enlace}" style="background:#1d3b4a;color:#fff;padding:13px 20px;border-radius:8px;text-decoration:none;font-weight:700">Crear contraseña</a></p>` +
+      '<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>',
+  })
+  return envio.ok ? { ok: true } : { ok: false, motivo: envio.motivo || 'No se pudo enviar el correo.' }
+}
+
 /* ------------------------------------------------------------
    LAS SECCIONES DEL PANEL
    ------------------------------------------------------------
@@ -316,10 +348,12 @@ function Admin({ user }) {
   const invitar = async (emails) => {
     const fallos = []
     for (const correo of emails) {
-      const { error } = await supabase.auth.resetPasswordForEmail(correo, {
-        redirectTo: `${window.location.origin}/recuperar`,
-      })
-      if (error) fallos.push(`${correo}: ${error.message}`)
+      try {
+        const resultado = await enviarEnlaceRecuperacion(correo, 'Crea tu contraseña del aula virtual')
+        if (!resultado.ok) fallos.push(`${correo}: ${resultado.motivo}`)
+      } catch (error) {
+        fallos.push(`${correo}: ${error.message}`)
+      }
     }
     return fallos
   }
@@ -811,19 +845,22 @@ function Admin({ user }) {
      bcrypt, que es irreversible. Lo que sí se puede es mandarle a la
      persona un enlace para que elija una nueva.
 
-     Va con la clave pública, igual que si lo pidiera ella desde la
-     pantalla de acceso. Asignarle una contraseña directamente exigiria
-     la clave de servicio, que no puede vivir en el navegador. */
+     El enlace se genera en `crear-usuarios`, que conserva la clave de
+     servicio en el servidor, y el Apps Script lo manda por correo. Así
+     quien lo recibe puede abrirlo desde su propio dispositivo. */
   const enviarEnlaceClave = async (email) => {
     if (!window.confirm(`¿Mandar a ${email} un enlace para crear una contraseña nueva?`)) return
     setEnviandoEnlace(email)
     setMsgGestion('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/recuperar`,
-    })
+    let resultado
+    try {
+      resultado = await enviarEnlaceRecuperacion(email, 'Enlace para cambiar tu contraseña')
+    } catch (error) {
+      resultado = { ok: false, motivo: error.message }
+    }
     setEnviandoEnlace(null)
-    setMsgGestion(error
-      ? 'No se pudo enviar: ' + error.message
+    setMsgGestion(!resultado?.ok
+      ? 'No se pudo enviar: ' + (resultado?.motivo || 'error desconocido')
       : `✓ Enlace enviado a ${email}`)
   }
 

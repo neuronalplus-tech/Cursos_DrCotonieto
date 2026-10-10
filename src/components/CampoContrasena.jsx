@@ -40,13 +40,13 @@ export default function CampoContrasena({
         />
         <button
           type="button"
-          tabIndex={-1}
           className="campo-contrasena-ojo"
           onClick={() => setVisible((v) => !v)}
+          aria-pressed={visible}
           aria-label={visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
           title={visible ? 'Ocultar' : 'Mostrar'}
         >
-          {visible ? '🙈' : '👁️'}
+          {visible ? 'Ocultar' : 'Mostrar'}
         </button>
       </div>
       {ayuda && <p className="nota">{ayuda}</p>}

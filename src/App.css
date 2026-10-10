@@ -927,13 +927,13 @@ a { color: var(--primary); }
    ------------------------------------------------------------ */
 /* ---- Campo de contraseña con ojo ---------------------------- */
 .campo-contrasena { position: relative; display: block; }
-.campo-contrasena input { width: 100%; padding-right: 44px; }
+.campo-contrasena input { width: 100%; padding-right: 68px; }
 
 /* El ojo va dentro del campo, no al lado: al lado empujaria el
    input y rompería la alineación del formulario. */
 .campo-contrasena-ojo { position: absolute; right: 6px; top: 50%;
   transform: translateY(-50%); background: none; border: 0;
-  cursor: pointer; font-size: 16px; line-height: 1; padding: 6px;
+  cursor: pointer; font-size: 12px; line-height: 1; padding: 6px;
   border-radius: 6px; opacity: .65; }
 .campo-contrasena-ojo:hover { opacity: 1; }
 

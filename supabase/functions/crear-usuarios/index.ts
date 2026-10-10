@@ -97,6 +97,24 @@ Deno.serve(async (req: Request) => {
 
     /* --- 2. Qué se pide --- */
     const cuerpo = await req.json().catch(() => ({}))
+
+    // Los enlaces de recuperación se generan en servidor para que no
+    // dependan del verificador PKCE guardado en el navegador del docente:
+    // el alumno abre el correo en su propio dispositivo.
+    if (cuerpo.accion === 'enlace-recuperacion') {
+      const email = limpiarCorreo(cuerpo.email)
+      if (!esCorreo(email)) return responder({ error: 'El correo no es válido.' }, 400)
+      const { data, error } = await admin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: 'https://cursos-drcotonieto.neuronal-plus.workers.dev/recuperar' },
+      })
+      if (error) return responder({ error: 'No se pudo generar el enlace: ' + error.message }, 400)
+      const actionLink = data?.properties?.action_link
+      if (!actionLink) return responder({ error: 'Supabase no devolvió un enlace de recuperación.' }, 502)
+      return responder({ action_link: actionLink })
+    }
+
     const lista: unknown[] = Array.isArray(cuerpo.emails)
       ? cuerpo.emails
       : (cuerpo.email ? [cuerpo.email] : [])
