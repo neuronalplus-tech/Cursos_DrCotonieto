@@ -136,8 +136,10 @@ function Constancia({ user }) {
   const [firmaLista, setFirmaLista] = useState(false)
   const [folio, setFolio] = useState(null)
 
-  const firmaUrl = new URL(FIRMA_URL, window.location.origin).href
-  const logoUrl = new URL(LOGO_URL, window.location.origin).href
+  // El smoke renderiza este componente en SSR (sin window); en el navegador
+  // siempre se resuelve contra el origen real del sitio.
+  const firmaUrl = typeof window === 'undefined' ? FIRMA_URL : new URL(FIRMA_URL, window.location.origin).href
+  const logoUrl = typeof window === 'undefined' ? LOGO_URL : new URL(LOGO_URL, window.location.origin).href
 
   useEffect(() => {
     if (!user) { navigate(rutaAcceso(`/constancia/${cursoId}`)); return }
