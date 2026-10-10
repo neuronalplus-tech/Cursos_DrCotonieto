@@ -749,27 +749,54 @@ export function DiapositivasPresentarCaso() {
   )
 }
 
-export function Entregables({ url = ENLACE_ENTREGABLES }) {
-  if (!url) return null
+export function Entregables({ modulo, gestiona, onGuardado }) {
+  const [editando, setEditando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const actual = (modulo.botones_extra || []).find(b => b.tipo === 'entregables')
+  const url = actual?.url || ENLACE_ENTREGABLES
+  const titulo = actual?.titulo || 'Entregables / productos'
+  const texto = actual?.texto || '📤 Subir mi entregable a OneDrive'
+  const descripcion = actual?.descripcion || 'Las actividades de las sesiones 1 y 2 se realizan en equipo durante la sesión y se suben como entregables al final de cada una. Nombren cada archivo haciendo referencia al nombre de su región (ej. Región_Norte_S1_análisis.pdf).'
+  const [form, setForm] = useState({ titulo, texto, url, descripcion })
+
+  const guardar = async (cambios, eliminado = false) => {
+    setGuardando(true); setError('')
+    const entrada = { ...(actual || {}), ...cambios, tipo: 'entregables', eliminado }
+    const botones = [...(modulo.botones_extra || []).filter(b => b.tipo !== 'entregables'), entrada]
+    const { data, error: err } = await supabase.from('modulos').update({ botones_extra: botones }).eq('id', modulo.id).select().single()
+    setGuardando(false)
+    if (err) { setError(err.message); return false }
+    onGuardado(data)
+    return true
+  }
+
+  if (actual?.eliminado && !gestiona) return null
   return (
-    <section className="entregables-bloque">
-      <header className="entregables-header">
-        <span className="recurso-icono">📤</span>
-        <div>
-          <h3>Entregables / productos</h3>
-          <p className="recurso-desc">
-            Las actividades de las <strong>sesiones 1 y 2</strong> se realizan <strong>en equipo durante la sesión</strong>
-            {' '}y se suben como entregables al final de cada una. Nombren cada archivo haciendo referencia al{' '}
-            <strong>nombre de su región</strong> (ej. <em>Región_Norte_S1_análisis.pdf</em>).
-          </p>
-        </div>
-      </header>
-      <div className="entregables-acciones">
-        <a className="button whatsapp" target="_blank" rel="noopener noreferrer" href={url}>
-          📤 Subir mi entregable a OneDrive
-        </a>
-        <p className="nota" style={{ marginTop: 8 }}>Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.</p>
+    <article className="recurso-item entregables-bloque">
+      <div className="recurso-cabecera">
+        <div className="recurso-titulo"><span className="recurso-icono">📤</span><div><h3>{titulo}</h3><span className="recurso-tipo">ENTREGABLES</span></div></div>
+        {gestiona && <div className="entregables-admin-acciones">
+          {actual?.eliminado ? <button type="button" className="recurso-edit-btn" disabled={guardando} onClick={() => guardar({}, false)}>↩ Restaurar</button> : <>
+            <button type="button" className={`candado-toggle ${actual?.activo === false ? 'cerrado' : 'abierto'}`} title={actual?.activo === false ? 'Activar' : 'Desactivar'} disabled={guardando} onClick={() => guardar({ activo: actual?.activo === false })}>{actual?.activo === false ? '🔒' : '🔓'}</button>
+            <button type="button" className="recurso-edit-btn" onClick={() => { setForm({ titulo, texto, url, descripcion }); setEditando(true) }}>✏️ Editar</button>
+            <button type="button" className="recurso-edit-btn" disabled={guardando} onClick={() => { if (confirm('¿Eliminar el apartado de entregables? Podrás restaurarlo desde aquí.')) guardar({}, true) }}>🗑️ Eliminar</button>
+          </>}
+        </div>}
       </div>
-    </section>
+      {actual?.eliminado ? <p className="nota">Este apartado está eliminado y no se muestra a los alumnos.</p> : <>
+        <p className="recurso-desc">{descripcion}</p>
+        {actual?.activo !== false && <div className="recurso-acciones"><a className="button whatsapp" target="_blank" rel="noopener noreferrer" href={url}>{texto}</a><p className="nota" style={{ margin: '6px 0 0' }}>Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo ahí con el nombre indicado.</p></div>}
+      </>}
+      {error && <p className="aviso-error">No se guardó: {error}</p>}
+      {editando && <ModalPortal><div className="modal-overlay" onClick={() => !guardando && setEditando(false)}><div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>Editar entregables</h3>
+        <label>Título<input className="input" value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} /></label>
+        <label>Texto del botón<input className="input" value={form.texto} onChange={e => setForm({ ...form, texto: e.target.value })} /></label>
+        <label>Enlace<input className="input" type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} /></label>
+        <label>Descripción<textarea className="input" rows={4} value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} /></label>
+        <div className="modal-botones"><button className="button secondary" onClick={() => setEditando(false)} disabled={guardando}>Cancelar</button><button className="button primary" disabled={guardando || !form.url.trim() || !form.texto.trim()} onClick={async () => { if (await guardar(form)) setEditando(false) }}>{guardando ? 'Guardando…' : 'Guardar'}</button></div>
+      </div></div></ModalPortal>}
+    </article>
   )
 }

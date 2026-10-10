@@ -266,12 +266,6 @@ function ModuloView({ user }) {
           </header>
 
           {mostrarDiapositivas && <DiapositivasPresentarCaso />}
-          {mostrarEntregables && (() => {
-            const enlace = (modulo.botones_extra || []).find(b => b.tipo === 'entregables')
-            if (enlace?.eliminado || enlace?.activo === false) return null
-            return <Entregables url={enlace?.url} />
-          })()}
-
           {/* ✨ NUEVO: botón de "Nuevo recurso" solo para admin */}
           {gestiona && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -308,6 +302,7 @@ function ModuloView({ user }) {
           )}
 
           <div className="recursos-list">
+            {mostrarEntregables && <Entregables modulo={modulo} gestiona={gestiona} onGuardado={setModulo} />}
             {recursos.map((r) => (
               <RecursoCard
                 key={r.id}

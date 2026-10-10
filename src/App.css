@@ -724,18 +724,10 @@ a { color: var(--primary); }
    ENTREGABLES / PRODUCTOS
    ============================================================ */
 .entregables-bloque {
-  background: linear-gradient(135deg, #FBF3EF 0%, #F2EEE9 100%);
-  border: 1px solid var(--borde);
-  border-left: 4px solid var(--accent);
-  border-radius: var(--radio);
-  padding: 14px 18px;
-  margin-bottom: 16px;
+  background: var(--blanco);
+  padding: 22px 26px;
 }
-.entregables-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
-.entregables-header h3 { margin: 0 0 4px; font-size: 17px; color: var(--primary); }
-.entregables-acciones { display: flex; flex-direction: column; }
-.entregables-acciones .button { align-self: flex-start; padding: 9px 16px; }
-.boton-extra-activo { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12px; }
+.entregables-admin-acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 /* ============================================================
    FORMULARIO DE NUEVO USUARIO (panel admin)
