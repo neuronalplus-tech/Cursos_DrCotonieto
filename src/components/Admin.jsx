@@ -45,8 +45,14 @@ async function enviarEnlaceRecuperacion(email, asunto) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) return { ok: false, motivo: 'Tu sesión del panel caducó. Vuelve a entrar.' }
 
-  const respuesta = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios`, {
+  // `fetch` no tiene límite de tiempo propio: sin esto, una función que
+  // no contesta deja el botón girando para siempre.
+  const corte = AbortSignal.timeout(20000)
+  let respuesta
+  try {
+    respuesta = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-usuarios`, {
     method: 'POST',
+    signal: corte,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
@@ -60,7 +66,15 @@ async function enviarEnlaceRecuperacion(email, asunto) {
       // acepta orígenes de su lista; el resto cae al sitio real.
       redirect_to: `${window.location.origin}/recuperar`,
     }),
-  })
+    })
+  } catch (error) {
+    return {
+      ok: false,
+      motivo: error?.name === 'TimeoutError'
+        ? 'La función crear-usuarios no contestó en 20 s.'
+        : 'No se pudo contactar con la función crear-usuarios: ' + (error?.message || error),
+    }
+  }
   const datos = await respuesta.json().catch(() => ({}))
   if (!respuesta.ok || !datos.action_link) {
     return { ok: false, motivo: datos.error || `No se pudo generar el enlace (HTTP ${respuesta.status}).` }
@@ -78,7 +92,14 @@ async function enviarEnlaceRecuperacion(email, asunto) {
       `<p style="margin:24px 0"><a href="${enlace}" style="background:#1d3b4a;color:#fff;padding:13px 20px;border-radius:8px;text-decoration:none;font-weight:700">Crear contraseña</a></p>` +
       '<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>',
   })
-  return envio.ok ? { ok: true } : { ok: false, motivo: envio.motivo || 'No se pudo enviar el correo.' }
+  if (envio.ok) return { ok: true }
+  // El Apps Script puede no confirmar y haber enviado igualmente. Decirlo
+  // es más útil que un "no se envió" que quizá sea mentira.
+  return {
+    ok: false,
+    sinConfirmacion: !!envio.sinConfirmacion,
+    motivo: envio.motivo || 'No se pudo enviar el correo.',
+  }
 }
 
 /* ------------------------------------------------------------
@@ -865,11 +886,17 @@ function Admin({ user }) {
       resultado = await enviarEnlaceRecuperacion(email, 'Enlace para cambiar tu contraseña')
     } catch (error) {
       resultado = { ok: false, motivo: error.message }
+    } finally {
+      // En `finally` a propósito: pase lo que pase, la llave vuelve. Si se
+      // queda en "…" no hay forma de reintentar sin recargar la página, que
+      // es justo lo que pasaba.
+      setEnviandoEnlace(null)
     }
-    setEnviandoEnlace(null)
-    setMsgGestion(!resultado?.ok
-      ? 'No se pudo enviar: ' + (resultado?.motivo || 'error desconocido')
-      : `✓ Enlace enviado a ${email}`)
+    if (resultado?.ok) return setMsgGestion(`✓ Enlace enviado a ${email}`)
+    setMsgGestion(resultado?.sinConfirmacion
+      ? `⚠️ Sin confirmación de Google para ${email}. ${resultado.motivo} ` +
+        'Comprueba la bandeja antes de reintentar, por si salió igualmente.'
+      : 'Error. No se envió a ' + email + ': ' + (resultado?.motivo || 'error desconocido'))
   }
 
   const toggleFacilitador = async (email, curso_id, esFacil) => {
@@ -1596,7 +1623,7 @@ function Admin({ user }) {
             </select>
           </div>
 
-          {msgGestion && <p className={msgGestion.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>{msgGestion}</p>}
+          {msgGestion && <p className={/^(Error|⚠️)/.test(msgGestion) ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>{msgGestion}</p>}
 
           {seleccionados.size > 0 && (
             <div className="bulk-bar">
@@ -1796,7 +1823,7 @@ function Admin({ user }) {
             </button>
           </div>
           {msgFacil && <p className={msgFacil.startsWith('✓') ? 'aviso-ok' : 'aviso-error'}>{msgFacil}</p>}
-          {msgGestion && <p className="aviso-ok">{msgGestion}</p>}
+          {msgGestion && <p className={/^(Error|⚠️)/.test(msgGestion) ? 'aviso-error' : 'aviso-ok'}>{msgGestion}</p>}
 
           {/* Las asignaciones por categoría van primero y aparte: cubren
               varios cursos a la vez, asi que mezclarlas con las sueltas

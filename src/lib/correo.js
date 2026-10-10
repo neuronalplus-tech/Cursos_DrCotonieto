@@ -86,12 +86,19 @@ export function enviarCorreo(payload) {
 
     const reqid = 'r' + Date.now() + Math.floor(Math.random() * 1e6)
 
-    // Un solo manejador global: el script sabe a qué petición contestar.
+    /* Un solo manejador global: el script sabe a qué petición contestar.
+
+       OJO CON EL ORDEN. Este manejador NO debe borrar la petición antes
+       de llamarla. `finalizar` usa esa misma entrada como señal de "esto
+       sigue vivo": si ya no está, se va sin resolver. Borrar aquí hacía
+       que la respuesta BUENA del script no resolviera nunca la promesa
+       —ni la resolvía el timeout, que también pasa por `finalizar`—, y
+       el botón de la interfaz se quedaba en "…" para siempre. Quien
+       borra es `finalizar`, y solo él. */
     if (!window.__appsCorreoRespuesta) {
       window.__appsCorreoRespuesta = function (idRecibido, datos) {
         const pendiente = pendientes[idRecibido]
         if (!pendiente) return
-        delete pendientes[idRecibido]
         pendiente(datos)
       }
     }
