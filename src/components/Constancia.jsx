@@ -28,10 +28,11 @@ function esperarImagen(url, timeout = 9000) {
   })
 }
 
-function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaUrl }) {
+function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaUrl, logoUrl }) {
   const nombreLimpio = escapar(nombre)
   const profesionLimpia = escapar(profesion)
   const cursoLimpio = escapar(curso)
+  const logo = escapar(logoUrl)
   const nota = Number(nota10).toFixed(1).replace(/\.0$/, '')
   const nombreFont = nombre.length > 34 ? 25 : nombre.length > 25 ? 28 : 30
   const cursoFont = curso.length > 48 ? 15 : curso.length > 34 ? 17 : 19
@@ -76,7 +77,7 @@ function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaU
   @media screen { body { background: #e8e5df; padding: 24px; } .hoja { margin: auto; box-shadow: 0 8px 30px #0002; } }
 </style></head><body><main class="hoja">
   <div class="franja"></div>
-  <img class="logo" src="${LOGO_URL}" alt="">
+  <img class="logo" src="${logo}" alt="">
   <div class="antetitulo">CONSTANCIA DE ACREDITACIÓN</div>
   <div class="acento"></div>
   <div class="se-otorga">Se otorga a</div>
@@ -95,6 +96,26 @@ function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaU
 </main></body></html>`
 }
 
+function mostrarAvisoVentana(ventana, titulo, mensaje) {
+  if (!ventana || ventana.closed) return
+  const documento = ventana.document
+  documento.open()
+  documento.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #FAFAF8; color: #1B3A4B; font: 16px Inter, Arial, sans-serif; }
+  main { width: min(620px, 100%); padding: 36px; border: 1px solid #D6DCE3; border-radius: 16px; background: white; }
+  h1 { margin: 0 0 14px; font: 600 28px Georgia, serif; }
+  p { line-height: 1.6; white-space: pre-wrap; }
+  .marca { height: 5px; margin: -36px -36px 28px; border-radius: 16px 16px 0 0; background: #1B3A4B; }
+</style></head><body><main><div class="marca"></div><h1 id="titulo"></h1><p id="mensaje"></p></main></body></html>`)
+  documento.close()
+  documento.title = titulo
+  documento.getElementById('titulo').textContent = titulo
+  documento.getElementById('mensaje').textContent = mensaje
+  ventana.focus()
+}
+
 function Constancia({ user }) {
   const { cursoId } = useParams()
   const navigate = useNavigate()
@@ -108,7 +129,8 @@ function Constancia({ user }) {
   const [firmaLista, setFirmaLista] = useState(false)
   const [folio, setFolio] = useState(null)
 
-  const firmaUrl = FIRMA_URL
+  const firmaUrl = new URL(FIRMA_URL, window.location.origin).href
+  const logoUrl = new URL(LOGO_URL, window.location.origin).href
 
   useEffect(() => {
     if (!user) { navigate(rutaAcceso(`/constancia/${cursoId}`)); return }
@@ -174,6 +196,7 @@ function Constancia({ user }) {
     setGenerando(true)
     setError('')
     try {
+      mostrarAvisoVentana(ventana, 'Preparando tu constancia', 'Estamos verificando tu calificación y preparando el documento.')
       const { error: ePerfil } = await supabase.from('perfiles').upsert(
         { id: user.id, nombre_completo: perfil.nombre.trim(), profesion: perfil.profesion.trim() },
         { onConflict: 'id' })
@@ -202,6 +225,7 @@ function Constancia({ user }) {
         folio: folioEmitido,
         fecha: fechaConLetra(new Date()),
         firmaUrl,
+        logoUrl,
       }))
       ventana.document.close()
 
@@ -218,8 +242,9 @@ function Constancia({ user }) {
       ventana.focus()
       ventana.print()
     } catch (e) {
-      ventana.close()
-      setError(e.message || 'No se pudo generar la constancia.')
+      const mensaje = e.message || 'No se pudo generar la constancia.'
+      try { mostrarAvisoVentana(ventana, 'No se pudo generar la constancia', mensaje) } catch {}
+      setError(mensaje)
     } finally {
       setGenerando(false)
     }
