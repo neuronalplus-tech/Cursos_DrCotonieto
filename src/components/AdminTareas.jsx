@@ -16,6 +16,7 @@ import Prorrogas from './Prorrogas'
 import CalificarTarea from './CalificarTarea'
 import { ModalPortal } from './ui'
 import { descargarPlantilla, CATALOGO_PLANTILLAS } from '../lib/plantillasCarga'
+import { separarLinea } from '../lib/examenes'
 
 const VACIA = {
   titulo: '', instrucciones: '', fecha_limite: '', cierra_al_vencer: true,
@@ -62,6 +63,17 @@ function filasACriterios(filas) {
   let iTitulo = buscar(/criterio|rubro|aspecto|indicador/)
   let iPeso = buscar(/peso|porcentaje|punt|valor|%/)
   let iDesc = buscar(/descrip|detalle|evidencia|desempe/)
+  const hayColumnasRubrica = iTitulo >= 0 || iPeso >= 0
+  if (hayColumnasRubrica && (iTitulo < 0 || iPeso < 0)) {
+    const faltan = [iTitulo < 0 && 'criterio', iPeso < 0 && 'peso'].filter(Boolean)
+    throw new Error(`Falta la columna «${faltan.join('» y «')}». Encabezados reconocidos: ${encabezado.filter(Boolean).join(', ') || 'ninguno'}.`)
+  }
+  if (!hayColumnasRubrica && filas[0]?.length > 1) {
+    const pesoPrimeraFila = String(filas[0][1] ?? '').replace(/[^0-9.,-]/g, '').replace(',', '.')
+    if (String(filas[0][1] ?? '').trim() && !Number.isFinite(Number(pesoPrimeraFila))) {
+      throw new Error(`No reconocí los encabezados «${encabezado.filter(Boolean).join(', ')}». Usa criterio, peso y descripcion; también puedes quitar la fila de encabezados y dejar los datos en ese orden.`)
+    }
+  }
 
   // Sin encabezados reconocibles se asume el orden más común y se
   // leen TODAS las filas, porque la primera ya no es un título.
@@ -94,6 +106,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const [criterios, setCriterios] = useState([])
   const [guardando, setGuardando] = useState(false)
   const [leyendoExcel, setLeyendoExcel] = useState(false)
+  const [estadoImportacion, setEstadoImportacion] = useState(null)
   const [calificando, setCalificando] = useState(null)
   // tarea_id -> { entregadas, pendientes }. Se cuenta aquí y no en cada
   // fila para no disparar una consulta por tarea.
@@ -139,6 +152,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const abrirNueva = () => {
     setForm(VACIA)
     setCriterios([])
+    setEstadoImportacion(null)
     setEditando('nueva')
     setMsg(null)
   }
@@ -158,6 +172,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
     const { data } = await supabase
       .from('rubrica_criterios').select('*').eq('tarea_id', t.id).order('orden')
     setCriterios((data || []).map(c => ({ ...c })))
+    setEstadoImportacion(null)
     setEditando(t.id)
     setMsg(null)
   }
@@ -175,36 +190,47 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
   const importarExcel = async (archivo) => {
     if (!archivo) return
     setLeyendoExcel(true)
-    setMsg(null)
+    setEstadoImportacion({ tipo: 'pendiente', texto: `Leyendo «${archivo.name}»…` })
+    if (!archivo.size) {
+      setLeyendoExcel(false)
+      setEstadoImportacion({ tipo: 'error', texto: `«${archivo.name}» está vacío (0 bytes). Descarga otra vez la plantilla o guarda el archivo con datos.` })
+      return
+    }
     try {
-      // La subruta /browser es obligatoria: el paquete no expone una
-      // entrada raiz, solo sus variantes (browser, node, web-worker).
-      // Carga diferida: la librería son cientos de kB y casi ningún
-      // visitante va a importar una rúbrica. Así no la paga quien
-      // solo entra a ver un curso.
       let filas
       if (/\.(csv|tsv|txt)$/i.test(archivo.name)) {
         const texto = (await archivo.text()).replace(/^\uFEFF/, '')
-        const sep = archivo.name.toLowerCase().endsWith('.csv') ? ',' : '\t'
-        filas = texto.split(/\r?\n/).filter(Boolean).map(f => f.split(sep))
+        const muestra = texto.split(/\r?\n/).slice(0, 5).join('\n')
+        const sep = archivo.name.toLowerCase().endsWith('.csv')
+          ? ((muestra.match(/;/g) || []).length > (muestra.match(/,/g) || []).length ? ';' : ',')
+          : '\t'
+        filas = texto.split(/\r?\n/).filter(f => f.trim()).map(f => separarLinea(f, sep))
+      } else if (/\.xls$/i.test(archivo.name)) {
+        throw new Error('El formato .xls antiguo no es compatible. Guarda el libro como .xlsx o usa la plantilla .tsv descargable.')
       } else {
         const { default: leerExcel } = await import('read-excel-file/browser')
         filas = await leerExcel(archivo)
       }
+
+      if (!filas?.length) throw new Error('El archivo no contiene filas legibles. Revisa que tenga datos en la primera hoja.')
       const leidos = filasACriterios(filas)
-      if (!leidos.length) {
-        setMsg({ tipo: 'error', texto: 'No encontré criterios en ese archivo. Revisa que la primera columna tenga el nombre de cada criterio.' })
-      } else {
-        setCriterios(leidos)
-        setMsg({ tipo: 'ok', texto: `Leí ${leidos.length} criterio(s). Revísalos y corrige lo que haga falta antes de guardar.` })
+      if (!leidos.length) throw new Error('No encontré criterios. Usa las columnas criterio, peso y descripcion, y agrega al menos una fila debajo.')
+      if (criterios.length && !window.confirm(`El archivo contiene ${leidos.length} criterios y reemplazará los ${criterios.length} que ya están en el formulario. ¿Continuar?`)) {
+        setEstadoImportacion({ tipo: 'cancelado', texto: 'Importación cancelada; conservé los criterios actuales.' })
+        return
       }
+      setCriterios(leidos)
+      setEstadoImportacion({ tipo: 'ok', texto: `✓ «${archivo.name}»: leí ${leidos.length} criterio(s). Revísalos en el formulario; guarda la tarea para conservar la rúbrica.` })
     } catch (e) {
-      setMsg({ tipo: 'error', texto: 'No se pudo leer el archivo: ' + (e.message || e) })
+      const detalle = e?.message || String(e)
+      const recomendacion = /\.xlsx$/i.test(archivo.name)
+        ? ' Comprueba que sea un libro .xlsx válido y que la primera hoja tenga las columnas criterio, peso y descripcion.'
+        : ''
+      setEstadoImportacion({ tipo: 'error', texto: `No pude importar «${archivo.name}». ${detalle}${recomendacion}` })
     } finally {
       setLeyendoExcel(false)
     }
   }
-
   const sumaPesos = criterios.reduce((s, c) => s + (Number(c.peso) || 0), 0)
 
   const guardar = async () => {
@@ -420,7 +446,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                 ➕ Añadir criterio
               </button>
               <label className="button secondary rubrica-excel">
-                {leyendoExcel ? 'Leyendo…' : '📊 Importar de Excel'}
+                {leyendoExcel ? 'Leyendo archivo…' : '📊 Importar archivo'}
                 <input type="file" accept=".xlsx,.xls,.tsv,.csv" hidden disabled={leyendoExcel}
                        onChange={e => { importarExcel(e.target.files?.[0]); e.target.value = '' }} />
               </label>
@@ -428,6 +454,8 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                 ⬇️ Descargar plantilla de rúbrica
               </button>
             </div>
+            <p className="nota" style={{ margin: '6px 0' }}>Formatos: .xlsx, .csv y .tsv. La importación llena los criterios aquí; no guarda la tarea todavía.</p>
+            {estadoImportacion && <p className={estadoImportacion.tipo === 'error' ? 'aviso-error' : estadoImportacion.tipo === 'ok' ? 'aviso-ok' : 'nota'} role="status" aria-live="polite">{estadoImportacion.texto}</p>}
             <img className="plantilla-carga-ejemplo" src="/plantillas/ejemplo-rubrica.svg" alt="Ejemplo de las columnas criterio, peso y descripción para llenar la rúbrica" />
 
             {criterios.length > 0 && (
