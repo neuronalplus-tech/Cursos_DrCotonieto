@@ -258,7 +258,15 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
     setGuardando(false)
     await recargar()
     setEditando(null)
-    setMsg({ tipo: 'ok', texto: 'Tarea guardada.' })
+    setMsg({ tipo: 'ok', texto: form.activo ? 'Tarea guardada y publicada para alumnos.' : 'Tarea guardada como borrador; solo tú puedes verla.' })
+  }
+
+  const cambiarPublicacion = async (t) => {
+    const activo = !t.activo
+    const { error } = await supabase.from('tareas').update({ activo }).eq('id', t.id)
+    if (error) return setMsg({ tipo: 'error', texto: 'No se pudo cambiar la publicación: ' + error.message })
+    await recargar()
+    setMsg({ tipo: 'ok', texto: activo ? `«${t.titulo}» está publicada para alumnos.` : `«${t.titulo}» quedó como borrador.` })
   }
 
   const borrar = async (t) => {
@@ -304,7 +312,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                       {t.puntos_max} puntos
                       {t.fecha_limite && ` · entrega hasta ${new Date(t.fecha_limite).toLocaleDateString('es-MX')}`}
                       {t.grupo && ` · ruta ${t.grupo}`}
-                      {!t.activo && ' · oculta'}
+                      {t.activo ? ' · publicada' : ' · borrador, solo tú'}
                     </span>
                     {recuento[t.id]?.entregadas > 0 && (
                       <span className="tarea-recuento">
@@ -319,6 +327,10 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
                   </div>
                   <button type="button" className="button texto"
                           onClick={() => setCalificando(t)}>📊 Calificar</button>
+                  <button type="button" className={`button ${t.activo ? 'secondary' : 'primary'}`}
+                          onClick={() => cambiarPublicacion(t)}>
+                    {t.activo ? 'Despublicar' : 'Publicar'}
+                  </button>
                   <button type="button" className="button texto" onClick={() => abrirEdicion(t)}>✏️ Editar</button>
                   <button type="button" className="button texto peligro" onClick={() => borrar(t)}>🗑️</button>
                 </div>
@@ -385,7 +397,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
             <label>
               <input type="checkbox" checked={form.activo}
                      onChange={e => campo('activo', e.target.checked)} />
-              <span>Visible <em className="nota">(si no, solo la ves tú)</em></span>
+              <span>Publicar para alumnos <em className="nota">(desactívala para guardar como borrador)</em></span>
             </label>
           </div>
 
@@ -501,7 +513,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
             <button type="button" className="button secondary"
                     onClick={() => { setEditando(null); setMsg(null) }}>Cancelar</button>
             <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
-              {guardando ? 'Guardando…' : 'Guardar tarea'}
+              {guardando ? 'Guardando…' : form.activo ? 'Guardar y publicar' : 'Guardar como borrador'}
             </button>
           </div>
         </div>
