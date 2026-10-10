@@ -104,7 +104,19 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
         const inicio = pendiente?.fecha ? new Date(pendiente.fecha).getTime() : Date.now()
         setInicioIntento(inicio)
         setAhora(Date.now())
-      } catch {
+      } catch (e) {
+        // Solo se cae al modo viejo si la base no tiene la migración de
+        // exámenes (servir_examen no existe o faltan las columnas). Un
+        // error real —plazo cerrado, sin acceso, intentos agotados— se
+        // avisa y no se abre el examen: abrirlo igual dejaría al alumno
+        // respondiendo algo que al enviar la base rechazaría.
+        const sinMigrar = e?.code === 'PGRST202'
+          || /column .*pendiente|column .*preguntas|relation .*intentos_examen/.test(e?.message || '')
+        if (!sinMigrar) {
+          setAbierto(false)
+          alert('No se pudo abrir el examen: ' + (e?.message || e))
+          return
+        }
         setJuego((examen.preguntas || []).map(limpiarPregunta))
         setIntentoId(null)
         setInicioIntento(Date.now())
@@ -177,7 +189,17 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
       const { preguntas, pendiente, ...base } = intentoViejo
       ;({ error } = await supabase.from('intentos_examen').insert(base))
     }
-    if (error) { alert('Error al guardar: ' + error.message); setEnviando(false); return }
+    if (error) {
+      // La RLS de intentos_examen veta el insert directo a propósito: la
+      // nota la anota servir_examen/entregar_examen. Si llegamos aquí con
+      // la base ya migrada es que el intento no se pudo abrir, así que se
+      // dice qué hacer en vez de mostrar el mensaje crudo de la política.
+      const vetado = /row-level security|new row violates/i.test(error.message || '')
+      alert(vetado
+        ? 'No se pudo registrar tu examen: vuelve a abrirlo e inténtalo de nuevo. Si sigue fallando, avisa a quien imparte el curso.'
+        : 'Error al guardar: ' + error.message)
+      setEnviando(false); return
+    }
     setResultado({ calificacion, aprobado })
     setIntentos(prev => [{ calificacion, aprobado, fecha: new Date().toISOString() }, ...prev])
     setEnviando(false)
