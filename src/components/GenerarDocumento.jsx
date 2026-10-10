@@ -140,6 +140,9 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
             }).filter(Boolean),
           }
           const nota = calcular(entrada, c?.ponderacion)
+          const calificacionFinal = nota
+            ? (nota.ponderada ? nota.acumulado : nota.valor)
+            : null
 
           // Y el desglose por módulo, para las actas que lo piden.
           porModulo[d.usuario_id] = (mods || []).map(m => {
@@ -157,8 +160,8 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
           return {
             ...d,
             nombre: d.nombre,
-            calificacion: nota ? nota.valor : null,
-            letra: nota ? conLetra(nota.valor) : '',
+            calificacion: calificacionFinal,
+            letra: calificacionFinal != null ? conLetra(calificacionFinal) : '',
             tipoCalculo: nota?.ponderada ? 'Ponderada' : 'Promedio simple',
             asistencia: d.asistencia_pct,
           }

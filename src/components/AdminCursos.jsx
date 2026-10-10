@@ -311,8 +311,9 @@ export default function AdminCursos() {
               <>
                 <p className="nota" style={{ marginTop: 0 }}>
                   Cuánto pesa cada parte. No hace falta que sumen 100: se
-                  reparten en proporción. Lo que no tenga nada calificado no
-                  cuenta, y su peso se reparte entre lo demás.
+                  normalizan en proporción. El alumno verá el promedio de los
+                  rubros calificados y, por separado, los puntos que aportan al
+                  total de 100. Un rubro aún sin notas no suma puntos todavía.
                 </p>
                 <div className="pond-campos">
                   {COMPONENTES.map(([clave, etiqueta]) => (

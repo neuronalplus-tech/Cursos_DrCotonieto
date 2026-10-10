@@ -3057,6 +3057,7 @@ a { color: var(--primary); }
   gap: 2px; text-align: right; }
 .mis-nota strong { font-size: 26px; line-height: 1; color: var(--primary); }
 .mis-nota .nota { font-size: 11.5px; }
+.mis-nota-desglose { max-width: 460px; font-size: 11.5px; color: var(--gris); }
 
 @media (max-width: 560px) {
   .mis-nota { align-items: flex-start; text-align: left; }

@@ -294,7 +294,8 @@ export default function PanelProgreso({ cursoId }) {
   const exportar = () => {
     const cabeceras = [
       'Alumno', 'Generación', 'Avance %', 'Recursos vistos', 'Recursos totales', 'Última actividad',
-      'Calificación final', 'Tipo de cálculo', 'Notas que la forman',
+      'Puntos acumulados del total', 'Promedio de rubros con nota',
+      'Ponderación con notas %', 'Tipo de cálculo', 'Notas que la forman',
       ...examenes.map(e => `Examen: ${e.titulo}`),
       ...tareas.map(t => `Tarea: ${t.titulo}`),
       ...foros.map(h => `Foro: ${h.titulo}`),
@@ -307,9 +308,11 @@ export default function PanelProgreso({ cursoId }) {
       f.hechos,
       totalRecursos,
       f.ultimo ? new Date(f.ultimo).toLocaleDateString('es-MX') : 'Nunca',
-      // Mismo origen que la columna de la pantalla, para que el Excel
-      // que mandes y lo que ves no puedan discrepar.
+      // El acumulado representa puntos aportados a la nota final; el
+      // promedio conserva el rendimiento de los rubros ya calificados.
+      notaDe(f)?.acumulado ?? '',
       notaDe(f)?.valor ?? '',
+      notaDe(f)?.ponderada ? notaDe(f).pesoEvaluado : '',
       tienePonderacion(ponderacion) ? 'Ponderada' : 'Promedio simple',
       notaDe(f)?.de ?? 0,
       ...examenes.map(e => f.mejor[e.id]?.calificacion ?? ''),
@@ -394,9 +397,9 @@ export default function PanelProgreso({ cursoId }) {
               <th>Avance</th>
               <th>Última actividad</th>
               <th className="progreso-col-nota">
-                Calificación
+                Acumulado
                 <span className="celda-sub">
-                  {tienePonderacion(ponderacion) ? 'ponderada' : 'promedio simple'}
+                  {tienePonderacion(ponderacion) ? 'del total / 100' : 'promedio simple / 100'}
                 </span>
               </th>
               {examenes.map(e => <th key={e.id}>{e.titulo}</th>)}
@@ -424,13 +427,22 @@ export default function PanelProgreso({ cursoId }) {
                     {(() => {
                       const nota = notaDe(f)
                       if (!nota) return <span className="sutil">—</span>
-                      const clase = nota.aprobado === false ? 'badge no-aprobado' : 'badge ok'
+                      const clase = !nota.ponderada
+                        ? (nota.aprobado === false ? 'badge no-aprobado' : 'badge ok')
+                        : 'badge'
                       return (
                         <>
-                          <span className={clase}>{nota.valor}</span>
+                          <span className={clase}>{nota.ponderada ? nota.acumulado : nota.valor}</span>
                           <span className="celda-sub">
-                            {nota.de} calificación(es)
+                            {nota.ponderada
+                              ? `${nota.equivalente10}/10 · ${nota.pesoEvaluado}% del peso con notas`
+                              : `${nota.de} calificación(es)`}
                           </span>
+                          {nota.ponderada && (
+                            <span className="celda-sub">
+                              Promedio evaluado: {nota.valor == null ? '—' : `${nota.valor}/100`}
+                            </span>
+                          )}
                         </>
                       )
                     })()}

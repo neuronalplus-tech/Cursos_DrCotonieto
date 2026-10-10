@@ -236,12 +236,33 @@ export default function MisCalificaciones({ user }) {
               <div className="mis-nota">
                 {nota ? (
                   <>
-                    <strong>{nota.valor}</strong>
-                    <span className="nota">
-                      sobre 100 · {nota.de} actividad(es)
-                      {nota.ponderada && ' · ponderada'}
-                      {nota.aprobado === false && ` · mínima ${nota.minima}`}
-                    </span>
+                    <strong>{nota.ponderada ? nota.acumulado : nota.valor}</strong>
+                    {nota.ponderada ? (
+                      <>
+                        <span className="nota">
+                          puntos acumulados de 100 · equivale a {nota.equivalente10}/10
+                        </span>
+                        <span className="nota">
+                          Promedio de rubros con nota: {nota.valor == null ? '—' : `${nota.valor}/100`}
+                          {' · '}{nota.de} actividad(es) en rubros ponderados
+                          {' · '}{nota.pesoEvaluado}% del peso configurado
+                        </span>
+                        <div className="mis-nota-desglose">
+                          {nota.detalle.filter(d => d.n && d.pesoFinal > 0).map((d, i) => (
+                            <span key={d.clave}>
+                              {i > 0 && ' · '}{d.etiqueta}: {d.media} × {d.pesoFinal}% = {d.aporteFinal} pts
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="nota">
+                        sobre 100 · {nota.de} actividad(es)
+                      </span>
+                    )}
+                    {nota.aprobado === false && (
+                      <span className="nota">mínima para aprobar: {nota.minima}</span>
+                    )}
                   </>
                 ) : (
                   <span className="sutil">Sin calificaciones aún</span>

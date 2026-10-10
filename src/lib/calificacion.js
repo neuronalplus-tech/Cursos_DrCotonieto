@@ -21,10 +21,10 @@
    2. Todo se normaliza a base 100 ANTES de promediar. Un examen
       sobre 10 y una tarea sobre 100 no se pueden promediar crudos.
 
-   3. Si un componente no tiene nada calificado, su peso se reparte
-      entre los demás en vez de restarse del total. Con "exámenes
-      40 / tareas 40 / foro 20", quien lleva solo el examen hecho
-      debe ver su nota del examen, no un 40 sobre 100.
+   3. La nota de lo evaluado y el aporte al total son dos datos
+      distintos. El promedio de rubros con nota se renormaliza para
+      mostrar el rendimiento actual; el aporte conserva el peso
+      configurado y muestra cuántos puntos ya suma sobre 100.
 
    SIN CONFIGURAR, NADA CAMBIA
    Un curso sin ponderación promedia todo por igual, que es
@@ -46,6 +46,7 @@ export const PONDERACION_SUGERIDA = {
 }
 
 const redondear = (n) => Math.round(n * 10) / 10
+const redondearDos = (n) => Math.round(n * 100) / 100
 
 /** Una nota suelta llevada a base 100. `maximo` nulo se asume 100. */
 export function aBase100(valor, maximo) {
@@ -75,7 +76,8 @@ export function tienePonderacion(config) {
  * @param config ponderación del curso, o null para promedio simple.
  *
  * @returns null si no hay NADA calificado todavía, o
- *   { valor, ponderada, minima, aprobado, de, detalle[] }
+ *   { valor, acumulado, equivalente10, pesoEvaluado, ponderada,
+ *     minima, aprobado, de, detalle[] }
  */
 export function calcular(entradas, config) {
   const medias = {}   // componente -> media en base 100
@@ -122,7 +124,8 @@ export function calcular(entradas, config) {
     }
     const valor = redondear(todas.reduce((s, n) => s + n, 0) / todas.length)
     return {
-      valor, ponderada: false, minima,
+      valor, acumulado: valor, equivalente10: redondearDos(valor / 10),
+      pesoEvaluado: null, ponderada: false, minima,
       aprobado: minima != null ? valor >= minima : null,
       de: todas.length,
       detalle: presentes.map(clave => ({
@@ -133,33 +136,59 @@ export function calcular(entradas, config) {
     }
   }
 
-  // Ponderado: solo pesan los componentes que tienen algo calificado,
-  // y sus pesos se renormalizan sobre la suma de los presentes.
+  // `valor` es el promedio ponderado de los rubros que ya tienen nota,
+  // para mostrar el rendimiento actual sin contar pendientes como cero.
+  // `acumulado` se calcula aparte contra TODOS los pesos configurados y
+  // muestra cuánto aporta ese rendimiento a la nota total del curso.
   const conPeso = presentes.filter(k => Number(config[k]) > 0)
   if (!conPeso.length) {
-    // Hay notas, pero ninguna de un componente con peso. Devolver 0
-    // sería mentir; se cae al promedio simple de lo que sí hay.
-    return calcular(entradas, null)
+    // Hay notas, pero ninguna pertenece a un rubro ponderado: no
+    // aportan al total configurado del curso.
+    const detalle = presentes.map(clave => ({
+      clave, etiqueta: ETIQUETA_COMPONENTE[clave],
+      media: redondear(medias[clave]), n: cuentas[clave],
+      peso: Number(config[clave]) || 0, pesoEfectivo: 0,
+      pesoFinal: 0, aporteFinal: 0,
+    }))
+    return {
+      valor: null, acumulado: 0, equivalente10: 0, pesoEvaluado: 0,
+      ponderada: true, minima, aprobado: null, de: 0, detalle,
+    }
   }
 
   const sumaPesos = conPeso.reduce((s, k) => s + Number(config[k]), 0)
+  const sumaPesosConfigurados = COMPONENTES.reduce(
+    (s, [k]) => s + Math.max(0, Number(config[k]) || 0), 0)
+  let promedioEvaluado = 0
   let acumulado = 0
+  let pesoEvaluado = 0
   const detalle = []
   for (const clave of presentes) {
     const peso = Number(config[clave]) || 0
     const efectivo = peso > 0 ? (peso / sumaPesos) * 100 : 0
-    if (peso > 0) acumulado += medias[clave] * (peso / sumaPesos)
+    const pesoFinal = peso > 0 ? (peso / sumaPesosConfigurados) * 100 : 0
+    const aporteFinal = medias[clave] * (pesoFinal / 100)
+    if (peso > 0) {
+      promedioEvaluado += medias[clave] * (peso / sumaPesos)
+      acumulado += aporteFinal
+      pesoEvaluado += pesoFinal
+    }
     detalle.push({
       clave, etiqueta: ETIQUETA_COMPONENTE[clave],
       media: redondear(medias[clave]), n: cuentas[clave],
       peso, pesoEfectivo: redondear(efectivo),
+      pesoFinal: redondear(pesoFinal), aporteFinal: redondear(aporteFinal),
     })
   }
 
-  const valor = redondear(acumulado)
+  const valor = redondear(promedioEvaluado)
+  const puntosAcumulados = redondear(acumulado)
+  const pesoConNota = redondear(pesoEvaluado)
   return {
-    valor, ponderada: true, minima,
-    aprobado: minima != null ? valor >= minima : null,
+    valor, acumulado: puntosAcumulados,
+      equivalente10: redondearDos(puntosAcumulados / 10),
+    pesoEvaluado: pesoConNota, ponderada: true, minima,
+    aprobado: minima != null && pesoConNota >= 99.95 ? puntosAcumulados >= minima : null,
     de: conPeso.reduce((s, k) => s + (cuentas[k] || 0), 0),
     detalle,
   }
@@ -181,5 +210,7 @@ export function revisarPonderacion(config) {
     `así que la nota sale igual, pero conviene revisarlo.`
 }
 
-/** Texto corto para la pantalla: "82.5" o "—". */
-export const mostrar = (nota) => (nota == null ? '—' : String(nota.valor))
+/** Texto corto para la pantalla: aporte al total o promedio simple. */
+export const mostrar = (nota) => (nota == null
+  ? '—'
+  : String(nota.ponderada ? nota.acumulado : nota.valor))
