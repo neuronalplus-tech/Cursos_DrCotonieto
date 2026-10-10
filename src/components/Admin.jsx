@@ -1365,6 +1365,7 @@ function Admin({ user }) {
                     🧪 Ver el formato de padrón
                   </button>
                 </div>
+                <img className="plantilla-carga-ejemplo" src="/plantillas/ejemplo-padron.svg" alt="Ejemplo de columnas nombre, correo, generación y ruta para el padrón" />
 
                 {padron.errores.length > 0 && (
                   <div className="aviso-error" style={{ marginTop: 8 }}>

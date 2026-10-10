@@ -246,6 +246,7 @@ export default function BancoPreguntas() {
             <button type="button" className="button texto"
                     onClick={() => setPegado(PLANTILLA_TSV)}>🧪 Pegar ejemplo</button>
           </div>
+          <img className="plantilla-carga-ejemplo" src="/plantillas/ejemplo-preguntas.svg" alt="Ejemplo de columnas TSV para cargar preguntas al banco" />
           <textarea className="examen-textarea" rows={6} value={pegado}
                     onChange={e => setPegado(e.target.value)}
                     placeholder="Pega aquí la tabla copiada de Excel o Google Sheets." />
