@@ -136,6 +136,9 @@ Protección de filas: **activada** · políticas: 2
 | `nombre_completo` | `text` | sí | — |
 | `profesion` | `text` | — | — |
 | `fecha_emision` | `timestamp with time zone` | sí | `now()` |
+| `calificacion_final` | `numeric(4,2)` | — | — |
+| `minimo_aprobacion` | `numeric(4,2)` | — | — |
+| `descargas` | `integer` | sí | `0` |
 
 ### `cursos`
 
@@ -604,6 +607,7 @@ Protección de filas: **activada** · políticas: 4
 | `listar_usuarios_con_accesos` | `` | `TABLE(usuario_id uuid, email text, nombre_completo text, profesion text, notas_admin text, cursos_inscritos bigint, ultimo_ingreso timestamp with time zone)` | sí |
 | `mover_hilo_al_responder` | `` | `trigger` | sí |
 | `obtener_usuario_por_email` | `p_email text` | `uuid` | sí |
+| `preparar_descarga_constancia` | `p_curso bigint` | `jsonb` | sí |
 | `promedio_foro` | `p_hilo bigint, p_usuario uuid` | `numeric` | sí |
 | `proteger_calificacion_foro` | `` | `trigger` | sí |
 | `proteger_contrato_organizacion` | `` | `trigger` | sí |

@@ -41,7 +41,8 @@ with esperado(orden, script, objeto, tipo) as (
     (29, 'ROLES_5_PERMISOS.sql',        'tiene_permiso',            'funcion'),
     (30, 'ROLES_6_POLITICAS.sql',       'puedo_en_generacion',      'funcion'),
     (31, 'ROLES_7_CONTENIDO.sql',       'cursos_que_puedo',         'funcion'),
-    (32, 'MODULOS.sql',                 'modulos_plataforma',       'tabla')
+    (32, 'MODULOS.sql',                 'modulos_plataforma',       'tabla'),
+    (33, 'CONSTANCIAS_5_PERFIL_LIMITE_DESCARGAS.sql', 'preparar_descarga_constancia', 'funcion')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,

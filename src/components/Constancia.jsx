@@ -28,14 +28,13 @@ function esperarImagen(url, timeout = 9000) {
   })
 }
 
-function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaUrl, logoUrl }) {
+function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl }) {
   const nombreLimpio = escapar(nombre)
-  const profesionLimpia = escapar(profesion)
   const cursoLimpio = escapar(curso)
   const logo = escapar(logoUrl)
   const nota = Number(nota10).toFixed(1).replace(/\.0$/, '')
-  const nombreFont = nombre.length > 34 ? 25 : nombre.length > 25 ? 28 : 30
-  const cursoFont = curso.length > 48 ? 15 : curso.length > 34 ? 17 : 19
+  const nombreFont = nombre.length > 44 ? 25 : nombre.length > 32 ? 30 : 36
+  const cursoFont = curso.length > 64 ? 19 : curso.length > 44 ? 22 : 26
   const firma = escapar(firmaUrl)
   const folioHtml = escapar(folio)
   const verificar = `${window.location.origin}/verificar/${encodeURIComponent(folio)}`
@@ -50,48 +49,56 @@ function htmlConstancia({ nombre, profesion, curso, nota10, folio, fecha, firmaU
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  @page { size: 10in 5.625in; margin: 0; }
+  @page { size: letter portrait; margin: 0; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; width: 10in; height: 5.625in; }
+  html, body { margin: 0; min-height: 100%; }
   body { font-family: Inter, Arial, sans-serif; color: #1B3A4B; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .hoja { position: relative; width: 10in; height: 5.625in; overflow: hidden; background: #FAFAF8; }
-  .franja { position: absolute; inset: 0 0 auto; height: 5pt; background: #1B3A4B; }
-  .logo { position: absolute; left: 50%; top: 4%; width: 4.167%; height: auto; transform: translateX(-50%); }
-  .antetitulo { position: absolute; top: 12.8%; left: 10%; width: 80%; text-align: center; font-size: 11pt; letter-spacing: .25em; font-weight: 600; }
-  .acento { position: absolute; top: 17.8%; left: 47.22%; width: 5.56%; height: 1.5pt; background: #C17A5E; }
-  .se-otorga { position: absolute; top: 20.2%; left: 10%; width: 80%; text-align: center; font-size: 11pt; }
-  .nombre { position: absolute; top: 24.2%; left: 5%; width: 90%; text-align: center; font: 600 ${nombreFont}pt Fraunces, Georgia, serif; color: #1B3A4B; line-height: 1.15; }
-  .profesion { position: absolute; top: 31.1%; left: 10%; width: 80%; text-align: center; color: #8A9BAD; font-size: 8.5pt; }
-  .separador { position: absolute; top: 35.1%; left: 36%; width: 28%; height: .9pt; background: #D6DCE3; }
-  .motivo { position: absolute; top: 37%; left: 10%; width: 80%; text-align: center; font-size: 11pt; }
-  .curso { position: absolute; top: 41%; left: 10%; width: 80%; text-align: center; font: 600 ${cursoFont}pt Fraunces, Georgia, serif; line-height: 1.15; }
-  .calificacion { position: absolute; top: 52.3%; left: 10%; width: 80%; text-align: center; color: #C17A5E; font-size: 10pt; font-weight: 600; }
-  .verificacion { position: absolute; top: 61%; left: 8%; width: 84%; text-align: center; color: #8A9BAD; font-size: 7pt; overflow-wrap: anywhere; }
-  .firma { position: absolute; left: 50%; top: 80.5%; width: 19%; height: auto; transform: translate(-50%, -83%); object-fit: contain; }
-  .linea-firma { position: absolute; top: 80.5%; left: 33%; width: 34%; height: 1pt; background: #1B3A4B; }
-  .firmante { position: absolute; top: 84.5%; left: 10%; width: 80%; text-align: center; font-size: 9pt; font-weight: 700; }
-  .cargo { position: absolute; top: 88.5%; left: 10%; width: 80%; text-align: center; font-size: 7.5pt; color: #8A9BAD; }
-  .pie { position: absolute; bottom: 0; left: 0; width: 100%; height: 6.2%; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; padding: 0 4.5%; background: #1B3A4B; color: #D6DCE3; font-size: 6.4pt; }
-  .pie strong { text-align: center; color: #FAFAF8; font-size: 8pt; }
+  .hoja { position: relative; width: 8.5in; height: 11in; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: .58in .68in .42in; background: #FAFAF8; }
+  .franja { position: absolute; inset: 0 0 auto; height: 7pt; background: #1B3A4B; }
+  .encabezado { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: .32in; }
+  .logo { width: .78in; height: auto; }
+  .antetitulo { margin-top: .28in; text-align: center; font-size: 13pt; letter-spacing: .25em; font-weight: 600; }
+  .acento { width: .55in; height: 2pt; margin: .3in auto; background: #C17A5E; }
+  .contenido { width: 100%; text-align: center; margin-top: .38in; }
+  .se-otorga { font-size: 13pt; }
+  .nombre { margin: .26in 0 .34in; text-align: center; font: 600 ${nombreFont}pt Fraunces, Georgia, serif; color: #1B3A4B; line-height: 1.18; overflow-wrap: anywhere; }
+  .separador { width: 2.5in; height: 1pt; margin: 0 auto .35in; background: #D6DCE3; }
+  .motivo { font-size: 13pt; line-height: 1.55; }
+  .curso { margin: .24in auto 0; font: 600 ${cursoFont}pt Fraunces, Georgia, serif; line-height: 1.25; overflow-wrap: anywhere; }
+  .calificacion { margin-top: .34in; color: #C17A5E; font-size: 12pt; font-weight: 600; }
+  .verificacion { width: 100%; margin-top: .35in; text-align: center; color: #8A9BAD; font-size: 8pt; line-height: 1.45; overflow-wrap: anywhere; }
+  .bloque-firma { width: 100%; margin-top: auto; display: flex; flex-direction: column; align-items: center; padding-top: .35in; }
+  .firma { width: 1.55in; height: .62in; object-fit: contain; }
+  .linea-firma { width: 2.65in; height: 1pt; margin-top: .02in; background: #1B3A4B; }
+  .firmante { margin-top: .13in; text-align: center; font-size: 10pt; font-weight: 700; }
+  .cargo { margin-top: .06in; text-align: center; font-size: 8.5pt; color: #8A9BAD; }
+  .pie { width: calc(100% + 1.36in); min-height: .42in; margin: .3in -.68in -.42in; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; padding: 0 .55in; background: #1B3A4B; color: #D6DCE3; font-size: 8pt; }
+  .pie strong { text-align: center; color: #FAFAF8; font-size: 10pt; }
   .pie span:last-child { text-align: right; }
-  @media screen { body { background: #e8e5df; padding: 24px; } .hoja { margin: auto; box-shadow: 0 8px 30px #0002; } }
+  @media screen { body { display: flex; justify-content: center; padding: 24px; background: #e8e5df; } .hoja { flex: 0 0 auto; box-shadow: 0 8px 30px #0002; } }
+  @media print { html, body { width: 8.5in; height: 11in; } body { display: block; } .hoja { margin: 0; box-shadow: none; } }
 </style></head><body><main class="hoja">
   <div class="franja"></div>
+  <header class="encabezado">
   <img class="logo" src="${logo}" alt="">
   <div class="antetitulo">CONSTANCIA DE ACREDITACIÓN</div>
   <div class="acento"></div>
+  </header>
+  <section class="contenido">
   <div class="se-otorga">Se otorga a</div>
   <div class="nombre">${nombreLimpio}</div>
-  ${profesionLimpia ? `<div class="profesion">${profesionLimpia}</div>` : ''}
   <div class="separador"></div>
   <div class="motivo">por haber acreditado satisfactoriamente el curso</div>
   <div class="curso">«${cursoLimpio}»</div>
   <div class="calificacion">Calificación final: ${nota}/10 · ${escapar(conLetra(nota10))}</div>
+  </section>
   <div class="verificacion">${fecha} · Verificable en ${escapar(verificar)} · ${contacto}</div>
-  <div class="linea-firma"></div>
+  <section class="bloque-firma">
   <img id="firma-escaneada" class="firma" src="${firma}" alt="Firma autógrafa digital de ${escapar(nombreFirma)}">
+  <div class="linea-firma"></div>
   <div class="firmante">${escapar(nombreFirma)}</div>
   <div class="cargo">${escapar(cargo)}</div>
+  </section>
   <footer class="pie"><span>Folio ${folioHtml}</span><strong>@dr.cotonieto</strong><span>${telefono}</span></footer>
 </main></body></html>`
 }
@@ -119,7 +126,7 @@ function mostrarAvisoVentana(ventana, titulo, mensaje) {
 function Constancia({ user }) {
   const { cursoId } = useParams()
   const navigate = useNavigate()
-  const [perfil, setPerfil] = useState({ nombre: '', profesion: '' })
+  const [perfil, setPerfil] = useState({ nombre: '' })
   const [curso, setCurso] = useState(null)
   const [estado, setEstado] = useState(null)
   const [error, setError] = useState('')
@@ -143,7 +150,7 @@ function Constancia({ user }) {
       setFolio(null)
       try {
         const [{ data: p, error: ePerfil }, { data: c, error: eCurso }] = await Promise.all([
-          supabase.from('perfiles').select('nombre_completo, profesion').eq('id', user.id).maybeSingle(),
+          supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle(),
           supabase.from('cursos').select('id, titulo, constancia, gratuito').eq('id', cursoId).maybeSingle(),
         ])
         if (ePerfil) throw ePerfil
@@ -157,7 +164,7 @@ function Constancia({ user }) {
         if (eEstado) throw eEstado
         if (vivo) {
           setCurso(c)
-          setPerfil({ nombre: p?.nombre_completo || '', profesion: p?.profesion || '' })
+          setPerfil({ nombre: p?.nombre_completo || '' })
           setEstado(resultado)
           setFolio(resultado?.folio || null)
         }
@@ -172,24 +179,17 @@ function Constancia({ user }) {
 
   useEffect(() => {
     let vivo = true
-    esperarImagen(firmaUrl).then(ok => { if (vivo) setFirmaLista(ok) })
+    Promise.all([esperarImagen(firmaUrl), esperarImagen(logoUrl)])
+      .then(([firmaOk, logoOk]) => { if (vivo) setFirmaLista(firmaOk && logoOk) })
     return () => { vivo = false }
-  }, [firmaUrl])
-
-  const guardar = async () => {
-    const { error: e } = await supabase.from('perfiles').upsert(
-      { id: user.id, nombre_completo: perfil.nombre.trim(), profesion: perfil.profesion.trim() },
-      { onConflict: 'id' })
-    if (e) setError('No se pudieron guardar tus datos: ' + e.message)
-    else setError('')
-  }
+  }, [firmaUrl, logoUrl])
 
   const generar = async () => {
-    if (!estado?.disponible) return setError('La constancia se habilita al alcanzar la calificación mínima del curso.')
+    if (!estado?.disponible) return setError(estado?.limiteAlcanzado
+      ? 'Ya utilizaste las 2 descargas permitidas para esta constancia.'
+      : 'La constancia se habilita al alcanzar la calificación mínima del curso.')
     if (!firmaLista) return setError('La firma escaneada no está disponible desde esta página. No se generó un documento sin firma.')
-    if (!perfil.nombre.trim() || !perfil.profesion.trim()) {
-      return setError('Completa tu nombre y profesión para que aparezcan en la constancia.')
-    }
+    if (!(estado?.nombre || perfil.nombre).trim()) return setError('Agrega tu nombre completo en Mi perfil antes de generar la constancia.')
 
     const ventana = window.open('', '_blank')
     if (!ventana) return setError('El navegador bloqueó la ventana del PDF. Permite las ventanas emergentes de este sitio e inténtalo otra vez.')
@@ -197,33 +197,32 @@ function Constancia({ user }) {
     setError('')
     try {
       mostrarAvisoVentana(ventana, 'Preparando tu constancia', 'Estamos verificando tu calificación y preparando el documento.')
-      const { error: ePerfil } = await supabase.from('perfiles').upsert(
-        { id: user.id, nombre_completo: perfil.nombre.trim(), profesion: perfil.profesion.trim() },
-        { onConflict: 'id' })
-      if (ePerfil) throw ePerfil
+      // El servidor lee el nombre del perfil, valida la nota y consume de
+      // forma atómica una de las dos generaciones permitidas.
+      const { data: emision, error: eEmision } = await supabase
+        .rpc('preparar_descarga_constancia', { p_curso: Number(cursoId) })
+      if (eEmision) throw eEmision
+      if (!emision?.folio || !emision?.nombre) throw new Error('No se pudo preparar la constancia con el nombre de tu perfil.')
 
-      // Revalida inmediatamente antes de emitir: la condición no depende
-      // de lo que haya quedado en memoria en el navegador.
-      const { data: revision, error: eEstado } = await supabase
-        .rpc('estado_constancia', { p_curso: Number(cursoId) })
-      if (eEstado) throw eEstado
-      if (!revision?.disponible) throw new Error('Aún no alcanzas la calificación mínima del curso.')
-
-      const { data: folioEmitido, error: eFolio } = await supabase
-        .rpc('emitir_constancia', { p_curso: Number(cursoId) })
-      if (eFolio) throw eFolio
-      if (!folioEmitido) throw new Error('No se pudo emitir el folio de la constancia.')
-
-      setEstado(revision)
-      setFolio(folioEmitido)
+      setEstado(previo => ({
+        ...previo,
+        disponible: Number(emision.descargasRestantes) > 0,
+        folio: emision.folio,
+        nombre: emision.nombre,
+        descargas: emision.descargas,
+        descargasRestantes: emision.descargasRestantes,
+        limiteAlcanzado: Number(emision.descargasRestantes) <= 0,
+        nota10: emision.nota10,
+        minima10: emision.minima10,
+      }))
+      setFolio(emision.folio)
       ventana.document.open()
       ventana.document.write(htmlConstancia({
-        nombre: perfil.nombre.trim(),
-        profesion: perfil.profesion.trim(),
+        nombre: emision.nombre,
         curso: curso?.titulo || '',
-        nota10: revision.nota10,
-        folio: folioEmitido,
-        fecha: fechaConLetra(new Date()),
+        nota10: emision.nota10,
+        folio: emision.folio,
+        fecha: fechaConLetra(emision.fechaEmision),
         firmaUrl,
         logoUrl,
       }))
@@ -249,7 +248,6 @@ function Constancia({ user }) {
       setGenerando(false)
     }
   }
-
   if (!user) return null
   if (cargando) return <div className="loading">Cargando...</div>
 
@@ -285,29 +283,35 @@ function Constancia({ user }) {
       )}
 
       <div className="formulario-datos">
-        <label htmlFor="constancia-nombre">Nombre completo</label>
-        <input id="constancia-nombre" type="text" value={perfil.nombre}
-          onChange={e => setPerfil({ ...perfil, nombre: e.target.value })} />
-        <label htmlFor="constancia-profesion">Profesión o especialidad</label>
-        <input id="constancia-profesion" type="text" value={perfil.profesion}
-          onChange={e => setPerfil({ ...perfil, profesion: e.target.value })} />
-        <button className="button secondary" onClick={guardar}>Guardar datos</button>
+        <strong>Nombre que aparecerá en la constancia</strong>
+        <p><strong>{estado?.nombre || perfil.nombre || 'Aún no has agregado tu nombre completo en el perfil.'}</strong></p>
+        <Link className="enlace-texto" to="/perfil">Actualizar mi nombre en Mi perfil</Link>
+        <p className="nota">La constancia toma el nombre de tu perfil y conserva ese nombre durante sus dos descargas.</p>
       </div>
-
       <div className="bloque-cerrado">
-        {estado?.disponible ? (
+        {estado?.limiteAlcanzado ? (
           <>
-            <p className="aviso-ok">✓ Alcanzaste la calificación mínima para obtener la constancia.</p>
-            {!firmaLista && <p className="aviso-error">No se pudo cargar la firma autógrafa escaneada. El PDF se mantiene deshabilitado para no emitir una constancia incompleta.</p>}
-            <button className="button primary" onClick={generar}
-              disabled={generando || !firmaLista || !perfil.nombre.trim() || !perfil.profesion.trim()}>
-              {generando ? 'Preparando PDF…' : folio ? 'Descargar constancia' : 'Generar constancia'}
-            </button>
+            <p className="aviso-ok">Esta constancia ya alcanzó el límite de 2 descargas.</p>
+            <p className="sutil">El nombre queda asociado al folio desde la primera descarga. Si necesitas corregir un error, contacta al administrador.</p>
             {folio && <p className="constancia-folio">
               <span className="sutil">Folio {folio} ·</span>{' '}
               <Link className="enlace-texto" to={`/verificar/${folio}`}>verificar constancia</Link>
             </p>}
-            <p className="nota">Al continuar, el navegador abre el PDF para descargarlo o guardarlo.</p>
+          </>
+        ) : estado?.disponible ? (
+          <>
+            <p className="aviso-ok">✓ Alcanzaste la calificación mínima para obtener la constancia.</p>
+            {!firmaLista && <p className="aviso-error">No se pudo cargar el logo o la firma autógrafa escaneada. El PDF se mantiene deshabilitado para no emitir una constancia incompleta.</p>}
+            <button className="button primary" onClick={generar}
+              disabled={generando || !firmaLista || !(estado?.nombre || perfil.nombre).trim()}>
+              {generando ? 'Preparando PDF…' : folio ? 'Descargar constancia' : 'Generar constancia'}
+            </button>
+            <p className="nota">Descargas usadas: {Number(estado?.descargas || 0)} de 2. Cada generación consume una descarga.</p>
+            {folio && <p className="constancia-folio">
+              <span className="sutil">Folio {folio} ·</span>{' '}
+              <Link className="enlace-texto" to={`/verificar/${folio}`}>verificar constancia</Link>
+            </p>}
+            <p className="nota">Al continuar, el navegador abre el PDF para imprimirlo, descargarlo o guardarlo.</p>
           </>
         ) : (
           <>
