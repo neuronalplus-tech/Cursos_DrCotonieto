@@ -3504,3 +3504,38 @@ a { color: var(--primary); }
   padding: 12px 14px; border-radius: 10px;
   background: var(--bg); border: 1px solid var(--borde); }
 .plan-modulos .permiso-fila input:disabled + span strong { color: var(--gris); }
+
+/* ============================================================
+   PARTICIPANTES DEL CURSO  (estilo Moodle)
+   ============================================================ */
+.part-buscador { width: 100%; max-width: 420px; margin: 4px 0 16px; padding: 9px 14px;
+  border: 1px solid var(--borde); border-radius: 10px; background: var(--blanco);
+  font: inherit; color: var(--body); }
+.part-buscador:focus { outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193,122,94,.15); }
+
+.part-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.part-tarjeta { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 12px 14px; background: var(--blanco); border: 1px solid var(--borde);
+  border-radius: 12px; cursor: pointer; font: inherit; color: inherit;
+  transition: border-color .15s, box-shadow .15s, transform .05s; }
+.part-tarjeta:hover { border-color: var(--accent-claro); box-shadow: var(--sombra); }
+.part-tarjeta:active { transform: translateY(1px); }
+.part-tarjeta:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.part-tarjeta-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.part-tarjeta-info strong { color: var(--primary); font-size: 15.5px; }
+.part-tarjeta-cuando { font-size: 12.5px; color: var(--gris); }
+.part-tarjeta-flecha { color: var(--gris); font-size: 26px; line-height: 1; flex: none; }
+
+.part-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover;
+  flex: none; background: var(--bg-card); }
+.part-avatar-inicial { display: grid; place-items: center; background: var(--primary);
+  color: var(--blanco); font-weight: 700; font-size: 15px; }
+.part-avatar-grande { width: 84px; height: 84px; font-size: 28px; }
+
+.part-perfil-cab { display: flex; align-items: center; gap: 18px; margin: 14px 0 20px; }
+.part-perfil-bloque { padding: 14px 16px; margin-bottom: 12px; background: var(--bg-info);
+  border-radius: 10px; border-left: 3px solid var(--accent); }
+.part-perfil-bloque strong { color: var(--primary); }
+.part-perfil-acciones { margin-top: 6px; }
+

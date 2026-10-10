@@ -11,6 +11,7 @@ import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
 import AdminTareas from './AdminTareas'
 import AdminGeneraciones from './AdminGeneraciones'
+import Participantes from './Participantes'
 import TareasAlumno from './TareasAlumno'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
@@ -30,6 +31,7 @@ function CursoView({ user }) {
   const [progresoAbierto, setProgresoAbierto] = useState(false)
   const [tareasAbierto, setTareasAbierto] = useState(false)
   const [generacionesAbierto, setGeneracionesAbierto] = useState(false)
+  const [participantesAbierto, setParticipantesAbierto] = useState(false)
   const [borrandoModulo, setBorrandoModulo] = useState(null)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
@@ -516,6 +518,21 @@ function CursoView({ user }) {
       {gestiona && (
         <section className="bloque-foro">
           <div>
+            <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Participantes</h2>
+            <p className="nota" style={{ margin: 0 }}>
+              Las personas inscritas en este curso: su perfil, a qué se dedican y cuándo entraron por última vez.
+            </p>
+          </div>
+          <button type="button" className="button secondary"
+                  onClick={() => setParticipantesAbierto(true)}>
+            👥 Ver participantes
+          </button>
+        </section>
+      )}
+
+      {gestiona && (
+        <section className="bloque-foro">
+          <div>
             <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Exámenes del curso</h2>
             <p className="nota" style={{ margin: 0 }}>
               Crea o edita el examen del curso y los de cada módulo.
@@ -574,6 +591,22 @@ function CursoView({ user }) {
             🗓️ Administrar generaciones
           </button>
         </section>
+      )}
+
+      {participantesAbierto && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setParticipantesAbierto(false)}>
+            <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}
+                 style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+              <h2>Participantes · {curso.titulo}</h2>
+              <Participantes cursoId={curso.id} user={user} />
+              <div className="modal-botones">
+                <button type="button" className="button secondary"
+                        onClick={() => setParticipantesAbierto(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {generacionesAbierto && (
