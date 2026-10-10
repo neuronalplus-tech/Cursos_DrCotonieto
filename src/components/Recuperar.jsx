@@ -49,24 +49,32 @@ export default function Recuperar() {
     })
 
     const revisarEnlace = async () => {
+      const url = new URL(window.location.href)
+
+      /* El fallo del enlace se mira ANTES que la sesión, y es importante
+         el orden. Si el enlace venció y en ese navegador ya había alguien
+         dentro —el docente que lo abre para comprobarlo, por ejemplo—, al
+         preguntar primero por la sesión la pantalla pasaba a "crea tu
+         contraseña" usando la sesión equivocada: creías estar cambiando la
+         del alumno y cambiabas la tuya. */
+      const params = new URLSearchParams(url.hash.replace(/^#/, ''))
+      const detalle = params.get('error_description') || url.searchParams.get('error_description')
+      if (detalle) {
+        if (vivo) setMsg({ tipo: 'error', texto: 'El enlace no es válido o ya venció. Solicita uno nuevo para crear tu contraseña.' })
+        return
+      }
+
       const { data } = await supabase.auth.getSession()
       if (!vivo) return
       if (activarCambio(data?.session)) return
 
       // Con PKCE el cliente suele intercambiar este código al inicializarse.
       // Si la inicialización aún no lo procesó, hacemos un intento explícito.
-      const url = new URL(window.location.href)
       const code = url.searchParams.get('code')
       if (code) {
         const { data: canje, error } = await supabase.auth.exchangeCodeForSession(code)
         if (activarCambio(canje?.session)) return
         if (error && vivo) setMsg({ tipo: 'error', texto: 'No se pudo validar el enlace. Puede haber vencido o haberse abierto fuera del navegador donde se pidió. Solicita uno nuevo.' })
-      }
-
-      const params = new URLSearchParams(url.hash.replace(/^#/, ''))
-      const detalle = params.get('error_description') || url.searchParams.get('error_description')
-      if (detalle && vivo) {
-        setMsg({ tipo: 'error', texto: 'El enlace no es válido o ya venció. Solicita uno nuevo para crear tu contraseña.' })
       }
     }
     revisarEnlace()

@@ -64,6 +64,34 @@ const esCorreo = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
 
 type Resultado = { email: string; status: string; mensaje: string; id?: string }
 
+/* A dónde manda el enlace de recuperación después de verificarlo.
+
+   Se acepta el origen que pide el panel para poder probar el flujo desde
+   una vista previa o desde el equipo de desarrollo, pero solo de una lista
+   cerrada: `redirect_to` llega del navegador, y si se pasara tal cual
+   cualquiera podría generar un enlace que entrega la sesión de
+   recuperación a un sitio suyo. Lo que no esté en la lista cae al sitio
+   de producción, que es el que está dado de alta en Supabase
+   (Authentication → URL Configuration → Redirect URLs). */
+const DESTINO_PRODUCCION = 'https://cursos-drcotonieto.neuronal-plus.workers.dev/recuperar'
+const HOSTS_RECUPERACION = [
+  'cursos-drcotonieto.neuronal-plus.workers.dev',
+  'localhost',
+  '127.0.0.1',
+]
+
+const destinoRecuperacion = (crudo: unknown) => {
+  if (!crudo) return DESTINO_PRODUCCION
+  try {
+    const url = new URL(String(crudo))
+    const permitido = HOSTS_RECUPERACION.includes(url.hostname)
+    if (!permitido || url.pathname !== '/recuperar') return DESTINO_PRODUCCION
+    return url.origin + '/recuperar'
+  } catch {
+    return DESTINO_PRODUCCION
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
@@ -104,10 +132,33 @@ Deno.serve(async (req: Request) => {
     if (cuerpo.accion === 'enlace-recuperacion') {
       const email = limpiarCorreo(cuerpo.email)
       if (!esCorreo(email)) return responder({ error: 'El correo no es válido.' }, 400)
+
+      // El enlace SE DEVUELVE al navegador que llama, así que vale tanto
+      // como la contraseña de esa cuenta: quien lo recibe puede entrar.
+      // Por eso una cuenta que también administra solo puede pedir el suyo,
+      // salvo que quien llame sea administrador de la plataforma. Sin esto,
+      // el responsable de cualquier cliente podría pedir el enlace de tu
+      // cuenta y quedarse con el panel entero.
+      if (email !== correoAdmin) {
+        const esPlataforma = filasAdmin.some(
+          (f: { organizacion_id: number | null }) => f.organizacion_id === null,
+        )
+        if (!esPlataforma) {
+          const { data: objetivoAdmin, error: eO } = await admin
+            .from('admins').select('email').ilike('email', email).limit(1)
+          if (eO) return responder({ error: 'No pude comprobar la cuenta destino: ' + eO.message }, 500)
+          if (objetivoAdmin && objetivoAdmin.length > 0) {
+            return responder({
+              error: `${email} administra el sitio. Solo esa persona puede pedir su propio enlace.`,
+            }, 403)
+          }
+        }
+      }
+
       const { data, error } = await admin.auth.admin.generateLink({
         type: 'recovery',
         email,
-        options: { redirectTo: 'https://cursos-drcotonieto.neuronal-plus.workers.dev/recuperar' },
+        options: { redirectTo: destinoRecuperacion(cuerpo.redirect_to) },
       })
       if (error) return responder({ error: 'No se pudo generar el enlace: ' + error.message }, 400)
       const actionLink = data?.properties?.action_link

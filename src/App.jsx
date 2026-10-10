@@ -187,9 +187,20 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s)
       if (!s) { localStorage.removeItem('login_time'); setEsAdmin(false); setNombreUsuario('') }
+      /* Red de seguridad del enlace de recuperación. El enlace lleva su
+         propio destino, pero si ese destino no está en la lista de
+         Supabase (Authentication → URL Configuration → Redirect URLs),
+         Supabase ignora el destino y manda la sesión al Site URL: la
+         persona acaba dentro del aula, sin ver nunca el formulario de
+         contraseña nueva, y sin entender por qué. Esto la lleva ahí
+         desde donde haya caído. */
+      if (_e === 'PASSWORD_RECOVERY' && window.location.pathname !== '/recuperar') {
+        navigate('/recuperar')
+      }
     })
     return () => subscription.unsubscribe()
-  }, [])
+    // `navigate` es estable en react-router 6; está aquí solo para la regla.
+  }, [navigate])
 
   const user = session?.user || null
 

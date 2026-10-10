@@ -55,6 +55,10 @@ async function enviarEnlaceRecuperacion(email, asunto) {
     body: JSON.stringify({
       accion: 'enlace-recuperacion',
       email: email.trim().toLowerCase(),
+      // Para que el enlace vuelva al sitio desde el que se pidió y el
+      // flujo se pueda probar fuera de producción. La función solo
+      // acepta orígenes de su lista; el resto cae al sitio real.
+      redirect_to: `${window.location.origin}/recuperar`,
     }),
   })
   const datos = await respuesta.json().catch(() => ({}))
