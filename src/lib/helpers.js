@@ -68,7 +68,7 @@ export function moduloBloqueadoParaAlumno(m) {
 export function emiteConstancia(curso) {
   if (!curso) return false
   if (curso.gratuito) return false
-  if (curso.constancia === false) return false
+  if (curso.constanciaConfigurada === false || curso.constancia === false) return false
   return true
 }
 

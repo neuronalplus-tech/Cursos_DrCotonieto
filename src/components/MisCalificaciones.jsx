@@ -190,6 +190,7 @@ export default function MisCalificaciones({ user }) {
 
           return {
             ...c,
+            constanciaConfigurada: c.constancia,
             totalRec: recsDelCurso.length,
             hechosRec: recsDelCurso.filter(r => hechos.has(r.id)).length,
             examenes, tareas, foros,
@@ -404,32 +405,11 @@ export default function MisCalificaciones({ user }) {
                 )}
                 {c.constanciaEstado && (() => {
                   const faltan = (c.constanciaEstado.requisitos || []).filter(r => !r.cumple)
-                  const pendientes = c.constanciaEstado.pendientes || []
-                  if (!faltan.length && !pendientes.length) {
+                  if (!faltan.length) {
                     return c.constanciaDisponible ? null
                       : <p className="nota">La constancia sigue bloqueada. Actualiza la página o contacta al administrador.</p>
                   }
-                  return (
-                    <>
-                      {faltan.length > 0 && (
-                        <ul>
-                          {faltan.map(r => <li key={r.titulo}>{r.titulo}: {r.detalle}</li>)}
-                        </ul>
-                      )}
-                      {pendientes.length > 0 && (
-                        <div>
-                          <span>Actividades ponderadas pendientes (por ahora aportan 0 puntos):</span>
-                          <ul>
-                            {pendientes.map((p, i) => (
-                              <li key={`${p.tipo}:${p.id}:${i}`}>
-                                {p.titulo || 'Actividad'} ({Number(p.pesoCurso).toFixed(1)}% del curso)
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  )
+                  return <ul>{faltan.map(r => <li key={r.titulo}>{r.titulo}: {r.detalle}</li>)}</ul>
                 })()}
               </div>
             )}

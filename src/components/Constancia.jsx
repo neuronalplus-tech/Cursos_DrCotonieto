@@ -165,7 +165,7 @@ function Constancia({ user }) {
   }
 
   const generar = async () => {
-    if (!estado?.disponible) return setError('La constancia solo se habilita al completar el curso y alcanzar la calificación mínima.')
+    if (!estado?.disponible) return setError('La constancia se habilita al alcanzar la calificación mínima del curso.')
     if (!firmaLista) return setError('La firma escaneada no está disponible desde esta página. No se generó un documento sin firma.')
     if (!perfil.nombre.trim() || !perfil.profesion.trim()) {
       return setError('Completa tu nombre y profesión para que aparezcan en la constancia.')
@@ -186,7 +186,7 @@ function Constancia({ user }) {
       const { data: revision, error: eEstado } = await supabase
         .rpc('estado_constancia', { p_curso: Number(cursoId) })
       if (eEstado) throw eEstado
-      if (!revision?.disponible) throw new Error('Ya no cumples los requisitos o la calificación mínima del curso.')
+      if (!revision?.disponible) throw new Error('Aún no alcanzas la calificación mínima del curso.')
 
       const { data: folioEmitido, error: eFolio } = await supabase
         .rpc('emitir_constancia', { p_curso: Number(cursoId) })
@@ -251,7 +251,7 @@ function Constancia({ user }) {
     <section className="contenedor estrecho">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Mis calificaciones', to: '/mis-calificaciones' }, { label: 'Constancia' }]} />
       <h1>Constancia de acreditación</h1>
-      <p className="sutil">Se habilita cuando completas el curso y alcanzas la mínima ponderada que configuró el administrador.</p>
+      <p className="sutil">Se habilita al alcanzar la calificación mínima que configuró el administrador.</p>
       {error && <p className="aviso-error">{error}</p>}
 
       {estado?.nota10 != null && (
@@ -274,19 +274,7 @@ function Constancia({ user }) {
       <div className="bloque-cerrado">
         {estado?.disponible ? (
           <>
-            <p className="aviso-ok">✓ Cumples los requisitos para la constancia.</p>
-            {!!estado?.pendientes?.length && (
-              <div className="constancia-pendientes">
-                <strong>Actividades aún pendientes; actualmente cuentan como 0 en la nota:</strong>
-                <ul>
-                  {estado.pendientes.map((p, i) => (
-                    <li key={`${p.tipo}:${p.id}:${i}`}>
-                      {p.titulo || 'Actividad'} · {Number(p.pesoCurso).toFixed(1)}% del curso
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <p className="aviso-ok">✓ Alcanzaste la calificación mínima para obtener la constancia.</p>
             {!firmaLista && <p className="aviso-error">La firma autógrafa escaneada no se puede cargar. El PDF se mantiene deshabilitado hasta que la imagen de Drive sea accesible para el alumnado.</p>}
             <button className="button primary" onClick={generar}
               disabled={generando || !firmaLista || !perfil.nombre.trim() || !perfil.profesion.trim()}>
@@ -310,18 +298,6 @@ function Constancia({ user }) {
                 </li>
               ))}
             </ul>
-            {!!estado?.pendientes?.length && (
-              <div className="constancia-pendientes">
-                <strong>Actividades incluidas en la ponderación que faltan calificar:</strong>
-                <ul>
-                  {estado.pendientes.map((p, i) => (
-                    <li key={`${p.tipo}:${p.id}:${i}`}>
-                      {p.titulo || 'Actividad'} · {Number(p.pesoCurso).toFixed(1)}% del curso
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </>
         )}
       </div>

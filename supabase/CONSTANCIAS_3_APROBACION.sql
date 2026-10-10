@@ -15,9 +15,15 @@ alter table public.constancias
   add column if not exists calificacion_final numeric(4,2),
   add column if not exists minimo_aprobacion numeric(4,2);
 
--- Devuelve la nota acumulada sobre 10, el porcentaje de evaluación que
--- ya tiene nota y si alcanzó el mínimo cuando toda la ponderación está
--- calificada. Las tareas/exámenes/foros pendientes conservan su peso.
+-- El curso que el alumno está consultando debe emitir constancia.
+update public.cursos
+   set constancia = true
+ where id = 35
+   and titulo = 'Problemas contemporáneos en educación'
+   and coalesce(gratuito, false) = false;
+
+-- Devuelve la nota acumulada sobre 10, el porcentaje evaluado y si ya
+-- alcanzó la mínima. Las actividades pendientes aportan cero a la nota.
 create or replace function public.nota_curso_para_constancia(
   p_usuario uuid,
   p_curso bigint
@@ -350,8 +356,7 @@ $$;
 revoke all on function public.nota_curso_para_constancia(uuid, bigint) from public;
 grant execute on function public.nota_curso_para_constancia(uuid, bigint) to service_role;
 
--- La emisión exige el material y la nota final aprobatoria. Las actividades
--- que no forman parte de la ponderación del curso no bloquean la constancia.
+-- La constancia se habilita solo por la nota final aprobatoria configurada.
 create or replace function public.completo_el_curso(p_usuario uuid, p_curso bigint)
 returns boolean
 language plpgsql
@@ -360,25 +365,8 @@ security definer
 set search_path = public
 as $$
 declare
-  v_mods bigint[];
-  v_recs bigint[];
-  v_n integer;
   v_nota jsonb;
 begin
-  select coalesce(array_agg(m.id), '{}') into v_mods
-    from public.modulos m
-   where m.curso_id = p_curso and m.disponible is distinct from false;
-
-  select coalesce(array_agg(r.id), '{}') into v_recs
-    from public.recursos r where r.modulo_id = any(v_mods);
-  if cardinality(v_recs) > 0 then
-    select count(distinct p.recurso_id) into v_n
-      from public.progreso_usuario p
-     where p.usuario_id = p_usuario and p.recurso_id = any(v_recs)
-       and p.completado = true;
-    if v_n < cardinality(v_recs) then return false; end if;
-  end if;
-
   v_nota := public.nota_curso_para_constancia(p_usuario, p_curso);
   return coalesce((v_nota->>'aprobado')::boolean, false);
 end
@@ -404,8 +392,6 @@ declare
   v_nota_guardada numeric(4,2);
   v_minimo_guardado numeric(4,2);
   v_nota jsonb;
-  v_total_rec integer := 0;
-  v_hechos_rec integer := 0;
   v_puede boolean := false;
 begin
   if v_uid is null then raise exception 'Necesitas iniciar sesión'; end if;
@@ -422,21 +408,9 @@ begin
    where c.usuario_id = v_uid and c.curso_id = p_curso;
 
   v_nota := public.nota_curso_para_constancia(v_uid, p_curso);
-
-  select count(*)::integer,
-         count(*) filter (where exists (
-           select 1 from public.progreso_usuario p
-            where p.usuario_id = v_uid and p.recurso_id = r.id and p.completado = true
-         ))::integer
-    into v_total_rec, v_hechos_rec
-    from public.recursos r
-    join public.modulos m on m.id = r.modulo_id
-   where m.curso_id = p_curso and m.disponible is distinct from false;
-
   v_puede := v_folio is not null or (
     not coalesce(v_curso.gratuito, false)
     and coalesce(v_curso.constancia, true)
-    and (v_total_rec = 0 or v_hechos_rec = v_total_rec)
     and coalesce((v_nota->>'aprobado')::boolean, false)
   );
 
@@ -451,9 +425,6 @@ begin
     'alcanzaMinimo', coalesce((v_nota->>'alcanzaMinimo')::boolean, false) or v_folio is not null,
     'aprobado', coalesce((v_nota->>'aprobado')::boolean, false) or v_folio is not null,
     'requisitos', jsonb_build_array(
-      jsonb_build_object('titulo', 'Material del curso',
-        'cumple', v_hechos_rec = v_total_rec,
-        'detalle', format('%s de %s recursos', v_hechos_rec, v_total_rec)),
       jsonb_build_object('titulo', 'Calificación mínima',
         'cumple', coalesce((v_nota->>'alcanzaMinimo')::boolean, false) or v_folio is not null,
         'detalle', format('%s/10 · mínimo %s/10',
@@ -467,8 +438,7 @@ $$;
 revoke all on function public.estado_constancia(bigint) from public;
 grant execute on function public.estado_constancia(bigint) to authenticated;
 
--- Sustituye la emisión anterior: además de finalizar el curso, exige
--- el mínimo de la nota global y registra una instantánea auditable.
+-- La emisión exige la nota mínima y registra una instantánea auditable.
 create or replace function public.emitir_constancia(p_curso bigint)
 returns text
 language plpgsql
@@ -502,7 +472,7 @@ begin
   if v_folio is not null then return v_folio; end if;
 
   if not public.completo_el_curso(v_uid, p_curso) then
-    raise exception 'Aún no cumples los requisitos o la calificación mínima del curso';
+    raise exception 'Aún no alcanzas la calificación mínima del curso';
   end if;
 
   v_nota := public.nota_curso_para_constancia(v_uid, p_curso);
