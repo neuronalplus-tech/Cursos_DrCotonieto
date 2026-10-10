@@ -213,7 +213,7 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
   }
 
   const reintentar = async () => {
-    setRespuestas({}); setResultado(null)
+    const limpiar = () => { setRespuestas({}); setResultado(null) }
     // Cada intento merece su propio sorteo: se pide un juego nuevo
     // en vez de reutilizar el ya respondido.
     if (examen && user) {
@@ -221,13 +221,24 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
         const { data: servido, error: eServ } = await supabase
           .rpc('servir_examen', { p_examen: examen.id })
         if (eServ) throw eServ
+        limpiar()
         setJuego(servido?.preguntas || null)
         setIntentoId(servido?.intento_id || null)
         const { data: pendiente } = await supabase.from('intentos_examen').select('fecha').eq('id', servido?.intento_id).maybeSingle()
         setInicioIntento(pendiente?.fecha ? new Date(pendiente.fecha).getTime() : Date.now())
         return
-      } catch { /* cae al juego completo de abajo */ }
+      } catch (e) {
+        // Igual que al abrir: solo sin la migración se cae al examen
+        // completo. Un "no" de la base se dice tal cual.
+        const sinMigrar = e?.code === 'PGRST202'
+          || /column .*pendiente|column .*preguntas|relation .*intentos_examen/.test(e?.message || '')
+        if (!sinMigracion) {
+          alert('No se pudo abrir un intento nuevo: ' + (e?.message || e))
+          return
+        }
+      }
     }
+    limpiar()
     setJuego((examen.preguntas || []).map(limpiarPregunta))
     setIntentoId(null)
   }
