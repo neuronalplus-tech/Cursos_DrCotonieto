@@ -76,9 +76,12 @@ La respuesta **buena** trae cuatro datos:
 
 Si solo contesta `{"ok":true,"mensaje":"Conexión OK…"}`, **la versión
 desplegada es vieja**: le faltan `version`, `remitenteEnElScript` y
-`cuentaQueEnvia`. Hay que pegar `apps-script/Notificador.gs` entero y
-guardar (guardar ya actualiza el deployment; crear uno nuevo cambia la
-URL y rompe `APPS_SCRIPT_URL`).
+`cuentaQueEnvia`. Pega `apps-script/Notificador.gs` entero y guarda. Luego,
+en Apps Script, abre **Implementar → Gestionar implementaciones**, edita la
+implementación web activa, elige **Nueva versión** y pulsa **Implementar**.
+Así se publica el código nuevo conservando la misma URL. No uses **Nueva
+implementación** para actualizar: crea otra URL y habría que cambiar también
+`APPS_SCRIPT_URL`.
 
 Lo que arreglan las versiones nuevas y falta en las viejas:
 

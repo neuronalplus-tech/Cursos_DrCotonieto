@@ -6,10 +6,13 @@
  *  CÓMO USARLO
  *  1. script.google.com → abre ESTE proyecto → sustituye todo Codigo.gs por
  *     el contenido de este archivo (Ctrl+A, Ctrl+V en el editor).
- *  2. Implementar → Añadir implementación → Aplicación web:
+ *  2. Para actualizar la URL que ya usa la web:
+ *       Implementar → Gestionar implementaciones → Editar → Nueva versión
+ *       → Implementar. No crees otra implementación: cambia la URL.
+ *     En una instalación inicial, crea una implementación de tipo Aplicación web:
  *       - Ejecutar como:           Yo (tu cuenta)
- *       - Quién tiene acceso:      Cualquier persona        ← IMPRESCINDIBLE
- *  3. Copia la URL /exec a src/config.js → APPS_SCRIPT_URL.
+ *       - Quién tiene acceso:      Cualquier persona
+ *  3. Copia la URL /exec activa a src/config.js → APPS_SCRIPT_URL.
  *
  *  CÓMO DEVUELVE EL RESULTADO A LA WEB (leído con un deployment real)
  *  Desde el navegador no hay CORS, así que la web inyecta esto como <script>

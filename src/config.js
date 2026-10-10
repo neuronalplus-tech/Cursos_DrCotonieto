@@ -23,7 +23,7 @@ export const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u
 // no hace falta crear uno nuevo (crearlo es lo que genera URLs nuevas).
 // Si algún día cambias "Quién tiene acceso", entonces sí debes crear uno nuevo
 // y pasarme la URL.
-export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyphl1phs105zfP-y1UuAJqd9vrOx2xhQzTuuDoI3zU5e6ToeSB_CQpyWoswJcTqbP9RA/exec'
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPLMNkKPnU0xRVgtqk55vCMLP-n2BOPNCwC4-Jr37x005RgdTfdGKJCAK0K8yDjNY_fw/exec'
 
 export const MARCA = {
   nombre: 'Dr. Ernesto Cotonieto',
