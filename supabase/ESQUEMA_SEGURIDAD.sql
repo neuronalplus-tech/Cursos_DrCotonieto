@@ -465,7 +465,7 @@ begin
   v_pref := coalesce(nullif(v_pref, ''), 'CUR');
 
   v_folio := v_pref || '-' || to_char(now(), 'YYYY') || '-' ||
-             upper(substring(encode(gen_random_bytes(6), 'hex') from 1 for 6));
+             upper(substring(replace(gen_random_uuid()::text, '-', '') from 1 for 6));
 
   insert into public.constancias
     (usuario_id, curso_id, folio, nombre_completo, profesion)
