@@ -126,11 +126,12 @@ export default function PanelProgreso({ cursoId }) {
 
         // --- Exámenes del curso y de sus módulos ---
         const { data: exCurso } = await supabase
-          .from('examenes').select('id, titulo').eq('curso_id', curso)
+          .from('examenes').select('id, titulo, modulo_id, activo').eq('curso_id', curso)
         const { data: exMod } = idsMod.length
-          ? await supabase.from('examenes').select('id, titulo').in('modulo_id', idsMod)
+          ? await supabase.from('examenes').select('id, titulo, modulo_id, activo').in('modulo_id', idsMod)
           : { data: [] }
-        const exs = [...(exCurso || []), ...(exMod || [])]
+        const exs = [...new Map([...(exCurso || []), ...(exMod || [])]
+          .map(e => [e.id, e])).values()]
         const idsEx = exs.map(e => e.id)
 
         const { data: intentos } = idsEx.length
@@ -141,9 +142,9 @@ export default function PanelProgreso({ cursoId }) {
 
         // --- Tareas: las del curso y las de sus módulos ---
         const { data: tCurso } = await supabase
-          .from('tareas').select('id, titulo, puntos_max').eq('curso_id', curso)
+          .from('tareas').select('id, titulo, puntos_max, modulo_id').eq('curso_id', curso).eq('activo', true)
         const { data: tMod } = idsMod.length
-          ? await supabase.from('tareas').select('id, titulo, puntos_max').in('modulo_id', idsMod)
+          ? await supabase.from('tareas').select('id, titulo, puntos_max, modulo_id').in('modulo_id', idsMod).eq('activo', true)
           : { data: [] }
         const tds = [...(tCurso || []), ...(tMod || [])]
         const idsTarea = tds.map(t => t.id)
@@ -252,22 +253,27 @@ export default function PanelProgreso({ cursoId }) {
      puedes defender cuando alguien reclama su constancia. */
   const notaDe = (f) => calcular({
     examenes: examenes
-      .map(e => f.mejor[e.id])
-      .filter(it => it && it.calificacion != null)
-      .map(it => ({ valor: it.calificacion, maximo: 100 })),
+      .map(e => ({
+        id: e.id, titulo: e.titulo, moduloId: e.modulo_id,
+        valor: f.mejor[e.id]?.calificacion ?? null, maximo: 100,
+        incluida: e.activo !== false,
+      })),
     tareas: tareas
-      .map(t => ({ t, en: f.entregas[t.id] }))
-      .filter(x => x.en?.calificado_en && x.en.calificacion != null)
-      .map(x => ({ valor: x.en.calificacion, maximo: x.t.puntos_max || 100 })),
+      .map(t => ({
+        id: t.id, titulo: t.titulo, moduloId: t.modulo_id,
+        valor: f.entregas[t.id]?.calificado_en ? f.entregas[t.id].calificacion : null,
+        maximo: t.puntos_max || 100,
+      })),
     // Se promedia DENTRO de cada hilo primero: quien escribió diez
     // veces en el mismo hilo no debe pesar diez veces más.
-    foro: foros
-      .map(h => ({ h, notas: f.foro[h.id] || [] }))
-      .filter(x => x.notas.length)
-      .map(x => ({
-        valor: x.notas.reduce((s2, v) => s2 + v, 0) / x.notas.length,
-        maximo: x.h.puntos_max || 10,
-      })),
+    foro: foros.map(h => {
+      const notas = f.foro[h.id] || []
+      return {
+        id: h.id, titulo: h.titulo,
+        valor: notas.length ? notas.reduce((s2, v) => s2 + v, 0) / notas.length : null,
+        maximo: h.puntos_max || 10,
+      }
+    }),
     avance: { hechos: f.hechos, total: totalRecursos },
   }, ponderacion)
 
@@ -294,8 +300,8 @@ export default function PanelProgreso({ cursoId }) {
   const exportar = () => {
     const cabeceras = [
       'Alumno', 'Generación', 'Avance %', 'Recursos vistos', 'Recursos totales', 'Última actividad',
-      'Puntos acumulados del total', 'Promedio de rubros con nota',
-      'Ponderación con notas %', 'Tipo de cálculo', 'Notas que la forman',
+      'Calificación acumulada /10', 'Puntos acumulados /100', 'Rendimiento calificado /100',
+      'Peso evaluado %', 'Tipo de cálculo', 'Actividades calificadas',
       ...examenes.map(e => `Examen: ${e.titulo}`),
       ...tareas.map(t => `Tarea: ${t.titulo}`),
       ...foros.map(h => `Foro: ${h.titulo}`),
@@ -310,9 +316,10 @@ export default function PanelProgreso({ cursoId }) {
       f.ultimo ? new Date(f.ultimo).toLocaleDateString('es-MX') : 'Nunca',
       // El acumulado representa puntos aportados a la nota final; el
       // promedio conserva el rendimiento de los rubros ya calificados.
+      notaDe(f)?.equivalente10 ?? '',
       notaDe(f)?.acumulado ?? '',
       notaDe(f)?.valor ?? '',
-      notaDe(f)?.ponderada ? notaDe(f).pesoEvaluado : '',
+      notaDe(f)?.pesoEvaluado ?? '',
       tienePonderacion(ponderacion) ? 'Ponderada' : 'Promedio simple',
       notaDe(f)?.de ?? 0,
       ...examenes.map(e => f.mejor[e.id]?.calificacion ?? ''),
@@ -397,10 +404,8 @@ export default function PanelProgreso({ cursoId }) {
               <th>Avance</th>
               <th>Última actividad</th>
               <th className="progreso-col-nota">
-                Acumulado
-                <span className="celda-sub">
-                  {tienePonderacion(ponderacion) ? 'del total / 100' : 'promedio simple / 100'}
-                </span>
+                Nota /10
+                <span className="celda-sub">puntos acumulados de 100</span>
               </th>
               {examenes.map(e => <th key={e.id}>{e.titulo}</th>)}
               {tareas.map(t => <th key={`t${t.id}`}>📥 {t.titulo}</th>)}
@@ -427,22 +432,16 @@ export default function PanelProgreso({ cursoId }) {
                     {(() => {
                       const nota = notaDe(f)
                       if (!nota) return <span className="sutil">—</span>
-                      const clase = !nota.ponderada
-                        ? (nota.aprobado === false ? 'badge no-aprobado' : 'badge ok')
-                        : 'badge'
+                      const clase = nota.aprobado === false ? 'badge no-aprobado' : 'badge ok'
                       return (
                         <>
-                          <span className={clase}>{nota.ponderada ? nota.acumulado : nota.valor}</span>
+                          <span className={clase}>{nota.equivalente10}/10</span>
                           <span className="celda-sub">
-                            {nota.ponderada
-                              ? `${nota.equivalente10}/10 · ${nota.pesoEvaluado}% del peso con notas`
-                              : `${nota.de} calificación(es)`}
+                            {nota.acumulado}/100 · {nota.pesoEvaluado}% calificado
                           </span>
-                          {nota.ponderada && (
-                            <span className="celda-sub">
-                              Promedio evaluado: {nota.valor == null ? '—' : `${nota.valor}/100`}
-                            </span>
-                          )}
+                          <span className="celda-sub">
+                            Rendimiento calificado: {nota.valor == null ? '—' : `${nota.valor}/100`}
+                          </span>
                         </>
                       )
                     })()}

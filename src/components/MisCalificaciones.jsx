@@ -45,14 +45,21 @@ function pct(hechos, total) {
 function calificacionDelCurso(c) {
   return calcular({
     examenes: c.examenes
-      .filter(e => e.mejor?.calificacion != null)
-      .map(e => ({ valor: e.mejor.calificacion, maximo: e.puntos_max || 100 })),
+      .map(e => ({
+        id: e.id, titulo: e.titulo, moduloId: e.modulo_id,
+        valor: e.mejor?.calificacion ?? null, maximo: 100,
+        incluida: e.activo !== false,
+      })),
     tareas: c.tareas
-      .filter(t => t.entrega?.calificado_en && t.entrega.calificacion != null)
-      .map(t => ({ valor: t.entrega.calificacion, maximo: t.puntos_max || 100 })),
+      .map(t => ({
+        id: t.id, titulo: t.titulo, moduloId: t.modulo_id,
+        valor: t.entrega?.calificado_en ? t.entrega.calificacion : null,
+        maximo: t.puntos_max || 100,
+      })),
     foro: c.foros
-      .filter(h => h.media != null)
-      .map(h => ({ valor: h.media, maximo: h.puntos_max || 10 })),
+      .map(h => ({
+        id: h.id, titulo: h.titulo, valor: h.media, maximo: h.puntos_max || 10,
+      })),
     avance: { hechos: c.hechosRec, total: c.totalRec },
   }, c.ponderacion)
 }
@@ -236,32 +243,31 @@ export default function MisCalificaciones({ user }) {
               <div className="mis-nota">
                 {nota ? (
                   <>
-                    <strong>{nota.ponderada ? nota.acumulado : nota.valor}</strong>
-                    {nota.ponderada ? (
-                      <>
-                        <span className="nota">
-                          puntos acumulados de 100 · equivale a {nota.equivalente10}/10
-                        </span>
-                        <span className="nota">
-                          Promedio de rubros con nota: {nota.valor == null ? '—' : `${nota.valor}/100`}
-                          {' · '}{nota.de} actividad(es) en rubros ponderados
-                          {' · '}{nota.pesoEvaluado}% del peso configurado
-                        </span>
-                        <div className="mis-nota-desglose">
-                          {nota.detalle.filter(d => d.n && d.pesoFinal > 0).map((d, i) => (
-                            <span key={d.clave}>
-                              {i > 0 && ' · '}{d.etiqueta}: {d.media} × {d.pesoFinal}% = {d.aporteFinal} pts
-                            </span>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
+                    <strong>{nota.equivalente10}/10</strong>
+                    <span className="nota">
+                      {nota.acumulado}/100 puntos acumulados · {nota.pesoEvaluado}% de la evaluación calificada
+                    </span>
+                    {nota.valor != null && (
                       <span className="nota">
-                        sobre 100 · {nota.de} actividad(es)
+                        Rendimiento en lo calificado: {nota.valor}/100 · {nota.de} actividad(es)
                       </span>
                     )}
+                    <div className="mis-nota-desglose">
+                      {nota.detalle.filter(d => d.n && d.pesoFinal > 0).map((d, i) => (
+                        <span key={d.clave}>
+                          {i > 0 && ' · '}{d.etiqueta}: {d.media}/100
+                          {' · '}{d.pesoCalificadoFinal}% del curso ya calificado
+                          {' · aporta '}{d.aporteFinal} puntos
+                          {d.criterios?.filter(k => k.n).map(k => (
+                            <small key={k.id}>
+                              {k.etiqueta}: {k.media}/100 · aporta {k.aporteFinal} puntos
+                            </small>
+                          ))}
+                        </span>
+                      ))}
+                    </div>
                     {nota.aprobado === false && (
-                      <span className="nota">mínima para aprobar: {nota.minima}</span>
+                      <span className="nota">mínima para aprobar: {nota.minima}/10</span>
                     )}
                   </>
                 ) : (

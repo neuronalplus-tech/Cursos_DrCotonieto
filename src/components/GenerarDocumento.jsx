@@ -30,7 +30,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
-import { calcular, tienePonderacion } from '../lib/calificacion'
+import { calcular, calcularModulo, tienePonderacion } from '../lib/calificacion'
 import {
   rellenar, conLetra, fechaConLetra,
 } from '../lib/plantillas'
@@ -76,18 +76,32 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
         const { data: mods } = await supabase
           .from('modulos').select('id, titulo').eq('curso_id', cursoId).order('orden')
         const idsMod = (mods || []).map(m => m.id)
+        const { data: recursos } = idsMod.length
+          ? await supabase.from('recursos').select('id').in('modulo_id', idsMod)
+          : { data: [] }
+        const idsRecursos = (recursos || []).map(r => r.id)
+        const { data: progreso } = idsRecursos.length
+          ? await supabase.from('progreso_usuario').select('usuario_id, recurso_id')
+              .in('recurso_id', idsRecursos).eq('completado', true)
+          : { data: [] }
+        const progresoPorAlumno = {}
+        for (const p of progreso || []) {
+          if (!progresoPorAlumno[p.usuario_id]) progresoPorAlumno[p.usuario_id] = new Set()
+          progresoPorAlumno[p.usuario_id].add(p.recurso_id)
+        }
 
         const exCurso = await supabase.from('examenes')
-          .select('id, titulo, curso_id, modulo_id').eq('curso_id', cursoId)
+          .select('id, titulo, curso_id, modulo_id, activo').eq('curso_id', cursoId)
         const exMod = idsMod.length
-          ? await supabase.from('examenes').select('id, titulo, curso_id, modulo_id').in('modulo_id', idsMod)
+          ? await supabase.from('examenes').select('id, titulo, curso_id, modulo_id, activo').in('modulo_id', idsMod)
           : { data: [] }
-        const examenes = [...(exCurso.data || []), ...(exMod.data || [])]
+        const examenes = [...new Map([...(exCurso.data || []), ...(exMod.data || [])]
+          .map(e => [e.id, e])).values()]
 
         const tCurso = await supabase.from('tareas')
-          .select('id, titulo, puntos_max, curso_id, modulo_id').eq('curso_id', cursoId)
+          .select('id, titulo, puntos_max, curso_id, modulo_id').eq('curso_id', cursoId).eq('activo', true)
         const tMod = idsMod.length
-          ? await supabase.from('tareas').select('id, titulo, puntos_max, curso_id, modulo_id').in('modulo_id', idsMod)
+          ? await supabase.from('tareas').select('id, titulo, puntos_max, curso_id, modulo_id').in('modulo_id', idsMod).eq('activo', true)
           : { data: [] }
         const tareas = [...(tCurso.data || []), ...(tMod.data || [])]
 
@@ -101,7 +115,7 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
           : { data: [] }
 
         const { data: hilos } = await supabase.from('foro_hilos')
-          .select('id, puntos_max').eq('curso_id', cursoId).eq('califica', true)
+          .select('id, titulo, puntos_max').eq('curso_id', cursoId).eq('califica', true)
         const { data: aport } = (hilos || []).length
           ? await supabase.from('foro_respuestas')
               .select('hilo_id, autor_id, calificacion')
@@ -122,39 +136,53 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
           }
           const entrada = {
             examenes: examenes
-              .map(e => mejor[e.id]).filter(x => x && x.calificacion != null)
-              .map(x => ({ valor: x.calificacion, maximo: 100 })),
+              .map(e => ({
+                id: e.id, titulo: e.titulo, moduloId: e.modulo_id,
+                valor: mejor[e.id]?.calificacion ?? null, maximo: 100,
+                incluida: e.activo !== false,
+              })),
             tareas: tareas
               .map(t => ({ t, en: (entregas || []).find(e => e.tarea_id === t.id && e.usuario_id === d.usuario_id) }))
-              .filter(x => x.en?.calificado_en && x.en.calificacion != null)
-              .map(x => ({ valor: x.en.calificacion, maximo: x.t.puntos_max || 100 })),
+              .map(x => ({
+                id: x.t.id, titulo: x.t.titulo, moduloId: x.t.modulo_id,
+                valor: x.en?.calificado_en ? x.en.calificacion : null,
+                maximo: x.t.puntos_max || 100,
+              })),
             foro: (hilos || []).map(h => {
               const notas = (aport || [])
                 .filter(a => a.hilo_id === h.id && a.autor_id === d.usuario_id)
                 .map(a => Number(a.calificacion))
-              if (!notas.length) return null
               return {
-                valor: notas.reduce((s, n) => s + n, 0) / notas.length,
+                id: h.id, titulo: h.titulo,
+                valor: notas.length ? notas.reduce((s, n) => s + n, 0) / notas.length : null,
                 maximo: h.puntos_max || 10,
               }
-            }).filter(Boolean),
+            }),
+            avance: {
+              hechos: progresoPorAlumno[d.usuario_id]?.size || 0,
+              total: idsRecursos.length,
+            },
           }
           const nota = calcular(entrada, c?.ponderacion)
-          const calificacionFinal = nota
-            ? (nota.ponderada ? nota.acumulado : nota.valor)
-            : null
+          const calificacionFinal = nota ? nota.acumulado : null
 
           // Y el desglose por módulo, para las actas que lo piden.
           porModulo[d.usuario_id] = (mods || []).map(m => {
             const exM = examenes.filter(e => e.modulo_id === m.id)
-              .map(e => mejor[e.id]).filter(x => x && x.calificacion != null)
-              .map(x => ({ valor: x.calificacion, maximo: 100 }))
+              .map(e => ({
+                id: e.id, titulo: e.titulo, moduloId: e.modulo_id,
+                valor: mejor[e.id]?.calificacion ?? null, maximo: 100,
+                incluida: e.activo !== false,
+              }))
             const taM = tareas.filter(t => t.modulo_id === m.id)
               .map(t => ({ t, en: (entregas || []).find(e => e.tarea_id === t.id && e.usuario_id === d.usuario_id) }))
-              .filter(x => x.en?.calificado_en && x.en.calificacion != null)
-              .map(x => ({ valor: x.en.calificacion, maximo: x.t.puntos_max || 100 }))
-            const n = calcular({ examenes: exM, tareas: taM, foro: [] }, c?.ponderacion)
-            return { titulo: m.titulo, calificacion: n ? n.valor : null }
+              .map(x => ({
+                id: x.t.id, titulo: x.t.titulo, moduloId: x.t.modulo_id,
+                valor: x.en?.calificado_en ? x.en.calificacion : null,
+                maximo: x.t.puntos_max || 100,
+              }))
+            const n = calcularModulo({ examenes: exM, tareas: taM, foro: [] }, c?.ponderacion, m.id)
+            return { titulo: m.titulo, calificacion: n ? n.acumulado : null }
           })
 
           return {
@@ -162,7 +190,7 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
             nombre: d.nombre,
             calificacion: calificacionFinal,
             letra: calificacionFinal != null ? conLetra(calificacionFinal) : '',
-            tipoCalculo: nota?.ponderada ? 'Ponderada' : 'Promedio simple',
+            tipoCalculo: tienePonderacion(c?.ponderacion) ? 'Ponderada' : 'Promedio simple',
             asistencia: d.asistencia_pct,
           }
         })
