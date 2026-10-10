@@ -42,7 +42,8 @@ with esperado(orden, script, objeto, tipo) as (
     (30, 'ROLES_6_POLITICAS.sql',       'puedo_en_generacion',      'funcion'),
     (31, 'ROLES_7_CONTENIDO.sql',       'cursos_que_puedo',         'funcion'),
     (32, 'MODULOS.sql',                 'modulos_plataforma',       'tabla'),
-    (33, 'CONSTANCIAS_5_PERFIL_LIMITE_DESCARGAS.sql', 'preparar_descarga_constancia', 'funcion')
+    (33, 'CONSTANCIAS_5_PERFIL_LIMITE_DESCARGAS.sql', 'preparar_descarga_constancia', 'funcion'),
+    (34, 'EXAMENES_2_SERVIR_VOLATIL.sql',   'servir_examen',            'funcion_volatil')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,
@@ -53,6 +54,14 @@ hay as (
       when 'funcion' then exists (
         select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public' and p.proname = e.objeto)
+       -- Como 'funcion', pero exigiendo además que sea volatile: una función
+       -- que escribe no puede estar declarada stable (si lo está, el INSERT
+       -- falla y quien llama se queda sin respuesta).
+       when 'funcion_volatil' then exists (
+         select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname = e.objeto
+           and p.provolatile = 'v')
+
       when 'politica' then exists (
         select 1 from pg_policies
         where schemaname = 'public' and policyname = e.objeto)
