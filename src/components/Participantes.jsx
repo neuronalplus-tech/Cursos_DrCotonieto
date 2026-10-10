@@ -16,6 +16,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { calcular } from '../lib/calificacion'
+import { mejorCalificacion } from '../lib/examenes'
 
 // Repetido a propósito (también está en ForoCurso/Header): son tres
 // líneas y compartirlo obligaría a un import cruzado entre pantallas
@@ -41,7 +43,90 @@ function Avatar({ url, nombre, grande }) {
   return <span className={`${clase} part-avatar-inicial`} aria-hidden="true">{iniciales(nombre)}</span>
 }
 
-export default function Participantes({ cursoId, user }) {
+/* ---------------------------------------------------------------
+   CALIFICACIONES DEL PARTICIPANTE (para la ficha individual)
+   --------------------------------------------------------------- */
+function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, cursoConfig = null, enComun = [] }) {
+  const examenes = Object.entries(notasExamen)
+  const tareas = Object.entries(calificacionesTarea)
+  const final = calcular(
+    {
+      examenes: examenes.map(([id, it]) => ({
+        id,
+        titulo: enComun.find(c => c.id === Number(id))?.titulo || `Examen ${id}`,
+        moduloId: null,
+        valor: it?.calificacion ?? null,
+        maximo: 100,
+        incluida: true,
+      })),
+      tareas: tareas.map(([id, en]) => ({
+        id,
+        titulo: enComun.find(c => c.id === Number(id))?.titulo || `Tarea ${id}`,
+        moduloId: null,
+        valor: en?.calificacion ?? null,
+        maximo: en?.puntos_max ?? 100,
+      })),
+      foro: [],
+      avance: { hechos: 0, total: 0 },
+    },
+    cursoConfig || {}
+  )
+
+  const tieneCalif = examenes.length > 0 || tareas.length > 0 || cursoConfig?.ponderacion
+
+  if (!tieneCalif) return null
+
+  return (
+    <div className="part-calificaciones">
+      <div className="part-calif-header">
+        <h3>📊 Calificaciones</h3>
+        <span className="sutil" style={{ fontSize: 12 }}>
+          Nota del curso: {final?.equivalente10 != null ? `${final.equivalente10} / 10` : '—'}
+        </span>
+      </div>
+
+      {examenes.map(([examenId, it]) => (
+        <div className="part-calif-item" key={examenId}>
+          <div className="part-calif-row">
+            <span className="part-calif-label">Examen</span>
+            <span className="part-calif-field">{enComun.find(c => c.id === Number(examenId))?.titulo || `Examen ${examenId}`}</span>
+            <span className="part-calif-valor">
+              {it?.calificacion != null ? it.calificacion : 'Sin calificar'}
+            </span>
+            {it?.aprobado === true && <span className="part-calif-aprobado">✅ Aprobado</span>}
+            {it?.aprobado === false && <span className="part-calif-desaprobado">❌ Reprobado</span>}
+          </div>
+        </div>
+      ))}
+
+      {tareas.map(([tareaId, en]) => (
+        <div className="part-calif-item" key={tareaId}>
+          <div className="part-calif-row">
+            <span className="part-calif-label">Tarea</span>
+            <span className="part-calif-field">{enComun.find(c => c.id === Number(tareaId))?.titulo || `Tarea ${tareaId}`}</span>
+            <span className="part-calif-valor">
+              {en?.calificacion != null ? en.calificacion : 'Sin calificar'}
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {final?.equivalente10 != null && (
+        <div className="part-calif-final">
+          <div className="part-calif-final-row">
+            <div className="part-calif-final-evalue">
+              <span className="sutil">Nota acumulada /10</span>
+              <span className="part-calif-final-valor">{final.equivalente10}</span>
+            </div>
+            <div className="part-calif-final-texto">
+              {final.aprobado ? '✅ Aprobado' : '❌ Reprobado'} · {final.evaluadas} actividades calificadas
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
   const [personas, setPersonas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -49,6 +134,10 @@ export default function Participantes({ cursoId, user }) {
   const [abierto, setAbierto] = useState(null) // perfil desplegado
   const [tituloCurso, setTituloCurso] = useState({}) // curso_id -> título
   const [misCursos, setMisCursos] = useState(new Set()) // para "cursos en común"
+  const [notasExamen, setNotasExamen] = useState({}) // examen_id -> mejor calificación
+  const [calificacionesTarea, setCalificacionesTarea] = useState({}) // tarea_id -> calificacion
+  const [cursosPorConfig, setCursosPorConfig] = useState({}) // curso_id -> ponderación
+  const [enComun, setEnComun] = useState({}) // curso_id -> título para el perfil
 
 
   useEffect(() => {
@@ -77,6 +166,16 @@ export default function Participantes({ cursoId, user }) {
           .in('id', ids)
         if (eP) throw eP
 
+        // --- Cursos y su ponderación para la calificación ---
+        const { data: cs } = await supabase
+          .from('cursos')
+          .select('id, titulo, ponderacion')
+          .in('id', idsCursoAjenos)
+        if (vivo) {
+          setTituloCurso(Object.fromEntries((cs || []).map(c => [c.id, c.titulo])))
+          setCursosPorConfig(Object.fromEntries((cs || []).map(c => [c.id, c.ponderacion])))
+        }
+
         // --- Última vez que entraron a un recurso del curso ---
         const { data: mods } = await supabase
           .from('modulos').select('id').eq('curso_id', curso).eq('activo', true)
@@ -96,6 +195,48 @@ export default function Participantes({ cursoId, user }) {
           }
         }
 
+        // --- Calificaciones: exámenes (la MEJOR nota) ---
+        const { data: exs } = await supabase
+          .from('examenes')
+          .select('id, titulo, curso_id, modulo_id, activo')
+          .eq('curso_id', curso)
+        const idsEx = (exs || []).map(e => e.id)
+        const { data: intentosEx } = idsEx.length
+          ? await supabase
+              .from('intentos_examen')
+              .select('examen_id, calificacion, aprobado')
+              .in('examen_id', idsEx)
+          : { data: [] }
+        const notasEx = {}
+        for (const it of intentosEx || []) {
+          if (!notasEx[it.examen_id]) notasEx[it.examen_id] = it
+          else if ((it.calificacion ?? 0) > (notasEx[it.examen_id].calificacion ?? 0)) {
+            notasEx[it.examen_id] = it
+          }
+        }
+        setNotasExamen(notasEx)
+
+        // --- Calificaciones: tareas (la última calificación válida) ---
+        const { data: ts } = await supabase
+          .from('tareas')
+          .select('id, titulo, curso_id, modulo_id, activo, puntos_max')
+          .eq('curso_id', curso)
+        const idsT = (ts || []).map(t => t.id)
+        const { data: entregas } = idsT.length
+          ? await supabase
+              .from('entregas')
+              .select('tarea_id, calificacion, calificado_en')
+              .in('tarea_id', idsT)
+          : { data: [] }
+        const notasT = {}
+        for (const en of entregas || []) {
+          if (!notasT[en.tarea_id]) notasT[en.tarea_id] = en
+          else if (en.calificado_en && (!notasT[en.tarea_id].calificado_en || en.calificado_en > notasT[en.tarea_id].calificado_en)) {
+            notasT[en.tarea_id] = en
+          }
+        }
+        setCalificacionesTarea(notasT)
+
         // --- Todos sus accesos, para "cursos en común" ---
         const { data: todosAcc } = await supabase
           .from('acceso').select('usuario_id, curso_id').in('usuario_id', ids)
@@ -105,7 +246,17 @@ export default function Participantes({ cursoId, user }) {
         if (idsCursoAjenos.length) {
           const { data: cs } = await supabase.from('cursos')
             .select('id, titulo').in('id', idsCursoAjenos)
-          if (vivo) setTituloCurso(Object.fromEntries((cs || []).map(c => [c.id, c.titulo])))
+          if (vivo) {
+            setTituloCurso(Object.fromEntries((cs || []).map(c => [c.id, c.titulo])))
+            setEnComun(prev => {
+              const next = { ...prev }
+              for (const id of ids) {
+                const pCursos = cursosDe[id] || new Set()
+                next[id] = [...pCursos].filter(c => misCursos.has(c)).map(c => tituloCurso[c] || `Curso ${c}`)
+              }
+              return next
+            })
+          }
         }
 
         const grupoDe = Object.fromEntries((insc || []).map(a => [a.usuario_id, a.grupo]))
@@ -121,7 +272,11 @@ export default function Participantes({ cursoId, user }) {
           grupo: grupoDe[p.id] || '',
           inscritoEl: inscritoEl[p.id] || null,
           ultimo: ultimo[p.id] || null,
-          cursos: [...(cursosDe[p.id] || [])],
+          cursos: [...(cursosDe[p.id] || [])].map(c => ({ id: c, titulo: tituloCurso[c] || `Curso ${c}` })),
+          notasExamen,
+          calificacionesTarea,
+          cursoConfig: cursosPorConfig[p.id] || null,
+          enComun: enComun[p.id] || [],
         }))
         lista.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
         if (vivo) { setPersonas(lista); setCargando(false) }
@@ -147,7 +302,9 @@ export default function Participantes({ cursoId, user }) {
   // --- Ficha de una persona (vista tipo perfil de Moodle) ---
   if (abierto) {
     const p = abierto
-    const enComun = p.cursos.filter(c => misCursos.has(c))
+    // `cursos` es ahora [{id, titulo}], filtrar por los que el usuario
+    // gestiona también (admin/facilitador).
+    const enComun = p.cursos.filter(c => misCursos.has(c.id))
     return (
       <div className="part-perfil">
         <button type="button" className="button texto" onClick={() => setAbierto(null)}>
@@ -178,11 +335,19 @@ export default function Participantes({ cursoId, user }) {
           </p>
         </div>
 
+        {/* Calificaciones del curso actual */}
+        <PerfilCalificaciones
+          notasExamen={p.notasExamen}
+          calificacionesTarea={p.calificacionesTarea}
+          cursoConfig={p.cursoConfig}
+          enComun={enComun}
+        />
+
         {enComun.length > 0 && (
           <div className="part-perfil-bloque">
             <strong>Cursos que compartimos ({enComun.length})</strong>
             <ul className="lista-cursos" style={{ marginTop: 6 }}>
-              {enComun.map(c => <li key={c}>{tituloCurso[c] || `Curso ${c}`}</li>)}
+              {enComun.map(c => <li key={c.id}>{c.titulo || `Curso ${c.id}`}</li>)}
             </ul>
           </div>
         )}

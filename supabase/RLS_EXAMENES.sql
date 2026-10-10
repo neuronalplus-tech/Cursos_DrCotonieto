@@ -18,6 +18,7 @@
 --  normal no puede crear, editar ni borrar exámenes.
 -- =============================================================
 
+
 -- -------------------------------------------------------------
 -- 0) DIAGNÓSTICO — qué políticas hay hoy (solo lectura, no cambia nada)
 -- -------------------------------------------------------------
@@ -101,29 +102,27 @@ create policy "intentos_delete_admin" on public.intentos_examen
   using (public.es_admin());
 
 -- -------------------------------------------------------------
--- 4) COMPROBACIÓN
---
---  OJO: `select public.es_admin();` SIEMPRE devuelve false aquí.
---  No es un fallo, es que en el SQL Editor no hay sesión iniciada: la
---  función lee auth.jwt(), que sin un usuario autenticado devuelve NULL,
---  y comparar contra NULL nunca es verdadero. Ese dato no dice nada.
---
---  Para comprobar de verdad, mira si tu correo está en la tabla:
+-- 5) CALIFICACIONES: el facilitador ve las notas de sus alumnos
+--    en los cursos que gestiona.
 -- -------------------------------------------------------------
-select email from public.admins order by email;
+drop policy if exists "intentos_select_managed_courses" on public.intentos_examen;
+create policy "intentos_select_managed_courses" on public.intentos_examen
+  for select to authenticated
+  using (
+    public.es_admin() or
+    exists (
+      select 1
+      from examenes e
+      where e.id = intentos_examen.examen_id
+        and (
+          public.puede_gestionar_curso(e.curso_id)
+          or (e.modulo_id is not null and
+              public.puede_gestionar_curso(
+                (select curso_id from modulos where id = e.modulo_id)
+              ))
+        )
+    )
+  );
 
--- ¿Ya existe la función y las políticas?
-select public.es_admin() as siempre_false_aqui;  -- informativo, no es prueba
-select tablename, policyname, cmd
-from pg_policies
-where schemaname = 'public' and tablename in ('examenes','intentos_examen')
-order by tablename, cmd;
-
--- =============================================================
---  CÓMO SABER QUE YA FUNCIONÓ
---  La única prueba real es la de la app: entra al panel → 📝 Exámenes →
---  Crear → escribe una pregunta → Crear examen. Si guarda, el RLS está bien.
---
---  Si tu correo NO aparece en la lista de arriba, agrégalo:
---    insert into public.admins (email) values ('TU-CORREO@GMAIL.COM');
--- =============================================================
+-- -------------------------------------------------------------
+-- 6) COMPROBACIÓN

@@ -3539,3 +3539,161 @@ a { color: var(--primary); }
 .part-perfil-bloque strong { color: var(--primary); }
 .part-perfil-acciones { margin-top: 6px; }
 
+/* ============================================================
+   PARTICIPANTES · SECCIONES DE CALIFICACIONES
+   ------------------------------------------------------------
+   Estilos para la sección de calificaciones añadida a
+   Participantes.jsx (ficha individual del participante).
+   ============================================================ */
+
+.part-calificaciones {
+  border-top: 1px solid var(--borde);
+  padding-top: 18px;
+  margin-top: 18px;
+}
+
+.part-calif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.part-calif-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--primary);
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--borde);
+}
+
+.part-calif-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.part-calif-item + p {
+  margin-top: 8px;
+}
+
+.part-calif-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bg-card);
+}
+
+.part-calif-row:last-child {
+  border-bottom: none;
+}
+
+.part-calif-label {
+  min-width: 100px;
+  font-size: 13px;
+  color: var(--gris);
+  font-weight: 500;
+}
+
+.part-calif-field {
+  flex: 1 1 160px;
+  min-width: 120px;
+  font-size: 14px;
+}
+
+.part-calif-valor {
+  font-weight: 600;
+  text-align: right;
+}
+
+.part-calif-nota {
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.part-calif-aprobado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--ok-bg);
+  color: var(--ok);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.part-calif-desaprobado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--bg-alert);
+  color: var(--alert);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.part-calif-final {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  padding: 16px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.part-calif-final-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.part-calif-final-evalue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.part-calif-final-evalue .sutil {
+  font-size: 12px;
+}
+
+.part-calif-final-valor {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.part-calif-final-texto {
+  font-size: 13px;
+  color: var(--gris);
+}
+
+.part-calif-nada {
+  color: var(--gris);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.part-calif-mostrar {
+  display: flex;
+}
+
+.part-calif-oculto {
+  display: none;
+}
+
