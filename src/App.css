@@ -728,6 +728,7 @@ a { color: var(--primary); }
   padding: 22px 26px;
 }
 .entregables-admin-acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.plantilla-carga-ejemplo { display: block; width: 100%; max-width: 920px; height: auto; margin: 12px 0; border: 1px solid var(--borde); border-radius: 10px; background: #f5f8fa; }
 
 /* ============================================================
    FORMULARIO DE NUEVO USUARIO (panel admin)
