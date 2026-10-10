@@ -275,6 +275,18 @@ function Constancia({ user }) {
         {estado?.disponible ? (
           <>
             <p className="aviso-ok">✓ Cumples los requisitos para la constancia.</p>
+            {!!estado?.pendientes?.length && (
+              <div className="constancia-pendientes">
+                <strong>Actividades aún pendientes; actualmente cuentan como 0 en la nota:</strong>
+                <ul>
+                  {estado.pendientes.map((p, i) => (
+                    <li key={`${p.tipo}:${p.id}:${i}`}>
+                      {p.titulo || 'Actividad'} · {Number(p.pesoCurso).toFixed(1)}% del curso
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {!firmaLista && <p className="aviso-error">La firma autógrafa escaneada no se puede cargar. El PDF se mantiene deshabilitado hasta que la imagen de Drive sea accesible para el alumnado.</p>}
             <button className="button primary" onClick={generar}
               disabled={generando || !firmaLista || !perfil.nombre.trim() || !perfil.profesion.trim()}>
@@ -298,6 +310,18 @@ function Constancia({ user }) {
                 </li>
               ))}
             </ul>
+            {!!estado?.pendientes?.length && (
+              <div className="constancia-pendientes">
+                <strong>Actividades incluidas en la ponderación que faltan calificar:</strong>
+                <ul>
+                  {estado.pendientes.map((p, i) => (
+                    <li key={`${p.tipo}:${p.id}:${i}`}>
+                      {p.titulo || 'Actividad'} · {Number(p.pesoCurso).toFixed(1)}% del curso
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
       </div>

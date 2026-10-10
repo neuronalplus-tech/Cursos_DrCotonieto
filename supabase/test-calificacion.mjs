@@ -74,15 +74,26 @@ const P = { examenes: 40, tareas: 40, foro: 20 }
     { id: 2, moduloId: 1, valor: null, maximo: 100 },
   ] }, config)
   check('una tarea de dos aporta 3.3/10 y conserva el 50% pendiente',
-    parcial.equivalente10 === 3.3 && parcial.pesoEvaluado === 50 && parcial.aprobado === null,
+    parcial.equivalente10 === 3.3 && parcial.pesoEvaluado === 50 && parcial.aprobado === false,
     `${parcial.equivalente10}/10 · ${parcial.pesoEvaluado}% evaluado`)
   const completa = calcular({ tareas: [
     { id: 1, moduloId: 1, valor: 66, maximo: 100 },
     { id: 2, moduloId: 1, valor: 100, maximo: 100 },
+  ], examenes: [
+    { id: 3, moduloId: 1, valor: null, maximo: 100 },
   ] }, config)
   check('66 y 100 en dos tareas iguales dan 8.3/10',
     completa.equivalente10 === 8.3 && completa.aprobado === true,
     `${completa.equivalente10}/10`)
+  check('un examen con peso cero no bloquea la aprobación', completa.pesoEvaluado === 100)
+  const superaMinimoConPendiente = calcular({ tareas: [
+    { id: 1, moduloId: 1, valor: 100, maximo: 100 },
+    { id: 2, moduloId: 1, valor: 100, maximo: 100 },
+    { id: 3, moduloId: 1, valor: 100, maximo: 100 },
+    { id: 4, moduloId: 1, valor: null, maximo: 100 },
+  ] }, config)
+  check('alcanza el mínimo aunque quede una actividad ponderada pendiente',
+    superaMinimoConPendiente.equivalente10 === 7.5 && superaMinimoConPendiente.aprobado === true)
 }
 {
   const r = calcular({

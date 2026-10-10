@@ -2857,6 +2857,13 @@ a { color: var(--primary); }
 
 /* Lo cumplido se atenúa: lo que importa leer es lo que falta. */
 .constancia-requisitos li.cumple { opacity: .55; }
+.constancia-pendientes { margin-top: 14px; text-align: left; color: var(--primary); }
+.constancia-pendientes ul { margin: 6px 0 0; padding-left: 22px; }
+.mis-constancia-estado { margin-top: 12px; padding: 10px 12px;
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  background: var(--bg-card); color: var(--primary); font-size: 13px; }
+.mis-constancia-estado ul { margin: 6px 0 0; padding-left: 20px; }
+.mis-constancia-estado > div { margin-top: 8px; }
 
 /* ---- Verificación pública del folio ----------------------- */
 .verificar-datos { display: grid; gap: 8px; margin: 12px 0 0; text-align: left; }

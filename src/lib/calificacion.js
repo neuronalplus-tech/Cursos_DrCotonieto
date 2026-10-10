@@ -180,8 +180,7 @@ function calcularJerarquico(actividades, config) {
   return {
     valor, acumulado, equivalente10: redondearDos(acumulado / 10),
     pesoEvaluado: pesoConNota, ponderada: true,
-    minima: minima10, aprobado: minima10 != null && pesoConNota >= 99.95
-      ? acumulado / 10 >= minima10 : null,
+    minima: minima10, aprobado: acumulado / 10 >= minima10,
     de: evaluadas, detalle: resumenGrupos,
   }
 }
@@ -251,8 +250,7 @@ function calcularPlano(actividades, config) {
   return {
     valor, acumulado, equivalente10: redondearDos(acumulado / 10),
     pesoEvaluado: redondear(pesoEvaluado), ponderada: configPonderada,
-    minima, aprobado: minima != null && pesoEvaluado >= 99.95
-      ? acumulado / 10 >= minima : null,
+    minima, aprobado: acumulado / 10 >= minima,
     de: evaluadas, detalle,
   }
 }

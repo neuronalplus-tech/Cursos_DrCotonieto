@@ -199,8 +199,14 @@ export default function MisCalificaciones({ user }) {
 
         const conEstadoConstancia = await Promise.all(porCurso.map(async c => {
           if (!emiteConstancia(c)) return { ...c, constanciaDisponible: false }
-          const { data: estado } = await supabase.rpc('estado_constancia', { p_curso: Number(c.id) })
-          return { ...c, constanciaDisponible: !!estado?.disponible }
+          const { data: estado, error: eEstado } = await supabase
+            .rpc('estado_constancia', { p_curso: Number(c.id) })
+          return {
+            ...c,
+            constanciaEstado: estado || null,
+            constanciaError: eEstado?.message || null,
+            constanciaDisponible: !!estado?.disponible,
+          }
         }))
         if (vivo) setCursos(conEstadoConstancia)
       } catch (e) {
@@ -285,9 +291,10 @@ export default function MisCalificaciones({ user }) {
                   Constancia · {c.constancia.folio}
                 </span>
               )}
-              {(c.constancia || c.constanciaDisponible) && (
+              {emiteConstancia(c) && (
                 <Link className="button constancia-btn" to={`/constancia/${c.id}`}>
-                  {c.constancia ? 'Descargar constancia' : 'Obtener constancia'}
+                  {c.constancia ? 'Descargar constancia'
+                    : c.constanciaDisponible ? 'Obtener constancia' : 'Ver requisitos'}
                 </Link>
               )}
             </header>
@@ -387,10 +394,44 @@ export default function MisCalificaciones({ user }) {
                 <Link to={`/constancia/${c.id}`}>Descargarla</Link>
               </p>
             )}
-            {!c.constancia && !c.constanciaDisponible && nota?.minima != null && (
-              <p className="nota">
-                La constancia se habilitará cuando alcances {nota.minima}/10 y completes los requisitos del curso.
-              </p>
+            {!c.constancia && emiteConstancia(c) && (
+              <div className="mis-constancia-estado">
+                <strong>{c.constanciaDisponible
+                  ? 'Ya puedes descargar tu constancia.'
+                  : 'Requisitos para obtener la constancia'}</strong>
+                {c.constanciaError && (
+                  <p className="nota">No se pudieron consultar los requisitos: {c.constanciaError}</p>
+                )}
+                {c.constanciaEstado && (() => {
+                  const faltan = (c.constanciaEstado.requisitos || []).filter(r => !r.cumple)
+                  const pendientes = c.constanciaEstado.pendientes || []
+                  if (!faltan.length && !pendientes.length) {
+                    return c.constanciaDisponible ? null
+                      : <p className="nota">La constancia sigue bloqueada. Actualiza la página o contacta al administrador.</p>
+                  }
+                  return (
+                    <>
+                      {faltan.length > 0 && (
+                        <ul>
+                          {faltan.map(r => <li key={r.titulo}>{r.titulo}: {r.detalle}</li>)}
+                        </ul>
+                      )}
+                      {pendientes.length > 0 && (
+                        <div>
+                          <span>Actividades ponderadas pendientes (por ahora aportan 0 puntos):</span>
+                          <ul>
+                            {pendientes.map((p, i) => (
+                              <li key={`${p.tipo}:${p.id}:${i}`}>
+                                {p.titulo || 'Actividad'} ({Number(p.pesoCurso).toFixed(1)}% del curso)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
             )}
           </article>
         )

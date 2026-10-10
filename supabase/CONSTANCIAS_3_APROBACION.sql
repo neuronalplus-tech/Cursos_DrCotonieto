@@ -32,6 +32,7 @@ declare
   v_config          jsonb;
   v_actividades     jsonb := '[]'::jsonb;
   v_candidatas      jsonb := '[]'::jsonb;
+  v_pendientes      jsonb := '[]'::jsonb;
   v_grupo           jsonb;
   v_criterio        jsonb;
   v_actividad       jsonb;
@@ -164,6 +165,11 @@ begin
               v_peso_evaluado := v_peso_evaluado + v_peso_item;
               v_puntos := v_puntos + (v_actividad->>'valor')::numeric * v_peso_item / 100;
               v_conteo := v_conteo + 1;
+            elsif v_peso_item > 0 then
+              v_pendientes := v_pendientes || jsonb_build_array(jsonb_build_object(
+                'tipo', v_actividad->>'tipo', 'id', v_actividad->>'id',
+                'moduloId', v_actividad->>'moduloId', 'titulo', v_actividad->>'titulo',
+                'pesoCurso', round(v_peso_item, 2)));
             end if;
           end loop;
         else
@@ -203,6 +209,11 @@ begin
                     v_peso_evaluado := v_peso_evaluado + v_peso_item;
                     v_puntos := v_puntos + (v_actividad->>'valor')::numeric * v_peso_item / 100;
                     v_conteo := v_conteo + 1;
+                  elsif v_peso_item > 0 then
+                    v_pendientes := v_pendientes || jsonb_build_array(jsonb_build_object(
+                      'tipo', v_actividad->>'tipo', 'id', v_actividad->>'id',
+                      'moduloId', v_actividad->>'moduloId', 'titulo', v_actividad->>'titulo',
+                      'pesoCurso', round(v_peso_item, 2)));
                   end if;
                 end loop;
               else
@@ -240,6 +251,11 @@ begin
                     v_peso_evaluado := v_peso_evaluado + v_peso_item;
                     v_puntos := v_puntos + (v_actividad->>'valor')::numeric * v_peso_item / 100;
                     v_conteo := v_conteo + 1;
+                  elsif v_peso_item > 0 then
+                    v_pendientes := v_pendientes || jsonb_build_array(jsonb_build_object(
+                      'tipo', v_actividad->>'tipo', 'id', v_actividad->>'id',
+                      'moduloId', v_actividad->>'moduloId', 'titulo', v_actividad->>'titulo',
+                      'pesoCurso', round(v_peso_item, 2)));
                   end if;
                 end loop;
               end if;
@@ -282,6 +298,11 @@ begin
               v_peso_evaluado := v_peso_evaluado + v_peso_item;
               v_puntos := v_puntos + (v_actividad->>'valor')::numeric * v_peso_item / 100;
               v_conteo := v_conteo + 1;
+            elsif v_peso_item > 0 then
+              v_pendientes := v_pendientes || jsonb_build_array(jsonb_build_object(
+                'tipo', v_actividad->>'tipo', 'id', v_actividad->>'id',
+                'moduloId', v_actividad->>'moduloId', 'titulo', v_actividad->>'titulo',
+                'pesoCurso', round(v_peso_item, 2)));
             end if;
           end loop;
         end loop;
@@ -301,6 +322,11 @@ begin
             v_peso_evaluado := v_peso_evaluado + v_peso_item;
             v_puntos := v_puntos + (v_actividad->>'valor')::numeric * v_peso_item / 100;
             v_conteo := v_conteo + 1;
+          elsif v_peso_item > 0 then
+            v_pendientes := v_pendientes || jsonb_build_array(jsonb_build_object(
+              'tipo', v_actividad->>'tipo', 'id', v_actividad->>'id',
+              'moduloId', v_actividad->>'moduloId', 'titulo', v_actividad->>'titulo',
+              'pesoCurso', round(v_peso_item, 2)));
           end if;
         end loop;
       end if;
@@ -309,13 +335,14 @@ begin
 
   v_minimo10 := greatest(0, least(10, v_minimo10));
   return jsonb_build_object(
-    'nota10', case when v_conteo > 0 then round(v_puntos / 10, 2) else null end,
+    'nota10', case when v_conteo > 0 then round(round(v_puntos, 1) / 10, 2) else null end,
     'puntos', round(v_puntos, 2),
     'pesoEvaluado', round(v_peso_evaluado, 2),
     'minima10', v_minimo10,
     'evaluadas', v_conteo,
-    'aprobado', v_conteo > 0 and v_peso_evaluado >= 99.95
-      and v_puntos / 10 >= v_minimo10
+    'pendientes', v_pendientes,
+    'alcanzaMinimo', v_conteo > 0 and round(v_puntos, 1) / 10 >= v_minimo10,
+    'aprobado', v_conteo > 0 and round(v_puntos, 1) / 10 >= v_minimo10
   );
 end
 $$;
@@ -323,9 +350,8 @@ $$;
 revoke all on function public.nota_curso_para_constancia(uuid, bigint) from public;
 grant execute on function public.nota_curso_para_constancia(uuid, bigint) to service_role;
 
--- Mantiene la finalización del material y las actividades. La aprobación
--- se resuelve por la nota global ponderada, no por aprobar cada examen
--- de forma aislada.
+-- La emisión exige el material y la nota final aprobatoria. Las actividades
+-- que no forman parte de la ponderación del curso no bloquean la constancia.
 create or replace function public.completo_el_curso(p_usuario uuid, p_curso bigint)
 returns boolean
 language plpgsql
@@ -336,8 +362,6 @@ as $$
 declare
   v_mods bigint[];
   v_recs bigint[];
-  v_tareas bigint[];
-  v_examenes bigint[];
   v_n integer;
   v_nota jsonb;
 begin
@@ -353,29 +377,6 @@ begin
      where p.usuario_id = p_usuario and p.recurso_id = any(v_recs)
        and p.completado = true;
     if v_n < cardinality(v_recs) then return false; end if;
-  end if;
-
-  select coalesce(array_agg(t.id), '{}') into v_tareas
-    from public.tareas t
-   where t.activo = true
-     and (t.curso_id = p_curso or t.modulo_id = any(v_mods));
-  if cardinality(v_tareas) > 0 then
-    select count(distinct e.tarea_id) into v_n
-      from public.entregas e
-     where e.usuario_id = p_usuario and e.tarea_id = any(v_tareas)
-       and e.calificado_en is not null;
-    if v_n < cardinality(v_tareas) then return false; end if;
-  end if;
-
-  select coalesce(array_agg(x.id), '{}') into v_examenes
-    from public.examenes x
-   where x.activo = true
-     and (x.curso_id = p_curso or x.modulo_id = any(v_mods));
-  if cardinality(v_examenes) > 0 then
-    select count(distinct i.examen_id) into v_n
-      from public.intentos_examen i
-     where i.usuario_id = p_usuario and i.examen_id = any(v_examenes);
-    if v_n < cardinality(v_examenes) then return false; end if;
   end if;
 
   v_nota := public.nota_curso_para_constancia(p_usuario, p_curso);
@@ -405,10 +406,6 @@ declare
   v_nota jsonb;
   v_total_rec integer := 0;
   v_hechos_rec integer := 0;
-  v_total_tareas integer := 0;
-  v_calificadas integer := 0;
-  v_total_examenes integer := 0;
-  v_presentados integer := 0;
   v_puede boolean := false;
 begin
   if v_uid is null then raise exception 'Necesitas iniciar sesión'; end if;
@@ -436,38 +433,10 @@ begin
     join public.modulos m on m.id = r.modulo_id
    where m.curso_id = p_curso and m.disponible is distinct from false;
 
-  select count(*)::integer,
-         count(*) filter (where exists (
-           select 1 from public.entregas e
-            where e.usuario_id = v_uid and e.tarea_id = t.id and e.calificado_en is not null
-         ))::integer
-    into v_total_tareas, v_calificadas
-    from public.tareas t
-   where t.activo = true
-     and (t.curso_id = p_curso or t.modulo_id in (
-       select m.id from public.modulos m
-        where m.curso_id = p_curso and m.disponible is distinct from false
-     ));
-
-  select count(*)::integer,
-         count(*) filter (where exists (
-           select 1 from public.intentos_examen i
-            where i.usuario_id = v_uid and i.examen_id = x.id
-         ))::integer
-    into v_total_examenes, v_presentados
-    from public.examenes x
-   where x.activo = true
-     and (x.curso_id = p_curso or x.modulo_id in (
-       select m.id from public.modulos m
-        where m.curso_id = p_curso and m.disponible is distinct from false
-     ));
-
   v_puede := v_folio is not null or (
     not coalesce(v_curso.gratuito, false)
     and coalesce(v_curso.constancia, true)
     and (v_total_rec = 0 or v_hechos_rec = v_total_rec)
-    and v_calificadas = v_total_tareas
-    and v_presentados = v_total_examenes
     and coalesce((v_nota->>'aprobado')::boolean, false)
   );
 
@@ -478,23 +447,18 @@ begin
     'nota10', coalesce(v_nota_guardada, nullif(v_nota->>'nota10', '')::numeric),
     'minima10', coalesce(v_minimo_guardado, nullif(v_nota->>'minima10', '')::numeric, 7),
     'pesoEvaluado', coalesce(nullif(v_nota->>'pesoEvaluado', '')::numeric, 0),
+    'pendientes', coalesce(v_nota->'pendientes', '[]'::jsonb),
+    'alcanzaMinimo', coalesce((v_nota->>'alcanzaMinimo')::boolean, false) or v_folio is not null,
     'aprobado', coalesce((v_nota->>'aprobado')::boolean, false) or v_folio is not null,
     'requisitos', jsonb_build_array(
       jsonb_build_object('titulo', 'Material del curso',
         'cumple', v_hechos_rec = v_total_rec,
         'detalle', format('%s de %s recursos', v_hechos_rec, v_total_rec)),
-      jsonb_build_object('titulo', 'Entregas calificadas',
-        'cumple', v_calificadas = v_total_tareas,
-        'detalle', format('%s de %s calificadas', v_calificadas, v_total_tareas)),
-      jsonb_build_object('titulo', 'Exámenes presentados',
-        'cumple', v_presentados = v_total_examenes,
-        'detalle', format('%s de %s presentados', v_presentados, v_total_examenes)),
       jsonb_build_object('titulo', 'Calificación mínima',
-        'cumple', coalesce((v_nota->>'aprobado')::boolean, false) or v_folio is not null,
-        'detalle', format('%s/10 · mínimo %s/10 · %s%% de la evaluación calificada',
+        'cumple', coalesce((v_nota->>'alcanzaMinimo')::boolean, false) or v_folio is not null,
+        'detalle', format('%s/10 · mínimo %s/10',
           coalesce(v_nota_guardada, nullif(v_nota->>'nota10', '')::numeric, 0),
-          coalesce(v_minimo_guardado, nullif(v_nota->>'minima10', '')::numeric, 7),
-          coalesce(nullif(v_nota->>'pesoEvaluado', '')::numeric, 0)))
+          coalesce(v_minimo_guardado, nullif(v_nota->>'minima10', '')::numeric, 7)))
     )
   );
 end
