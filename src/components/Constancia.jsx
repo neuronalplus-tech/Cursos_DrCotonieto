@@ -6,11 +6,9 @@ import { emiteConstancia } from '../lib/helpers'
 import { conLetra, fechaConLetra } from '../lib/plantillas'
 import { Breadcrumb, BandaRedes } from './ui'
 
-// Estos IDs son los mismos que usa el formato de constancias v11 del
-// usuario. La imagen debe estar compartida como visible para el alumnado;
-// si no carga, se bloquea el PDF para no emitirlo sin firma.
-const FIRMA_DRIVE_ID = '1WwC1nljxUO4qEgDwlAffGebNn4skVcMU'
-const FIRMA_DRIVE_URL = `https://drive.google.com/uc?export=view&id=${FIRMA_DRIVE_ID}`
+// Servir la firma desde el mismo sitio evita que Drive exija permisos o
+// devuelva una página de confirmación en vez de la imagen al alumnado.
+const FIRMA_URL = '/firma_escaneada.png'
 const LOGO_URL = '/logo_terracota_1024.png'
 
 const escapar = (valor) => String(valor ?? '')
@@ -110,7 +108,7 @@ function Constancia({ user }) {
   const [firmaLista, setFirmaLista] = useState(false)
   const [folio, setFolio] = useState(null)
 
-  const firmaUrl = FIRMA_DRIVE_URL
+  const firmaUrl = FIRMA_URL
 
   useEffect(() => {
     if (!user) { navigate(rutaAcceso(`/constancia/${cursoId}`)); return }
@@ -215,7 +213,7 @@ function Constancia({ user }) {
           img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
           img.onerror = () => { clearTimeout(reloj); resolve(false) }
         })))
-      if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma en el PDF. Revisa que la imagen de Drive permita verla con el enlace.')
+      if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma escaneada de la constancia.')
       if (ventana.document.fonts?.ready) await ventana.document.fonts.ready
       ventana.focus()
       ventana.print()
@@ -275,7 +273,7 @@ function Constancia({ user }) {
         {estado?.disponible ? (
           <>
             <p className="aviso-ok">✓ Alcanzaste la calificación mínima para obtener la constancia.</p>
-            {!firmaLista && <p className="aviso-error">La firma autógrafa escaneada no se puede cargar. El PDF se mantiene deshabilitado hasta que la imagen de Drive sea accesible para el alumnado.</p>}
+            {!firmaLista && <p className="aviso-error">No se pudo cargar la firma autógrafa escaneada. El PDF se mantiene deshabilitado para no emitir una constancia incompleta.</p>}
             <button className="button primary" onClick={generar}
               disabled={generando || !firmaLista || !perfil.nombre.trim() || !perfil.profesion.trim()}>
               {generando ? 'Preparando PDF…' : folio ? 'Descargar constancia' : 'Generar constancia'}
