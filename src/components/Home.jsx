@@ -12,7 +12,6 @@ import { WhatsAppFlotante, BandaRedes } from './ui'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
 import CarruselCursos from './CarruselCursos'
 import CursoCard from './CursoCard'
-import { CATALOGO_PLANTILLAS, descargarPlantilla } from '../lib/plantillasCarga'
 
 function Home({ user }) {
   const [cursos, setCursos] = useState([])
@@ -86,22 +85,6 @@ function Home({ user }) {
           </div>
         </div>
         {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} copia={copiaLineas} />}
-      </section>
-
-      <section className="seccion" id="plantillas-carga">
-        <h2>Plantillas para llenar</h2>
-        <p className="seccion-intro">Descarga formatos listos para Excel o Google Sheets y completa la información antes de importarla.</p>
-        <div className="course-grid">
-          {CATALOGO_PLANTILLAS.map(p => (
-            <article className="servicio-card" key={p.archivo}>
-              <h3>{p.nombre}</h3><p>{p.detalle}</p>
-              {p.imagen && <img className="plantilla-carga-ejemplo" src={p.imagen} alt={`Ejemplo de columnas para ${p.nombre}`} />}
-              <button type="button" className="button secondary" onClick={() => descargarPlantilla(p)}>
-                ⬇️ Descargar {p.archivo}
-              </button>
-            </article>
-          ))}
-        </div>
       </section>
 
       <section className="seccion" id="cursos">
