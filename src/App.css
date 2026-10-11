@@ -1674,6 +1674,40 @@ a { color: var(--primary); }
 .comunicado-editor li { margin-bottom: 4px; }
 .comunicado-editor a { color: var(--accent); text-decoration: underline; }
 .comunicado-editor:focus-visible { outline: none; }
+/* Vista previa del comunicado: misma envoltura que el correo real que
+   arma Notificador.gs (fondo gris claro, tarjeta blanca de 620px y
+   tipografía Arial). Así lo que se ve aquí es lo que llega a Gmail. */
+.comunicado-preview {
+  margin-top: 16px;
+  background: #F2F4F6;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 20px 16px;
+}
+.comunicado-preview-header {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 14px 24px;
+}
+.comunicado-preview-header + .comunicado-preview-body { border-radius: 0 0 8px 8px; }
+.comunicado-preview-body {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 0 0 8px 8px;
+  padding: 24px;
+  /* Gmail pinta el cuerpo en Arial a 14-15px dentro de 620px: mismo
+     lienzo para que los estilos inline del editor se vean igual. */
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--body);
+  max-width: 620px;
+  overflow-wrap: break-word;
+}
+.comunicado-preview-body p { margin: 0 0 12px; }
+.comunicado-preview-body a { color: #0f6f6b; text-decoration: underline; }
 .comunicado-preview-body h2,
 .comunicado-preview-body h3 { font-family: var(--titulo); color: var(--primary); }
 .comunicado-preview-body ul,

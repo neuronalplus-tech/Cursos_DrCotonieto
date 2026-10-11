@@ -21,12 +21,58 @@ const ETIQUETAS = {
 /* Plantillas y comunicados necesitan tablas e imágenes para actas y
    correos con formato. Misma regla que el foro (nada de script,
    iframe, eventos ni javascript:), pero con la lista ampliada para
-   no romper documentos oficiales. */
+   no romper documentos oficiales.
+   `style` se permite en las etiquetas de texto porque Gmail solo
+   pinta estilos inline; el VALOR se filtra aparte en sanearEstilo. */
 const ETIQUETAS_DOC = {
-  ...ETIQUETAS,
-  table: [], thead: [], tbody: [], tfoot: [], tr: [],
-  th: ['colspan', 'rowspan'], td: ['colspan', 'rowspan'],
-  img: ['src', 'alt', 'width', 'height'],
+  p: ['style'], br: [], div: ['style'], span: ['style'],
+  strong: ['style'], b: ['style'], em: ['style'], i: ['style'],
+  u: ['style'], s: ['style'], ul: ['style'], ol: ['style'], li: ['style'],
+  a: ['href', 'target', 'rel', 'style'],
+  h1: ['style'], h2: ['style'], h3: ['style'], h4: ['style'],
+  blockquote: ['style'], pre: [], code: [], hr: ['style'],
+  table: ['style'], thead: ['style'], tbody: ['style'], tfoot: ['style'],
+  tr: ['style'],
+  th: ['colspan', 'rowspan', 'style'], td: ['colspan', 'rowspan', 'style'],
+  img: ['src', 'alt', 'width', 'height', 'style'],
+  font: ['color', 'face', 'size'],
+}
+
+// El foro no admite style (el lector decide el formato). Los
+// comunicados SÍ: el correo sale con la marca y Gmail necesita los
+// estilos inline para pintarlos. Se permite solo una lista cerrada
+// de propiedades visuales; todo lo demás (position, z-index,
+// behavior, expression...) se descarta.
+const ESTILOS_SEGUROS = new Set([
+  'color', 'background-color', 'background',
+  'font-family', 'font-size', 'font-weight', 'font-style',
+  'text-align', 'text-decoration', 'line-height',
+  'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+  'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+  'border', 'border-top', 'border-right', 'border-bottom', 'border-left',
+  'border-color', 'border-radius', 'width', 'height', 'max-width',
+])
+
+/* Un style con url(), expression() o javascript: es un XSS esperando a
+   ocurrir, aunque la propiedad esté permitida. */
+const ESTILO_PELIGROSO = /url\s*\(|expression\s*\(|javascript\s*:|vbscript\s*:|behaviou?r\s*:|@import|-moz-binding/i
+
+function sanearEstilo(valor) {
+  const limpio = []
+  for (const parte of String(valor || '').split(';')) {
+    const i = parte.indexOf(':')
+    if (i === -1) continue
+    const prop = parte.slice(0, i).trim().toLowerCase()
+    const val = parte.slice(i + 1).trim()
+    if (!prop || !val) continue
+    if (!ESTILOS_SEGUROS.has(prop)) continue
+    if (ESTILO_PELIGROSO.test(val)) continue
+    // Colores y medidas con paréntesis raros (calc con var, etc.) no
+    // aportan a un correo y ensanchan la superficie: fuera.
+    if (/[()]/.test(val) && !/rgba?\s*\(\s*\d/.test(val)) continue
+    limpio.push(`${prop}: ${val}`)
+  }
+  return limpio.join('; ')
 }
 
 // Un enlace con javascript: es un XSS esperando a ocurrir.
@@ -76,8 +122,26 @@ function sanearCon(html, permitidas) {
         continue
       }
       for (const attr of [...hijo.attributes]) {
-        if (!permitidas[et].includes(attr.name.toLowerCase())) {
+        const nombre = attr.name.toLowerCase()
+        if (!permitidas[et].includes(nombre)) {
           hijo.removeAttribute(attr.name)
+          continue
+        }
+        // `style` solo pasa por la allowlist de propiedades: conserva
+        // color, fondo, fuente y márgenes, y tira position, z-index,
+        // url(), expression() y demás vectores.
+        if (nombre === 'style') {
+          const limpio = sanearEstilo(hijo.getAttribute('style'))
+          if (limpio) hijo.setAttribute('style', limpio)
+          else hijo.removeAttribute('style')
+        }
+        // `<font color>` es lo que pegan Word y Docs al copiar: se
+        // conserva solo si es un color válido, el resto se descarta.
+        if (et === 'font' && nombre === 'color') {
+          const c = (hijo.getAttribute('color') || '').trim()
+          if (!/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(c) && !/^[a-z]+$/i.test(c)) {
+            hijo.removeAttribute('color')
+          }
         }
       }
       if (et === 'a') {

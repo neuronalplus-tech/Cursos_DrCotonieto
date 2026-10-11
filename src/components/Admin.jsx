@@ -143,6 +143,18 @@ const GRUPOS_PANEL = [
   ]],
 ]
 
+/* Plantilla inicial del comunicado, con la marca de la plataforma en
+   estilos INLINE (Gmail ignora <style> y clases: solo pinta lo que va
+   en style="..."). Pasa por sanearDocumento igual que lo pegado a mano,
+   así que lo que ves en el editor es lo que sale en el correo. */
+const COMUNICADO_INICIAL = [
+  '<p style="color: #33414A; font-size: 15px; line-height: 1.65; margin: 0 0 12px;">Hola,</p>',
+  '<p style="color: #33414A; font-size: 15px; line-height: 1.65; margin: 0 0 12px;">Te escribo para contarte que...</p>',
+  '<p style="color: #33414A; font-size: 15px; line-height: 1.65; margin: 0 0 12px;">Saludos.</p>',
+].join('')
+
+const COMUNICADO_VACIO = '<p style="color: #33414A; font-size: 15px; line-height: 1.65; margin: 0;"><br></p>'
+
 function Admin({ user }) {
   // Antes `esAdmin` llegaba como prop y arrancaba en false, asi que el
   // panel pintaba "No tienes permisos" durante el instante que tardaba
@@ -230,7 +242,10 @@ function Admin({ user }) {
   const [comunicadoCursoId, setComunicadoCursoId] = useState('')
   const [comunicadoManual, setComunicadoManual] = useState('')
   const [comunicadoAsunto, setComunicadoAsunto] = useState('')
-  const [comunicadoCuerpo, setComunicadoCuerpo] = useState('')
+  // Arranca con la plantilla de marca: el editor pinta COMUNICADO_INICIAL
+  // (key 0), así que el estado debe reflejarlo o la vista previa saldría
+  // vacía y el envío diría "escribe el cuerpo".
+  const [comunicadoCuerpo, setComunicadoCuerpo] = useState(COMUNICADO_INICIAL)
   const [comunicadoEnviando, setComunicadoEnviando] = useState(false)
   const [comunicadoMsg, setComunicadoMsg] = useState('')
   const [comunicadoResultado, setComunicadoResultado] = useState(null)
@@ -750,18 +765,31 @@ function Admin({ user }) {
     return Array.from(dedup.values())
   }
 
-  const ejecutarComando = (cmd, valor = null) => {
-    document.execCommand(cmd, false, valor)
+  const refrescarCuerpo = () => {
     comunicadoEditorRef.current?.focus()
     if (comunicadoEditorRef.current) {
       // Todo lo que sale del contentEditable pasa por el saneador: ni lo
       // pegado de Word ni el HTML editado a mano puede colar script.
+      // Los estilos inline seguros (color, fondo, fuente) SÍ se conservan.
       const limpio = sanearDocumento(comunicadoEditorRef.current.innerHTML)
       if (limpio !== comunicadoEditorRef.current.innerHTML) {
         comunicadoEditorRef.current.innerHTML = limpio
       }
       setComunicadoCuerpo(limpio)
     }
+  }
+
+  const ejecutarComando = (cmd, valor = null) => {
+    document.execCommand(cmd, false, valor)
+    refrescarCuerpo()
+  }
+
+  /* Aplica color al texto seleccionado. Solo acepta los 3 de la marca:
+     no hay input libre, así que no puede colar un `expression()` ni un
+     `url(javascript:...)` por aquí. El saneador lo vuelve a validar. */
+  const aplicarColor = (color) => {
+    document.execCommand('foreColor', false, color)
+    refrescarCuerpo()
   }
 
   const crearEnlace = () => {
@@ -775,28 +803,26 @@ function Admin({ user }) {
   }
 
   const insertarTitulo = (tag) => {
+    // Los títulos llevan la marca inline: Gmail ignora las clases del
+    // editor, así que el color y la fuente van en style="...".
+    const marca = tag === '<h2>'
+      ? 'color: #1B3A4B; font-family: Georgia, serif; font-size: 20px; margin: 16px 0 8px;'
+      : 'color: #1B3A4B; font-family: Georgia, serif; font-size: 17px; margin: 14px 0 6px;'
     document.execCommand('formatBlock', false, tag)
-    comunicadoEditorRef.current?.focus()
-    if (comunicadoEditorRef.current) {
-      const limpio = sanearDocumento(comunicadoEditorRef.current.innerHTML)
-      if (limpio !== comunicadoEditorRef.current.innerHTML) {
-        comunicadoEditorRef.current.innerHTML = limpio
-      }
-      setComunicadoCuerpo(limpio)
-    }
+    // El bloque recién creado queda seleccionado: se le pinta la marca
+    // directamente para que se vea igual en el editor y en Gmail.
+    try {
+      const sel = window.getSelection()
+      const nodo = sel?.anchorNode?.parentElement?.closest('h2,h3,p')
+      if (nodo && /^(H2|H3)$/.test(nodo.tagName)) nodo.setAttribute('style', marca)
+    } catch { /* si no hay selección, el saneado lo conserva igual */ }
+    refrescarCuerpo()
   }
 
   const limpiarFormato = () => {
     document.execCommand('removeFormat')
     document.execCommand('formatBlock', false, '<p>')
-    comunicadoEditorRef.current?.focus()
-    if (comunicadoEditorRef.current) {
-      const limpio = sanearDocumento(comunicadoEditorRef.current.innerHTML)
-      if (limpio !== comunicadoEditorRef.current.innerHTML) {
-        comunicadoEditorRef.current.innerHTML = limpio
-      }
-      setComunicadoCuerpo(limpio)
-    }
+    refrescarCuerpo()
   }
 
   const abrirEditorHtml = () => {
@@ -2066,6 +2092,10 @@ function Admin({ user }) {
                 <button type="button" className="editor-btn" title="Subtítulo" onMouseDown={e => e.preventDefault()} onClick={() => insertarTitulo('<h3>')}>H2</button>
                 <button type="button" className="editor-btn" title="Párrafo" onMouseDown={e => e.preventDefault()} onClick={() => insertarTitulo('<p>')}>¶</button>
                 <span className="editor-sep" />
+                <button type="button" className="editor-btn" title="Color principal (títulos)" onMouseDown={e => e.preventDefault()} onClick={() => aplicarColor('#1B3A4B')}><span style={{ color: '#1B3A4B', fontWeight: 700 }}>A</span></button>
+                <button type="button" className="editor-btn" title="Color acento (énfasis)" onMouseDown={e => e.preventDefault()} onClick={() => aplicarColor('#C17A5E')}><span style={{ color: '#C17A5E', fontWeight: 700 }}>A</span></button>
+                <button type="button" className="editor-btn" title="Quitar color" onMouseDown={e => e.preventDefault()} onClick={() => aplicarColor('#33414A')}><span style={{ color: '#33414A' }}>A</span></button>
+                <span className="editor-sep" />
                 <button type="button" className="editor-btn" title="Lista" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('insertUnorderedList')}>• Lista</button>
                 <button type="button" className="editor-btn" title="Lista numerada" onMouseDown={e => e.preventDefault()} onClick={() => ejecutarComando('insertOrderedList')}>1. Lista</button>
                 <span className="editor-sep" />
@@ -2093,9 +2123,7 @@ function Admin({ user }) {
                   setComunicadoCuerpo(limpio)
                 }}
                 dangerouslySetInnerHTML={{
-                  __html: comunicadoEditorKey === 0
-                    ? '<p>Hola,</p><p>Te escribo para contarte que...</p><p>Saludos.</p>'
-                    : '<p><br></p>'
+                  __html: comunicadoEditorKey === 0 ? COMUNICADO_INICIAL : COMUNICADO_VACIO
                 }} />
 
               <p className="nota" style={{ marginTop: 6 }}>
@@ -2111,14 +2139,18 @@ function Admin({ user }) {
               {comunicadoPreview && (
                 <div className="comunicado-preview">
                   <div className="comunicado-preview-header">
-                    <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Para: neuronal.plus@gmail.com</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Para: {calcularDestinatarios()[0]?.email || 'alumno@ejemplo.com'}{calcularDestinatarios().length > 1 ? ` (+${calcularDestinatarios().length - 1} en CCO)` : ''}</p>
                     <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>Asunto: <strong style={{ color: '#1B3A4B' }}>{comunicadoAsunto || '(sin asunto)'}</strong></p>
                   </div>
+                  {/* Vista previa con la misma envoltura que el correo real
+                      (Notificador.gs → envolver): fuente Arial, ancho 620px y
+                      la firma. Lo que ves aquí es lo que llega a Gmail. */}
                   <div className="comunicado-preview-body"
                     dangerouslySetInnerHTML={{
-                      // La vista previa también pinta HTML: se sanea igual que
-                      // al enviar, para no ejecutar nada pegado a mano.
-                      __html: sanearDocumento(comunicadoCuerpo) || '<p>(El cuerpo del mensaje aparecerá aquí)</p>'
+                      __html: (sanearDocumento(comunicadoCuerpo) || '<p>(El cuerpo del mensaje aparecerá aquí)</p>') +
+                        '<hr style="border: none; border-top: 1px solid #ddd; margin: 28px 0">' +
+                        '<p style="font-size: 12px; color: #777; margin: 0;">Dr. Ernesto Cotonieto · ' +
+                        '<a href="https://cursos-drcotonieto.neuronal-plus.workers.dev" style="color: #0f6f6b;">Plataforma de cursos</a></p>'
                     }} />
                 </div>
               )}
