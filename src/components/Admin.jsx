@@ -254,6 +254,11 @@ function Admin({ user }) {
   const comunicadoEditorRef = useRef(null)
   const [editorHtmlAbierto, setEditorHtmlAbierto] = useState(false)
   const [editorHtmlTexto, setEditorHtmlTexto] = useState('')
+  // Inscritos gratuitos por tanda (grupos de 50 por orden de registro).
+  const [comunicadoTanda, setComunicadoTanda] = useState('')
+  const [tandaDatos, setTandaDatos] = useState([])
+  const [tandasDisponibles, setTandasDisponibles] = useState([])
+  const [tandasCargadas, setTandasCargadas] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -281,6 +286,22 @@ function Admin({ user }) {
       .eq('activo', true).eq('organizacion_id', organizacion.id).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin, organizacion])
+
+  // Carga las tandas solo cuando se elige ese destino en Comunicados.
+  // La RPC es security definer y solo contesta a admins.
+  useEffect(() => {
+    if (vista !== 'comunicados' || comunicadoDestino !== 'tanda' || tandasCargadas) return
+    let vivo = true
+    supabase.rpc('listar_inscritos_gratuitos').then(({ data, error }) => {
+      if (!vivo) return
+      if (error) { setComunicadoMsg('No se pudieron cargar las tandas: ' + error.message); return }
+      setTandaDatos(data || [])
+      const maxT = Math.max(0, ...(data || []).map(f => Number(f.tanda) || 0))
+      setTandasDisponibles(Array.from({ length: maxT }, (_, i) => i + 1))
+      setTandasCargadas(true)
+    })
+    return () => { vivo = false }
+  }, [vista, comunicadoDestino, tandasCargadas])
 
   const cargarGestion = async () => {
     setCargandoGestion(true)
@@ -760,6 +781,11 @@ function Admin({ user }) {
       filas.forEach(f => {
         if (f.total_recursos > 0 && f.recursos_completados === f.total_recursos) agregar(f)
       })
+    } else if (comunicadoDestino === 'tanda') {
+      // Los autoinscritos gratuitos no están en `filas` (esa vista es de
+      // inscritos con fila en `acceso`): vienen de la RPC de tandas.
+      if (!comunicadoTanda) return []
+      tandaDatos.filter(f => String(f.tanda) === String(comunicadoTanda)).forEach(agregar)
     }
 
     return Array.from(dedup.values())
@@ -2052,6 +2078,7 @@ function Admin({ user }) {
                 <option value="riesgo">Alumnos en riesgo (sin entrar hace +15 días)</option>
                 <option value="activos">Alumnos activos (últimos 14 días)</option>
                 <option value="completaron">Alumnos que completaron un curso</option>
+                <option value="tanda">Inscritos gratuitos por tanda (grupos de 50)</option>
                 <option value="manual">Correos manuales (pegar lista)</option>
               </select>
 
@@ -2062,6 +2089,24 @@ function Admin({ user }) {
                     <option value="">— Elige un curso —</option>
                     {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
                   </select>
+                </>
+              )}
+
+              {comunicadoDestino === 'tanda' && (
+                <>
+                  <label>Tanda (cada una tiene a lo más 50 personas, por orden de registro)</label>
+                  <select className="gestion-select" value={comunicadoTanda}
+                          onChange={e => setComunicadoTanda(e.target.value)} style={{ width: '100%' }}>
+                    <option value="">— Elige una tanda —</option>
+                    {tandasDisponibles.map(n => {
+                      const cuenta = tandaDatos.filter(f => Number(f.tanda) === n).length
+                      return <option key={n} value={n}>Tanda {n} ({cuenta} persona{cuenta === 1 ? '' : 's'})</option>
+                    })}
+                  </select>
+                  <p className="nota">
+                    Manda un comunicado por tanda: cada correo lleva a lo más 50 personas en CCO.
+                    Quien aparece aquí se dio de alta solo desde un taller gratuito.
+                  </p>
                 </>
               )}
 

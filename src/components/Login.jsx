@@ -80,7 +80,7 @@ function Login({ message }) {
         <p className="sutil">
           {destino !== '/'
             ? 'Ingresa tus datos y te llevo directo al curso que abriste.'
-            : 'Ingresa con el usuario y contraseña que te compartí. Los talleres gratuitos no requieren cuenta.'}
+            : 'Ingresa con el usuario y contraseña que te compartí. Los talleres gratuitos se ven sin cuenta; crea la tuya si quieres tu constancia.'}
         </p>
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Correo electrónico</label>
@@ -93,6 +93,12 @@ function Login({ message }) {
         {(error || message) && <p className="aviso-error">{error || message}</p>}
         <div className="login-pie">
           <button className="enlace-texto" onClick={() => navigate('/')}>← Volver al inicio</button>
+          <button className="enlace-texto"
+                  onClick={() => navigate(destino !== '/'
+                    ? `/registro?redirigir=${encodeURIComponent(destino)}`
+                    : '/registro')}>
+            ¿No tienes cuenta? Créeala aquí
+          </button>
           <button className="enlace-texto" onClick={() => navigate('/recuperar')}>
             Olvidé mi contraseña
           </button>

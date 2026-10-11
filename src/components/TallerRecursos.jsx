@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { ModalPortal, EmbedFrame, VideoPlayer, EditorBotonesExtra } from './ui'
-import { analizarUrl } from '../lib/helpers'
+import { analizarUrl, emiteConstancia } from '../lib/helpers'
 import { enviarCorreo } from '../lib/correo'
+import { rutaAcceso, rutaRegistro } from '../config'
 import ExamenModulo from './ExamenModulo'
 
 /* ============================================================
@@ -22,6 +24,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
     grabacion_texto: curso.grabacion_texto || '',
     link_materiales: curso.link_materiales || '',
     botones_extra:   curso.botones_extra?.length ? curso.botones_extra : [],
+    constancia_gratuita_activa: curso.constancia_gratuita_activa === true,
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
@@ -39,6 +42,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
         grabacion_texto: form.grabacion_texto.trim() || null,
         link_materiales: form.link_materiales.trim() || null,
         botones_extra:   botonesValidos,
+        constancia_gratuita_activa: !!form.constancia_gratuita_activa,
       }
       let data = null
       let parcial = false
@@ -111,6 +115,21 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
         <input type="url" value={form.link_materiales} onChange={e => set('link_materiales', e.target.value)}
                placeholder="https://onedrive.live.com/embed?... (Insertar)" />
         <p className="nota">A los visitantes sin cuenta se les pide su correo antes de mostrarles este link. Tip OneDrive: usa <strong>Compartir → Insertar / Embed</strong> (<code>onedrive.live.com/embed</code>) en vez del <code>1drv.ms</code> corto para que salga "Ver aquí".</p>
+
+        {curso.gratuito && (
+          <>
+            <label>
+              <input type="checkbox" checked={form.constancia_gratuita_activa}
+                     onChange={(e) => set('constancia_gratuita_activa', e.target.checked)} />
+              {' '}Constancia habilitada para quienes tienen cuenta
+            </label>
+            <p className="nota">
+              Mientras esté apagada no se promete constancia a nadie. Enciéndela cuando el
+              taller haya terminado: se emitirá con el nombre que cada quien dio al registrarse.
+              (Si la casilla no guarda, falta correr supabase/ALTA_PUBLICA.sql en el SQL Editor.)
+            </p>
+          </>
+        )}
 
         <label>Botones adicionales (ej. liga de Teams en vivo)</label>
         <p className="nota" style={{ marginTop: 0 }}>
@@ -261,6 +280,20 @@ export default function TallerRecursos({ curso, user, gestiona, onActualizado })
                 <VideoPlayer url={curso.link_grabacion} />
               </div>
             )}
+            {/* CTA del taller gratuito para quien llega sin sesión.
+               La grabación se queda abierta a todos: es el mejor imán
+               de descubrimiento y ya era así. Lo que pide cuenta es la
+               constancia y el foro, que es lo que ofrece este botón. */}
+            {curso.gratuito && !user && (
+              <div className="recurso-acciones">
+                <Link className="button primary" to={rutaRegistro(`/curso/${curso.id}`)}>
+                  Crea tu cuenta: tu constancia y el foro con el docente
+                </Link>
+                <Link className="button secondary" to={rutaAcceso(`/curso/${curso.id}`)}>
+                  Ya tengo cuenta
+                </Link>
+              </div>
+            )}
           </>
         ) : (
           <div className="recurso-acciones">
@@ -270,6 +303,39 @@ export default function TallerRecursos({ curso, user, gestiona, onActualizado })
           </div>
         )}
       </article>
+
+      {curso.gratuito && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">📜</span>
+              <div><h3>Constancia del taller</h3></div>
+            </div>
+          </div>
+          {user ? (
+            emiteConstancia(curso) ? (
+              <div className="recurso-acciones">
+                <Link className="button primary" to={`/constancia/${curso.id}`}>
+                  Descargar mi constancia
+                </Link>
+                <p className="nota" style={{ margin: 0 }}>
+                  Se emite con el nombre con el que te registraste. Cada constancia admite 2 descargas.
+                </p>
+              </div>
+            ) : (
+              <p className="nota" style={{ margin: 0 }}>
+                La constancia se habilita al terminar el taller; el botón de descarga aparecerá aquí.
+              </p>
+            )
+          ) : (
+            <div className="recurso-acciones">
+              <Link className="button secondary" to={rutaRegistro(`/curso/${curso.id}`)}>
+                Crea tu cuenta para descargar tu constancia
+              </Link>
+            </div>
+          )}
+        </article>
+      )}
 
       <article className="recurso-item">
         <div className="recurso-cabecera">

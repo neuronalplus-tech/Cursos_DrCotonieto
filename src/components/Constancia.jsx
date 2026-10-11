@@ -154,7 +154,7 @@ function Constancia({ user }) {
       try {
         const [{ data: p, error: ePerfil }, { data: c, error: eCurso }] = await Promise.all([
           supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle(),
-          supabase.from('cursos').select('id, titulo, constancia, gratuito').eq('id', cursoId).maybeSingle(),
+          supabase.from('cursos').select('id, titulo, constancia, gratuito, constancia_gratuita_activa').eq('id', cursoId).maybeSingle(),
         ])
         if (ePerfil) throw ePerfil
         if (eCurso) throw eCurso
@@ -190,7 +190,9 @@ function Constancia({ user }) {
   const generar = async () => {
     if (!estado?.disponible) return setError(estado?.limiteAlcanzado
       ? 'Ya utilizaste las 2 descargas permitidas para esta constancia.'
-      : 'La constancia se habilita al alcanzar la calificación mínima del curso.')
+      : curso?.gratuito
+        ? 'La constancia del taller se habilita cuando el docente la publica, al terminar el taller.'
+        : 'La constancia se habilita al alcanzar la calificación mínima del curso.')
     if (!firmaLista) return setError('La firma escaneada no está disponible desde esta página. No se generó un documento sin firma.')
     if (!(estado?.nombre || perfil.nombre).trim()) return setError('Agrega tu nombre completo en Mi perfil antes de generar la constancia.')
 

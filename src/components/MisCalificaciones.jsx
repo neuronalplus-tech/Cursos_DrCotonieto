@@ -91,7 +91,7 @@ export default function MisCalificaciones({ user }) {
         }
 
         const { data: cs } = await supabase
-          .from('cursos').select('id, titulo, ponderacion, gratuito, constancia').in('id', ids).order('orden')
+          .from('cursos').select('id, titulo, ponderacion, gratuito, constancia, constancia_gratuita_activa').in('id', ids).order('orden')
         const { data: mods } = await supabase
           .from('modulos').select('id, curso_id').in('curso_id', ids)
         const idsMod = (mods || []).map(m => m.id)

@@ -83,7 +83,7 @@ function ModuloView({ user }) {
         }
 
         setModulo(m)
-        const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito, constancia').eq('id', m.curso_id).maybeSingle()
+        const { data: c } = await supabase.from('cursos').select('id, titulo, gratuito, constancia, constancia_gratuita_activa').eq('id', m.curso_id).maybeSingle()
         setCurso(c)
         setConstanciaDisponible(false)
         if (user && c && emiteConstancia(c)) {

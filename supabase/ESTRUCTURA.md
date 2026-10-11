@@ -181,6 +181,7 @@ Protección de filas: **activada** · políticas: 3
 | `categoria_id` | `bigint` | — | — |
 | `organizacion_id` | `bigint` | — | — |
 | `ponderacion` | `jsonb` | — | — |
+| `constancia_gratuita_activa` | `boolean` | — | `false` |
 
 ### `entregas`
 
@@ -413,6 +414,7 @@ Protección de filas: **activada** · políticas: 5
 | `ubicacion` | `text` | — | — |
 | `avatar_url` | `text` | — | — |
 | `notas_admin` | `text` | — | — |
+| `tanda` | `integer` | — | — |
 
 ### `planes`
 
@@ -604,7 +606,9 @@ Protección de filas: **activada** · políticas: 4
 | `inscritos_en_generacion` | `p_gen bigint` | `integer` | sí |
 | `limites_organizacion` | `p_org bigint` | `TABLE(max_alumnos integer, max_facilitadores integer, max_cursos integer, exenta boolean)` | sí |
 | `limpiar_pregunta` | `p jsonb` | `jsonb` | — |
+| `listar_inscritos_gratuitos` | `` | `TABLE(usuario_id uuid, email text, nombre_completo text, tanda integer, alta_el timestamp with time zone)` | sí |
 | `listar_usuarios_con_accesos` | `` | `TABLE(usuario_id uuid, email text, nombre_completo text, profesion text, notas_admin text, cursos_inscritos bigint, ultimo_ingreso timestamp with time zone)` | sí |
+| `manejar_alta_publica` | `` | `trigger` | sí |
 | `mover_hilo_al_responder` | `` | `trigger` | sí |
 | `obtener_usuario_por_email` | `p_email text` | `uuid` | sí |
 | `preparar_descarga_constancia` | `p_curso bigint` | `jsonb` | sí |
@@ -639,6 +643,7 @@ Protección de filas: **activada** · políticas: 4
 |---|---|
 | `acceso` | `acceso_limite_alumnos` |
 | `acceso` | `auditar_acceso` |
+| `auth.users` (esquema auth) | `on_auth_user_created` |
 | `banco_preguntas` | `banco_preguntas_tocar` |
 | `categorias` | `auditar_categorias` |
 | `constancias` | `auditar_constancias` |

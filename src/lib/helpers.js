@@ -67,7 +67,10 @@ export function moduloBloqueadoParaAlumno(m) {
 
 export function emiteConstancia(curso) {
   if (!curso) return false
-  if (curso.gratuito) return false
+  // Un taller gratuito emite constancia solo cuando el docente la
+  // habilita (casilla «constancia habilitada» en Editar taller). Así
+  // no se promete nada antes de que el taller haya terminado.
+  if (curso.gratuito) return curso.constancia_gratuita_activa === true && curso.constancia !== false
   if (curso.constanciaConfigurada === false || curso.constancia === false) return false
   return true
 }

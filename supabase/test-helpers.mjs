@@ -71,7 +71,9 @@ check('un módulo nulo no truena', moduloBloqueadoParaAlumno(null) === false)
 
 console.log('\n=== CONSTANCIA ===')
 check('un curso de paga la emite', emiteConstancia({ gratuito: false }) === true)
-check('uno gratuito no', emiteConstancia({ gratuito: true }) === false)
+check('un taller gratuito NO la emite por ser gratuito', emiteConstancia({ gratuito: true }) === false)
+check('pero sí si el docente la habilitó', emiteConstancia({ gratuito: true, constancia_gratuita_activa: true }) === true)
+check('un gratuito habilitado pero apagado por curso no', emiteConstancia({ gratuito: true, constancia_gratuita_activa: true, constancia: false }) === false)
 check('se puede apagar por curso', emiteConstancia({ constancia: false }) === false)
 check('un curso nulo no truena', emiteConstancia(null) === false)
 

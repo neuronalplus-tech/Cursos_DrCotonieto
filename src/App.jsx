@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import Header from './components/Header'
 import Home from './components/Home'
 import Login from './components/Login'
+import Registro from './components/Registro'
 import Recuperar from './components/Recuperar'
 import VerificarConstancia from './components/VerificarConstancia'
 import { WhatsAppFlotante, BarreraErrores } from './components/ui'
@@ -93,6 +94,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home user={user} />} />
               <Route path="/acceso" element={<Login message={message} />} />
+              <Route path="/registro" element={<Registro />} />
               <Route path="/recuperar" element={<Recuperar />} />
               <Route path="/perfil" element={<Perfil user={user} />} />
               <Route path="/mis-calificaciones" element={<MisCalificaciones user={user} />} />

@@ -21,6 +21,7 @@ import PortadaCurso from '../src/components/PortadaCurso'
 import CursoCard from '../src/components/CursoCard'
 import Home from '../src/components/Home'
 import Login from '../src/components/Login'
+import Registro from '../src/components/Registro'
 import Perfil from '../src/components/Perfil'
 import Admin from '../src/components/Admin'
 import CursoDetalle from '../src/components/CursoDetalle'
@@ -59,6 +60,7 @@ const vistas = [
   ['Home',                        pagina('/',        h(Home, { user, esAdmin: false }))],
   ['Home (admin)',                pagina('/',        h(Home, { user: admin, esAdmin: true }))],
   ['Login',                       pagina('/acceso',  h(Login, { message: '' }))],
+  ['Registro',                     pagina('/registro', h(Registro, {}))],
   ['Perfil',                      pagina('/perfil',  h(Perfil, { user }))],
   ['Admin',                       pagina('/admin',   h(Admin, { user: admin, esAdmin: true }))],
   ['CursoDetalle',                pagina('/c/1',      h(CursoDetalle, { user, esAdmin: false }))],

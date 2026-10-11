@@ -89,6 +89,9 @@ export const ESTILOS_BOTON = [
 /** Redirige al login conservando a dónde quería ir el usuario. */
 export const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(destino)}`
 
+/** Redirige al registro público conservando a dónde quería ir el usuario. */
+export const rutaRegistro = (destino) => `/registro?redirigir=${encodeURIComponent(destino)}`
+
 /* ============================================================
    DETALLES DEL CURSO DE DUELO
    ============================================================ */
