@@ -15,6 +15,7 @@ import TableroOrg from './TableroOrg'
 import AdminPlantillas from './AdminPlantillas'
 import AdminRoles from './AdminRoles'
 import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
+import { sanearDocumento } from '../lib/foro'
 import { usePermisos, useMisPermisos, useModulos } from '../lib/permisos'
 import { seccionVisible } from '../lib/modulos'
 import { useOrganizacion } from '../lib/organizacion'
@@ -753,20 +754,35 @@ function Admin({ user }) {
     document.execCommand(cmd, false, valor)
     comunicadoEditorRef.current?.focus()
     if (comunicadoEditorRef.current) {
-      setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
+      // Todo lo que sale del contentEditable pasa por el saneador: ni lo
+      // pegado de Word ni el HTML editado a mano puede colar script.
+      const limpio = sanearDocumento(comunicadoEditorRef.current.innerHTML)
+      if (limpio !== comunicadoEditorRef.current.innerHTML) {
+        comunicadoEditorRef.current.innerHTML = limpio
+      }
+      setComunicadoCuerpo(limpio)
     }
   }
 
   const crearEnlace = () => {
     const url = prompt('URL del enlace (ej. https://...):')
-    if (url) ejecutarComando('createLink', url)
+    if (!url) return
+    if (!/^(https?:|mailto:|tel:)/i.test(url.trim())) {
+      window.alert('Esa liga no es válida. Debe empezar con https://')
+      return
+    }
+    ejecutarComando('createLink', url.trim())
   }
 
   const insertarTitulo = (tag) => {
     document.execCommand('formatBlock', false, tag)
     comunicadoEditorRef.current?.focus()
     if (comunicadoEditorRef.current) {
-      setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
+      const limpio = sanearDocumento(comunicadoEditorRef.current.innerHTML)
+      if (limpio !== comunicadoEditorRef.current.innerHTML) {
+        comunicadoEditorRef.current.innerHTML = limpio
+      }
+      setComunicadoCuerpo(limpio)
     }
   }
 
@@ -775,7 +791,11 @@ function Admin({ user }) {
     document.execCommand('formatBlock', false, '<p>')
     comunicadoEditorRef.current?.focus()
     if (comunicadoEditorRef.current) {
-      setComunicadoCuerpo(comunicadoEditorRef.current.innerHTML)
+      const limpio = sanearDocumento(comunicadoEditorRef.current.innerHTML)
+      if (limpio !== comunicadoEditorRef.current.innerHTML) {
+        comunicadoEditorRef.current.innerHTML = limpio
+      }
+      setComunicadoCuerpo(limpio)
     }
   }
 
@@ -786,10 +806,13 @@ function Admin({ user }) {
   }
 
   const aplicarEditorHtml = () => {
+    // El HTML pegado a mano es el camino más directo para un XSS: se
+    // sanea antes de volver al editor y antes de guardarse en el estado.
+    const limpio = sanearDocumento(editorHtmlTexto)
     if (comunicadoEditorRef.current) {
-      comunicadoEditorRef.current.innerHTML = editorHtmlTexto
+      comunicadoEditorRef.current.innerHTML = limpio
     }
-    setComunicadoCuerpo(editorHtmlTexto)
+    setComunicadoCuerpo(limpio)
     setEditorHtmlAbierto(false)
   }
 
@@ -829,7 +852,10 @@ function Admin({ user }) {
     setComunicadoEnviando(true)
 
     try {
-      const textoPlano = comunicadoCuerpo
+      // Se vuelve a sanear al enviar: el estado pudo venir de un pegado
+      // anterior al parche o de una edición que no pasó por onInput.
+      const cuerpoSano = sanearDocumento(comunicadoCuerpo)
+      const textoPlano = cuerpoSano
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n\n')
         .replace(/<[^>]+>/g, '')
@@ -843,7 +869,7 @@ function Admin({ user }) {
         tipo: 'comunicado-masivo',
         asunto: comunicadoAsunto.trim(),
         cuerpoTexto: textoPlano,
-        cuerpoHtml: comunicadoCuerpo.trim(),
+        cuerpoHtml: cuerpoSano.trim(),
         alumnos: destinatarios,
       }
 
@@ -2056,8 +2082,16 @@ function Admin({ user }) {
 
               <div key={comunicadoEditorKey} ref={comunicadoEditorRef} className="comunicado-editor" contentEditable
                 suppressContentEditableWarning
-                onInput={e => setComunicadoCuerpo(e.currentTarget.innerHTML)}
-                onBlur={e => setComunicadoCuerpo(e.currentTarget.innerHTML)}
+                onInput={e => {
+                  const limpio = sanearDocumento(e.currentTarget.innerHTML)
+                  if (limpio !== e.currentTarget.innerHTML) e.currentTarget.innerHTML = limpio
+                  setComunicadoCuerpo(limpio)
+                }}
+                onBlur={e => {
+                  const limpio = sanearDocumento(e.currentTarget.innerHTML)
+                  if (limpio !== e.currentTarget.innerHTML) e.currentTarget.innerHTML = limpio
+                  setComunicadoCuerpo(limpio)
+                }}
                 dangerouslySetInnerHTML={{
                   __html: comunicadoEditorKey === 0
                     ? '<p>Hola,</p><p>Te escribo para contarte que...</p><p>Saludos.</p>'
@@ -2082,7 +2116,9 @@ function Admin({ user }) {
                   </div>
                   <div className="comunicado-preview-body"
                     dangerouslySetInnerHTML={{
-                      __html: comunicadoCuerpo || '<p style="color:#7A8891;font-style:italic;">(El cuerpo del mensaje aparecerá aquí)</p>'
+                      // La vista previa también pinta HTML: se sanea igual que
+                      // al enviar, para no ejecutar nada pegado a mano.
+                      __html: sanearDocumento(comunicadoCuerpo) || '<p>(El cuerpo del mensaje aparecerá aquí)</p>'
                     }} />
                 </div>
               )}

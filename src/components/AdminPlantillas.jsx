@@ -24,6 +24,7 @@ import {
   MARCADORES, BLOQUES, EJEMPLOS, rellenar,
   marcadoresDesconocidos, bloquesSinCerrar, conLetra, fechaConLetra,
 } from '../lib/plantillas'
+import { sanearDocumento } from '../lib/foro'
 
 const TIPOS = [
   ['constancia', 'Constancia'],
@@ -102,9 +103,18 @@ export default function AdminPlantillas() {
   }, [form.contenido])
 
   const previa = useMemo(() => {
-    try { return rellenar(form.contenido, MUESTRA, { escaparHtml: false }) }
+    try {
+      // La plantilla la escribe el admin, pero se previsualiza con
+      // dangerouslySetInnerHTML: se sanea para que un <script> pegado no
+      // se ejecute en su propia sesión (XSS de segundo orden).
+      return sanearDocumento(rellenar(form.contenido, MUESTRA, { escaparHtml: false }))
+    }
     catch { return '' }
   }, [form.contenido])
+
+  /* Vista previa saneada memorizada: `sanearDocumento` recorre el DOM y
+     no debe correrse en cada render del modal. */
+  const previaSana = previa
 
   const abrirNueva = () => { setForm(VACIA); setEditando('nueva'); setMsg(null) }
 
@@ -362,7 +372,7 @@ export default function AdminPlantillas() {
             {form.membrete_url && (
               <img src={form.membrete_url} alt="" className="previa-membrete" />
             )}
-            <div dangerouslySetInnerHTML={{ __html: previa }} />
+            <div dangerouslySetInnerHTML={{ __html: previaSana }} />
             {form.firma_url && (
               <img src={form.firma_url} alt="Firma" className="previa-firma"
                    style={{

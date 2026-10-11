@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso, MARCA, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
-import { ModalEditarTaller } from './TallerRecursos'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
 import { esContenedorTalleres, cursoEspecial } from '../lib/helpers'
+
+/* C4: CursoCard vive en el bundle inicial (Home). El modal trae
+   TallerRecursos → ExamenModulo, así que se carga solo al editar. */
+const ModalEditarTaller = lazy(() => import('./TallerRecursos').then(m => ({ default: m.ModalEditarTaller })))
 
 function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
   const [curso, setCurso] = useState(cursoProp)
@@ -237,8 +240,10 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
       </div>
 
       {editandoTaller && (
-        <ModalEditarTaller curso={curso} onClose={() => setEditandoTaller(false)}
+        <Suspense fallback={<p className="nota">Cargando editor…</p>}>
+          <ModalEditarTaller curso={curso} onClose={() => setEditandoTaller(false)}
                             onGuardado={(c) => setCurso(c)} />
+        </Suspense>
       )}
     </article>
   )

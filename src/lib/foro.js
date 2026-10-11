@@ -18,10 +18,38 @@ const ETIQUETAS = {
   h1: [], h2: [], h3: [], h4: [], blockquote: [], pre: [], code: [], hr: [],
 }
 
+/* Plantillas y comunicados necesitan tablas e imágenes para actas y
+   correos con formato. Misma regla que el foro (nada de script,
+   iframe, eventos ni javascript:), pero con la lista ampliada para
+   no romper documentos oficiales. */
+const ETIQUETAS_DOC = {
+  ...ETIQUETAS,
+  table: [], thead: [], tbody: [], tfoot: [], tr: [],
+  th: ['colspan', 'rowspan'], td: ['colspan', 'rowspan'],
+  img: ['src', 'alt', 'width', 'height'],
+}
+
 // Un enlace con javascript: es un XSS esperando a ocurrir.
 const URL_SEGURA = /^(https?:|mailto:|tel:)/i
 
+/* Solo imágenes de la web o del propio sitio. `data:` se bloquea a
+   propósito: un base64 gigante en una plantilla congela la vista
+   previa y puede colar SVG con script. */
+const IMG_SEGURA = /^(https?:\/\/|\/)[^\s"']*$/i
+
 export function sanear(html) {
+  return sanearCon(html, ETIQUETAS)
+}
+
+/* Saneado para plantillas y comunicados: igual que el foro pero con
+   tablas e imágenes permitidas (las actas las necesitan). Se usa al
+   guardar, al previsualizar y al imprimir: las tres pintan HTML con
+   dangerouslySetInnerHTML o document.write. */
+export function sanearDocumento(html) {
+  return sanearCon(html, ETIQUETAS_DOC)
+}
+
+function sanearCon(html, permitidas) {
   if (!html) return ''
   // createElement/parseFromString no ejecuta scripts ni carga recursos:
   // es un parseo puro, seguro sobre texto que no es de fiar.
@@ -38,7 +66,7 @@ export function sanear(html) {
       if (hijo.nodeType !== 1) { hijo.remove(); continue }
 
       const et = hijo.tagName.toLowerCase()
-      if (!Object.hasOwn(ETIQUETAS, et)) {
+      if (!Object.hasOwn(permitidas, et)) {
         // Etiqueta no permitida: primero se limpia por dentro (por si
         // trae atributos o anidados raros) y luego se desenvuelve,
         // conservando su texto/contenido pero soltando la etiqueta.
@@ -48,7 +76,7 @@ export function sanear(html) {
         continue
       }
       for (const attr of [...hijo.attributes]) {
-        if (!ETIQUETAS[et].includes(attr.name.toLowerCase())) {
+        if (!permitidas[et].includes(attr.name.toLowerCase())) {
           hijo.removeAttribute(attr.name)
         }
       }
@@ -62,6 +90,18 @@ export function sanear(html) {
           hijo.setAttribute('target', '_blank')
           hijo.setAttribute('rel', 'noopener noreferrer')
         }
+      }
+      if (et === 'img') {
+        const src = hijo.getAttribute('src') || ''
+        if (!IMG_SEGURA.test(src.trim())) {
+          // Sin src válido no hay imagen: se suelta la etiqueta pero se
+          // conserva el alt como texto para no perder el contenido.
+          const alt = hijo.getAttribute('alt') || ''
+          hijo.replaceWith(doc.createTextNode(alt))
+          continue
+        }
+        hijo.setAttribute('loading', 'lazy')
+        hijo.removeAttribute('srcset')
       }
       limpiar(hijo)
     }

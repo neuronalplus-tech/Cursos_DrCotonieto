@@ -1,32 +1,31 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
-import AdminExamenes from './components/AdminExamenes'
-import MensajesInbox, { MensajesPage } from './components/MensajesInbox'
-import ExamenModulo from './components/ExamenModulo'
-import TallerRecursos, { ModalEditarTaller } from './components/TallerRecursos'
 import Header from './components/Header'
-import ModuloView from './components/ModuloView'
-import CursoView from './components/CursoView'
-import CursoCard from './components/CursoCard'
-import PortadaCurso from './components/PortadaCurso'
-import Admin from './components/Admin'
 import Home from './components/Home'
 import Login from './components/Login'
 import Recuperar from './components/Recuperar'
-import Perfil from './components/Perfil'
-import MisCalificaciones from './components/MisCalificaciones'
-import Calendario from './components/Calendario'
-import CursoDetalle from './components/CursoDetalle'
-import Constancia from './components/Constancia'
 import VerificarConstancia from './components/VerificarConstancia'
-import ForoCurso from './components/ForoCurso'
 import { WhatsAppFlotante, BarreraErrores } from './components/ui'
 import './App.css'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
+/* Alta/C4: lo pesado y lo de rol se carga bajo demanda.
+   Antes todo venía eager (Admin + pdfjs + exámenes + talleres) y el
+   alumno que solo abría /verificar descargaba el panel entero.
+   Rutas públicas y de uso diario quedan eager; el resto va lazy con
+   Suspense para no cambiar la navegación. */
+const Admin = lazy(() => import('./components/Admin'))
+const Perfil = lazy(() => import('./components/Perfil'))
+const MisCalificaciones = lazy(() => import('./components/MisCalificaciones'))
+const Calendario = lazy(() => import('./components/Calendario'))
+const CursoView = lazy(() => import('./components/CursoView'))
+const CursoDetalle = lazy(() => import('./components/CursoDetalle'))
+const ModuloView = lazy(() => import('./components/ModuloView'))
+const Constancia = lazy(() => import('./components/Constancia'))
+const ForoCurso = lazy(() => import('./components/ForoCurso'))
+/* MensajesInbox exporta default + named: el lazy necesita el default
+   como componente para Suspense, así que se envuelve el named. */
+const PaginaMensajes = lazy(() => import('./components/MensajesInbox').then(m => ({ default: m.MensajesPage })))
 
 function App() {
   const [session, setSession] = useState(null)
@@ -88,22 +87,26 @@ function App() {
       <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} nombreUsuario={nombreUsuario} />
       <main className="app-main">
         <BarreraErrores key={pathname}>
-          <Routes>
-            <Route path="/" element={<Home user={user} />} />
-            <Route path="/acceso" element={<Login message={message} />} />
-            <Route path="/recuperar" element={<Recuperar />} />
-            <Route path="/perfil" element={<Perfil user={user} />} />
-            <Route path="/mis-calificaciones" element={<MisCalificaciones user={user} />} />
-            <Route path="/calendario" element={<Calendario user={user} />} />
-            <Route path="/admin" element={<Admin user={user} />} />
-            <Route path="/curso/:id" element={<CursoView user={user} />} />
-            <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} />} />
-            <Route path="/modulo/:id" element={<ModuloView user={user} />} />
-            <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
-            <Route path="/verificar/:folio?" element={<VerificarConstancia />} />
-            <Route path="/mensajes" element={<MensajesPage user={user} esAdmin={esAdmin} />} />
-            <Route path="/foro/:cursoId" element={<ForoCurso user={user} />} />
-          </Routes>
+          {/* El fallback vive dentro del main para no mover el header ni el
+              botón de WhatsApp mientras carga el chunk de la ruta. */}
+          <Suspense fallback={<div className="loading pantalla">Cargando…</div>}>
+            <Routes>
+              <Route path="/" element={<Home user={user} />} />
+              <Route path="/acceso" element={<Login message={message} />} />
+              <Route path="/recuperar" element={<Recuperar />} />
+              <Route path="/perfil" element={<Perfil user={user} />} />
+              <Route path="/mis-calificaciones" element={<MisCalificaciones user={user} />} />
+              <Route path="/calendario" element={<Calendario user={user} />} />
+              <Route path="/admin" element={<Admin user={user} />} />
+              <Route path="/curso/:id" element={<CursoView user={user} />} />
+              <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} />} />
+              <Route path="/modulo/:id" element={<ModuloView user={user} />} />
+              <Route path="/constancia/:cursoId" element={<Constancia user={user} />} />
+              <Route path="/verificar/:folio?" element={<VerificarConstancia />} />
+              <Route path="/mensajes" element={<PaginaMensajes user={user} esAdmin={esAdmin} />} />
+              <Route path="/foro/:cursoId" element={<ForoCurso user={user} />} />
+            </Routes>
+          </Suspense>
         </BarreraErrores>
       </main>
       <WhatsAppFlotante />

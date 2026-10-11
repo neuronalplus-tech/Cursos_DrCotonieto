@@ -1,14 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from '../lib/supabase'
 import { analizarUrl } from '../lib/helpers'
 import { BUCKET_TALLERES, ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, ICONO_TIPO, NOMBRE_TIPO } from '../config'
 import { ModalPortal, Breadcrumb, VideoPlayer, EmbedFrame, EditorBotonesExtra } from './ui'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
+/* pdfjs pesa ~1 MB: antes se importaba en App.jsx y caía en el bundle
+   inicial aunque nadie abriera un PDF. Ahora se carga solo cuando el
+   visor se monta, y el worker se configura una vez. */
+let pdfjsCargado = null
+function cargarPdfjs() {
+  if (!pdfjsCargado) {
+    pdfjsCargado = Promise.all([
+      import('pdfjs-dist'),
+      import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+    ]).then(([lib, worker]) => {
+      lib.GlobalWorkerOptions.workerSrc = worker.default
+      return lib
+    })
+  }
+  return pdfjsCargado
+}
 
 export function PdfViewer({ archivo, bucket }) {
   const [pages, setPages] = useState([])
@@ -26,6 +39,10 @@ export function PdfViewer({ archivo, bucket }) {
         if (cancelled) return
         if (buf.byteLength === 0) throw new Error('El archivo está vacío')
         setStatus('Procesando...')
+        // pdfjs se trae bajo demanda: el primer PDF tarda un poco más,
+        // los siguientes reutilizan la promesa cacheada.
+        const pdfjsLib = await cargarPdfjs()
+        if (cancelled) return
         loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false })
         pdfDocument = await loadingTask.promise
         if (cancelled) return
@@ -612,12 +629,15 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gesti
     try {
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(recurso.archivo, 3600)
       if (error) throw error
+      if (!data?.signedUrl) throw new Error('permiso denegado')
       window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
-    } catch {
-      const { data } = supabase.storage.from(bucket).getPublicUrl(recurso.archivo)
-      window.open(data.publicUrl, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      // Sin respaldo público a propósito: si la firmada falla, el bucket
+      // es privado y abrir por URL pública reabriría el hueco. Se avisa.
+      alert('No se pudo abrir el recurso. Revisa tu inscripción o escríbeme: ' + (err?.message || 'permiso denegado'))
+    } finally {
+      setOcupado(false)
     }
-    setOcupado(false)
   }
 
   const descargar = async () => {

@@ -34,6 +34,7 @@ import { calcular, calcularModulo, tienePonderacion } from '../lib/calificacion'
 import {
   rellenar, conLetra, fechaConLetra,
 } from '../lib/plantillas'
+import { sanearDocumento } from '../lib/foro'
 import { MODALIDADES } from '../lib/asistencia'
 
 const ETIQUETA_MODALIDAD = Object.fromEntries(MODALIDADES)
@@ -239,8 +240,12 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
 
   const documentos = useMemo(() => {
     if (!plantilla) return []
+    // El HTML final se previsualiza con dangerouslySetInnerHTML y se
+    // imprime con document.write: se sanea aquí una sola vez para que
+    // la plantilla no pueda ejecutar nada en la sesión del admin.
+    const armar = (datos) => sanearDocumento(rellenar(plantilla.contenido, datos, { escaparHtml: false }))
     if (!esPorAlumno) {
-      return [{ clave: 'grupo', html: rellenar(plantilla.contenido, datosComunes, { escaparHtml: false }) }]
+      return [{ clave: 'grupo', html: armar(datosComunes) }]
     }
     const elegidos = alumnoElegido
       ? filas.filter(f => f.usuario_id === alumnoElegido)
@@ -248,7 +253,7 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
     return elegidos.map(f => ({
       clave: f.usuario_id,
       nombre: f.nombre,
-      html: rellenar(plantilla.contenido, {
+      html: armar({
         ...datosComunes,
         alumno: { nombre: f.nombre, profesion: f.profesion || '' },
         calificacion: {
@@ -263,7 +268,7 @@ export default function GenerarDocumento({ generacion, cursoId, onCerrar }) {
         },
         modulos: (modulosPorAlumno[f.usuario_id] || [])
           .map(m => ({ titulo: m.titulo, calificacion: m.calificacion ?? '' })),
-      }, { escaparHtml: false }),
+      }),
     }))
   }, [plantilla, esPorAlumno, datosComunes, filas, alumnoElegido, modulosPorAlumno])
 
