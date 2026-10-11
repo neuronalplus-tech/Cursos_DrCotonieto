@@ -410,3 +410,5 @@ export default function Participantes({ cursoId, user }) {
   )
 }
 
+
+// test token neuronal-plus: 2026-10-10T19:28:21.4768268-06:00
