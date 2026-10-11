@@ -127,6 +127,8 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
     </div>
   )
 }
+
+export default function Participantes({ cursoId, user }) {
   const [personas, setPersonas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -150,7 +152,8 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
         // --- Mis cursos, para calcular "en común" ---
         const { data: miAcc } = await supabase.from('acceso')
           .select('curso_id').eq('usuario_id', user.id)
-        if (vivo) setMisCursos(new Set((miAcc || []).map(a => a.curso_id)))
+        const misSet = new Set((miAcc || []).map(a => a.curso_id))
+        if (vivo) setMisCursos(misSet)
 
         // --- Quién está inscrito en ESTE curso ---
         const { data: insc, error: eA } = await supabase
@@ -166,14 +169,23 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
           .in('id', ids)
         if (eP) throw eP
 
+        // --- Todos sus accesos, para "cursos en común" ---
+        const { data: todosAcc } = await supabase
+          .from('acceso').select('usuario_id, curso_id').in('usuario_id', ids)
+        const cursosDe = {}
+        for (const a of todosAcc || []) (cursosDe[a.usuario_id] ||= new Set()).add(a.curso_id)
+        const idsCursoAjenos = [...new Set((todosAcc || []).map(a => a.curso_id))]
+
         // --- Cursos y su ponderación para la calificación ---
         const { data: cs } = await supabase
           .from('cursos')
           .select('id, titulo, ponderacion')
           .in('id', idsCursoAjenos)
+        const titulosCurso = Object.fromEntries((cs || []).map(c => [c.id, c.titulo]))
+        const configPorCurso = Object.fromEntries((cs || []).map(c => [c.id, c.ponderacion]))
         if (vivo) {
-          setTituloCurso(Object.fromEntries((cs || []).map(c => [c.id, c.titulo])))
-          setCursosPorConfig(Object.fromEntries((cs || []).map(c => [c.id, c.ponderacion])))
+          setTituloCurso(titulosCurso)
+          setCursosPorConfig(configPorCurso)
         }
 
         // --- Última vez que entraron a un recurso del curso ---
@@ -237,12 +249,6 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
         }
         setCalificacionesTarea(notasT)
 
-        // --- Todos sus accesos, para "cursos en común" ---
-        const { data: todosAcc } = await supabase
-          .from('acceso').select('usuario_id, curso_id').in('usuario_id', ids)
-        const cursosDe = {}
-        for (const a of todosAcc || []) (cursosDe[a.usuario_id] ||= new Set()).add(a.curso_id)
-        const idsCursoAjenos = [...new Set((todosAcc || []).map(a => a.curso_id))]
         if (idsCursoAjenos.length) {
           const { data: cs } = await supabase.from('cursos')
             .select('id, titulo').in('id', idsCursoAjenos)
@@ -252,7 +258,7 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
               const next = { ...prev }
               for (const id of ids) {
                 const pCursos = cursosDe[id] || new Set()
-                next[id] = [...pCursos].filter(c => misCursos.has(c)).map(c => tituloCurso[c] || `Curso ${c}`)
+                next[id] = [...pCursos].filter(c => misSet.has(c)).map(c => titulosCurso[c] || `Curso ${c}`)
               }
               return next
             })
@@ -272,10 +278,10 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
           grupo: grupoDe[p.id] || '',
           inscritoEl: inscritoEl[p.id] || null,
           ultimo: ultimo[p.id] || null,
-          cursos: [...(cursosDe[p.id] || [])].map(c => ({ id: c, titulo: tituloCurso[c] || `Curso ${c}` })),
-          notasExamen,
-          calificacionesTarea,
-          cursoConfig: cursosPorConfig[p.id] || null,
+          cursos: [...(cursosDe[p.id] || [])].map(c => ({ id: c, titulo: titulosCurso[c] || `Curso ${c}` })),
+          notasExamen: notasEx,
+          calificacionesTarea: notasT,
+          cursoConfig: configPorCurso[curso] || null,
           enComun: enComun[p.id] || [],
         }))
         lista.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
