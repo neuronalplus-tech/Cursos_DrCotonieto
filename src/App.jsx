@@ -1,22 +1,8 @@
-import { useEffect, useState, useRef } from 'react'
-import { BrowserRouter, Routes, Route, useParams, Link, useNavigate, useLocation } from 'react-router-dom'
+﻿import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from './lib/supabase'
-import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from './lib/correo'
-import {
-  esContenedorTalleres, esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
-  emiteConstancia, cursoEspecial, esCursoProblemasContemporaneos,
-  normalizarTexto, analizarUrl,
-} from './lib/helpers'
-import {
-  BUCKET_PAGO, BUCKET_TALLERES, AVATAR_BUCKET,
-  CONTACTO_EMAIL, wa, WA_CONSULTA,
-  LOGO_CLARO, FOTO_PERFIL,
-  ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES,
-  MARCA, REDES, SERVICIOS, CASOS, ENFOQUES,
-  ICONO_TIPO, NOMBRE_TIPO, rutaAcceso,
-} from './config'
 import AdminExamenes from './components/AdminExamenes'
 import MensajesInbox, { MensajesPage } from './components/MensajesInbox'
 import ExamenModulo from './components/ExamenModulo'
@@ -37,126 +23,11 @@ import CursoDetalle from './components/CursoDetalle'
 import Constancia from './components/Constancia'
 import VerificarConstancia from './components/VerificarConstancia'
 import ForoCurso from './components/ForoCurso'
-import {
-  ModalEditarBotonesRuta, ModalNuevoModulo, ModalEditarBotonesModulo,
-} from './components/AdminModales'
-import {
-  ModalPortal, Breadcrumb, WhatsAppFlotante, BandaRedes, NavegacionFlotante,
-  VideoPlayer, EmbedFrame, EditorBotonesExtra, BarreraErrores,
-} from './components/ui'
-import { jsPDF } from 'jspdf'  
+import { WhatsAppFlotante, BarreraErrores } from './components/ui'
 import './App.css'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
-/* ============================================================
-   CONFIGURACIÓN
-   (movida a src/config.js)
-   CURSOS CON METADATOS ESPECIALES sigue aquí porque es contenido
-   editorial de un curso concreto. DETALLES_DUELO se movió a
-   config.js: lo consume CursoDetalle, no este archivo.
-   ============================================================ */
-
-/* ============================================================
-   HELPERS
-   (esContenedorTalleres, esTallerIndividual, moduloVisible,
-    moduloBloqueadoParaAlumno, emiteConstancia, cursoEspecial,
-    esCursoProblemasContemporaneos, normalizarTexto y analizarUrl
-    se movieron a src/lib/helpers.js)
-
-   UI COMPARTIDA
-   (ModalPortal, Breadcrumb, WhatsAppFlotante, BandaRedes,
-    NavegacionFlotante, VideoPlayer, EmbedFrame y EditorBotonesExtra
-    se movieron a src/components/ui.jsx)
-   ============================================================ */
-
-// (normalizarTexto y analizarUrl se movieron a src/lib/helpers.js)
-
-// (analizarUrl se movió a src/lib/helpers.js)
-
-/* ============================================================
-   PORTADAS VECTORIALES
-   ============================================================ */
-// (PortadaCurso, motivoDe se movieron a src/components/PortadaCurso.jsx)
-
-/* ============================================================
-   CARRUSEL
-   ============================================================ */
-// (CarruselCursos se movió a src/components/CarruselCursos.jsx)
-
-/* ============================================================
-   UTILIDADES
-   (Breadcrumb, WhatsAppFlotante, BandaRedes y NavegacionFlotante
-    se movieron a src/components/ui.jsx)
-   ============================================================ */
-
-// (rutaAcceso se movió a src/config.js)
-
-/* ============================================================
-   HEADER (movido a src/components/Header.jsx)
-   ============================================================ */
-
-/* ============================================================
-   LOGIN
-   ============================================================ */
-// (Login se movió a src/components/Login.jsx)
-
-/* ============================================================
-   TARJETA DE CURSO
-   ============================================================ */
-// (CursoCard se movió a src/components/CursoCard.jsx)
-
-/* ============================================================
-   HOME
-   ============================================================ */
-// (Home se movió a src/components/Home.jsx)
-
-/* ============================================================
-   PERFIL
-   ============================================================ */
-// (Perfil se movió a src/components/Perfil.jsx)
-
-// (MensajesInbox y MensajesPage se movieron a src/components/MensajesInbox.jsx)
-/* ============================================================
-   PANEL ADMIN
-   ============================================================ */
-// (Admin se movió a src/components/Admin.jsx)
-
-/* ============================================================
-   VISOR PDF
-   ============================================================ */
-// (PdfViewer, PdfPage, Autoevaluacion, ModalEditarRecurso, ModalDuplicarModulo, ModalDuplicarRecurso, ModalNotificarRecurso, RecursoCard, DiapositivasPresentarCaso, Entregables se movieron a src/components/RecursosModulo.jsx)
-
-// (ExamenModulo se movio a src/components/ExamenModulo.jsx)
-
-// (ModalEditarBotonesRuta, ModalNuevoModulo y ModalEditarBotonesModulo
-// se movieron a src/components/AdminModales.jsx)
-
-// (ModalEditarTaller y TallerRecursos se movieron a src/components/TallerRecursos.jsx)
-
-/* ============================================================
-   CURSO
-   ============================================================ */
-// (CursoView se movió a src/components/CursoView.jsx)
-
-/* ============================================================
-   DETALLE DEL CURSO
-   ============================================================ */
-// (CursoDetalle se movió a src/components/CursoDetalle.jsx)
-
-/* ============================================================
-   MÓDULO
-   ============================================================ */
-// (ModuloView se movió a src/components/ModuloView.jsx)
-
-/* ============================================================
-   CONSTANCIA
-   ============================================================ */
-// (Constancia se movió a src/components/Constancia.jsx)
-
-/* ============================================================
-   APP
-   ============================================================ */
 function App() {
   const [session, setSession] = useState(null)
   const [esAdmin, setEsAdmin] = useState(false)
@@ -164,8 +35,6 @@ function App() {
   const [message, setMessage] = useState('')
   const [nombreUsuario, setNombreUsuario] = useState('')
   const navigate = useNavigate()
-  // La barrera de errores se remonta en cada ruta: un fallo pasajero en una
-  // pantalla no debe dejar a la persona atrapada en el aviso de error.
   const { pathname } = useLocation()
 
   useEffect(() => {
@@ -187,19 +56,11 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s)
       if (!s) { localStorage.removeItem('login_time'); setEsAdmin(false); setNombreUsuario('') }
-      /* Red de seguridad del enlace de recuperación. El enlace lleva su
-         propio destino, pero si ese destino no está en la lista de
-         Supabase (Authentication → URL Configuration → Redirect URLs),
-         Supabase ignora el destino y manda la sesión al Site URL: la
-         persona acaba dentro del aula, sin ver nunca el formulario de
-         contraseña nueva, y sin entender por qué. Esto la lleva ahí
-         desde donde haya caído. */
       if (_e === 'PASSWORD_RECOVERY' && window.location.pathname !== '/recuperar') {
         navigate('/recuperar')
       }
     })
     return () => subscription.unsubscribe()
-    // `navigate` es estable en react-router 6; está aquí solo para la regla.
   }, [navigate])
 
   const user = session?.user || null

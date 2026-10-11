@@ -17,7 +17,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { calcular } from '../lib/calificacion'
-import { mejorCalificacion } from '../lib/examenes'
 
 // Repetido a propósito (también está en ForoCurso/Header): son tres
 // líneas y compartirlo obligaría a un import cruzado entre pantallas
@@ -46,14 +45,21 @@ function Avatar({ url, nombre, grande }) {
 /* ---------------------------------------------------------------
    CALIFICACIONES DEL PARTICIPANTE (para la ficha individual)
    --------------------------------------------------------------- */
-function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, cursoConfig = null, enComun = [] }) {
+function PerfilCalificaciones({
+  notasExamen = {},
+  calificacionesTarea = {},
+  titulos = {},
+  puntosMaxPorTarea = {},
+  cursoConfig = null,
+}) {
   const examenes = Object.entries(notasExamen)
   const tareas = Object.entries(calificacionesTarea)
+
   const final = calcular(
     {
       examenes: examenes.map(([id, it]) => ({
         id,
-        titulo: enComun.find(c => c.id === Number(id))?.titulo || `Examen ${id}`,
+        titulo: titulos[id] || `Examen ${id}`,
         moduloId: null,
         valor: it?.calificacion ?? null,
         maximo: 100,
@@ -61,10 +67,10 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
       })),
       tareas: tareas.map(([id, en]) => ({
         id,
-        titulo: enComun.find(c => c.id === Number(id))?.titulo || `Tarea ${id}`,
+        titulo: titulos[id] || `Tarea ${id}`,
         moduloId: null,
         valor: en?.calificacion ?? null,
-        maximo: en?.puntos_max ?? 100,
+        maximo: puntosMaxPorTarea[id] ?? 100,
       })),
       foro: [],
       avance: { hechos: 0, total: 0 },
@@ -73,7 +79,6 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
   )
 
   const tieneCalif = examenes.length > 0 || tareas.length > 0 || cursoConfig?.ponderacion
-
   if (!tieneCalif) return null
 
   return (
@@ -89,7 +94,7 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
         <div className="part-calif-item" key={examenId}>
           <div className="part-calif-row">
             <span className="part-calif-label">Examen</span>
-            <span className="part-calif-field">{enComun.find(c => c.id === Number(examenId))?.titulo || `Examen ${examenId}`}</span>
+            <span className="part-calif-field">{titulos[examenId] || `Examen ${examenId}`}</span>
             <span className="part-calif-valor">
               {it?.calificacion != null ? it.calificacion : 'Sin calificar'}
             </span>
@@ -103,7 +108,7 @@ function PerfilCalificaciones({ notasExamen = {}, calificacionesTarea = {}, curs
         <div className="part-calif-item" key={tareaId}>
           <div className="part-calif-row">
             <span className="part-calif-label">Tarea</span>
-            <span className="part-calif-field">{enComun.find(c => c.id === Number(tareaId))?.titulo || `Tarea ${tareaId}`}</span>
+            <span className="part-calif-field">{titulos[tareaId] || `Tarea ${tareaId}`}</span>
             <span className="part-calif-valor">
               {en?.calificacion != null ? en.calificacion : 'Sin calificar'}
             </span>
@@ -136,11 +141,11 @@ export default function Participantes({ cursoId, user }) {
   const [abierto, setAbierto] = useState(null) // perfil desplegado
   const [tituloCurso, setTituloCurso] = useState({}) // curso_id -> título
   const [misCursos, setMisCursos] = useState(new Set()) // para "cursos en común"
-  const [notasExamen, setNotasExamen] = useState({}) // examen_id -> mejor calificación
-  const [calificacionesTarea, setCalificacionesTarea] = useState({}) // tarea_id -> calificacion
+  const [notasExamen, setNotasExamen] = useState({}) // usuario_id -> { examen_id -> intento }
+  const [calificacionesTarea, setCalificacionesTarea] = useState({}) // usuario_id -> { tarea_id -> entrega }
+  const [titulosActividades, setTitulosActividades] = useState({}) // id -> título (examen y tarea)
+  const [puntosMaxPorTarea, setPuntosMaxPorTarea] = useState({}) // tarea_id -> puntos_max
   const [cursosPorConfig, setCursosPorConfig] = useState({}) // curso_id -> ponderación
-  const [enComun, setEnComun] = useState({}) // curso_id -> título para el perfil
-
 
   useEffect(() => {
     let vivo = true
@@ -207,7 +212,7 @@ export default function Participantes({ cursoId, user }) {
           }
         }
 
-        // --- Calificaciones: exámenes (la MEJOR nota) ---
+        // --- Calificaciones: exámenes (la MEJOR nota POR ALUMNO) ---
         const { data: exs } = await supabase
           .from('examenes')
           .select('id, titulo, curso_id, modulo_id, activo')
@@ -216,19 +221,22 @@ export default function Participantes({ cursoId, user }) {
         const { data: intentosEx } = idsEx.length
           ? await supabase
               .from('intentos_examen')
-              .select('examen_id, calificacion, aprobado')
+              .select('usuario_id, examen_id, calificacion, aprobado')
               .in('examen_id', idsEx)
+              .in('usuario_id', ids)
           : { data: [] }
-        const notasEx = {}
+        const notasEx = {} // notasEx[usuario_id][examen_id] = intento
         for (const it of intentosEx || []) {
-          if (!notasEx[it.examen_id]) notasEx[it.examen_id] = it
-          else if ((it.calificacion ?? 0) > (notasEx[it.examen_id].calificacion ?? 0)) {
-            notasEx[it.examen_id] = it
+          const u = it.usuario_id
+          if (!notasEx[u]) notasEx[u] = {}
+          if (!notasEx[u][it.examen_id]) notasEx[u][it.examen_id] = it
+          else if ((it.calificacion ?? 0) > (notasEx[u][it.examen_id].calificacion ?? 0)) {
+            notasEx[u][it.examen_id] = it
           }
         }
         setNotasExamen(notasEx)
 
-        // --- Calificaciones: tareas (la última calificación válida) ---
+        // --- Calificaciones: tareas (la última calificación POR ALUMNO) ---
         const { data: ts } = await supabase
           .from('tareas')
           .select('id, titulo, curso_id, modulo_id, activo, puntos_max')
@@ -237,32 +245,35 @@ export default function Participantes({ cursoId, user }) {
         const { data: entregas } = idsT.length
           ? await supabase
               .from('entregas')
-              .select('tarea_id, calificacion, calificado_en')
+              .select('usuario_id, tarea_id, calificacion, calificado_en')
               .in('tarea_id', idsT)
+              .in('usuario_id', ids)
           : { data: [] }
-        const notasT = {}
+        const notasT = {} // notasT[usuario_id][tarea_id] = entrega
         for (const en of entregas || []) {
-          if (!notasT[en.tarea_id]) notasT[en.tarea_id] = en
-          else if (en.calificado_en && (!notasT[en.tarea_id].calificado_en || en.calificado_en > notasT[en.tarea_id].calificado_en)) {
-            notasT[en.tarea_id] = en
+          const u = en.usuario_id
+          if (!notasT[u]) notasT[u] = {}
+          if (!notasT[u][en.tarea_id]) notasT[u][en.tarea_id] = en
+          else if (en.calificado_en && (!notasT[u][en.tarea_id].calificado_en || en.calificado_en > notasT[u][en.tarea_id].calificado_en)) {
+            notasT[u][en.tarea_id] = en
           }
         }
         setCalificacionesTarea(notasT)
 
-        if (idsCursoAjenos.length) {
-          const { data: cs } = await supabase.from('cursos')
-            .select('id, titulo').in('id', idsCursoAjenos)
-          if (vivo) {
-            setTituloCurso(Object.fromEntries((cs || []).map(c => [c.id, c.titulo])))
-            setEnComun(prev => {
-              const next = { ...prev }
-              for (const id of ids) {
-                const pCursos = cursosDe[id] || new Set()
-                next[id] = [...pCursos].filter(c => misSet.has(c)).map(c => titulosCurso[c] || `Curso ${c}`)
-              }
-              return next
-            })
-          }
+        // --- Títulos por id y puntos_max de tareas ---
+        const titulosMap = {}
+        for (const e of exs || []) titulosMap[e.id] = e.titulo
+        for (const t of ts || []) titulosMap[t.id] = t.titulo
+        setTitulosActividades(titulosMap)
+        setPuntosMaxPorTarea(Object.fromEntries((ts || []).map(t => [t.id, t.puntos_max ?? 100])))
+
+        // --- Cursos en común ---
+        const enComun = {}
+        for (const id of ids) {
+          const pCursos = cursosDe[id] || new Set()
+          enComun[id] = [...pCursos]
+            .filter(c => misSet.has(c))
+            .map(c => titulosCurso[c] || `Curso ${c}`)
         }
 
         const grupoDe = Object.fromEntries((insc || []).map(a => [a.usuario_id, a.grupo]))
@@ -279,8 +290,8 @@ export default function Participantes({ cursoId, user }) {
           inscritoEl: inscritoEl[p.id] || null,
           ultimo: ultimo[p.id] || null,
           cursos: [...(cursosDe[p.id] || [])].map(c => ({ id: c, titulo: titulosCurso[c] || `Curso ${c}` })),
-          notasExamen: notasEx,
-          calificacionesTarea: notasT,
+          notasExamen: notasEx[p.id] || {},
+          calificacionesTarea: notasT[p.id] || {},
           cursoConfig: configPorCurso[curso] || null,
           enComun: enComun[p.id] || [],
         }))
@@ -308,8 +319,7 @@ export default function Participantes({ cursoId, user }) {
   // --- Ficha de una persona (vista tipo perfil de Moodle) ---
   if (abierto) {
     const p = abierto
-    // `cursos` es ahora [{id, titulo}], filtrar por los que el usuario
-    // gestiona también (admin/facilitador).
+    // `cursos` es [{id, titulo}], filtramos por los que el usuario gestiona.
     const enComun = p.cursos.filter(c => misCursos.has(c.id))
     return (
       <div className="part-perfil">
@@ -345,8 +355,9 @@ export default function Participantes({ cursoId, user }) {
         <PerfilCalificaciones
           notasExamen={p.notasExamen}
           calificacionesTarea={p.calificacionesTarea}
+          titulos={titulosActividades}
+          puntosMaxPorTarea={puntosMaxPorTarea}
           cursoConfig={p.cursoConfig}
-          enComun={enComun}
         />
 
         {enComun.length > 0 && (
@@ -386,7 +397,7 @@ export default function Participantes({ cursoId, user }) {
       )}
 
       {filtrados.length === 0 ? (
-        <p className="sutil">Nadie coincide con “{busqueda}”.</p>
+        <p className="sutil">Nadie coincide con "{busqueda}".</p>
       ) : (
         <ul className="part-lista">
           {filtrados.map(p => (
@@ -409,6 +420,3 @@ export default function Participantes({ cursoId, user }) {
     </div>
   )
 }
-
-
-// test token neuronal-plus: 2026-10-10T19:28:21.4768268-06:00
