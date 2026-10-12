@@ -1,0 +1,36 @@
+﻿            </button>
+          )}
+        </div>
+        {registroAbierto ? (
+          <>
+            <div className="recurso-acciones">
+              {registroEmbebible && (
+                <button className={`button ${verRegistro ? 'secondary' : 'primary'}`} onClick={() => setVerRegistro(v => !v)}>
+                  {verRegistro ? 'Ocultar formulario' : 'Registrarme aquÃ­'}
+                </button>
+              )}
+              <a className={`button ${registroEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
+                {curso.registro_texto || 'Registrarme â†—'}
+              </a>
+            </div>
+            {registroEmbebible && verRegistro && (
+              <div className="recurso-contenido">
+                <EmbedFrame url={curso.link_registro} />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>
+              {curso.link_registro ? 'ðŸ”’ Registro cerrado (la sesiÃ³n ya se dio o aÃºn no abre)' : 'ðŸ“ Registro aÃºn no disponible'}
+            </button>
+          </div>
+        )}
+      </article>
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">ðŸŽ¬</span>
+            <div><h3>GrabaciÃ³n de la sesiÃ³n</h3></div>
+          </div>

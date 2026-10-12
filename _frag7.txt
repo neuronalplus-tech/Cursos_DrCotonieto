@@ -1,0 +1,21 @@
+﻿        botones_extra:   botonesValidos,
+      })
+
+      // Devolvemos el curso pÃºblico ya con el material encima, para que la
+      // tarjeta lo pinte sin recargar. El RPC es la fuente de verdad.
+      onGuardado({
+        ...res.data,
+        link_grabacion:  form.link_grabacion.trim() || null,
+        grabacion_texto: form.grabacion_texto.trim() || null,
+        link_materiales: form.link_materiales.trim() || null,
+        botones_extra:   botonesValidos,
+      })
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (

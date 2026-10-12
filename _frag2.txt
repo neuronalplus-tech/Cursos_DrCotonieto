@@ -1,0 +1,106 @@
+﻿=== CursoCard 86-190 ===
+          <p className="contenedor-desc">{curso.descripcion}</p>
+          <div className="course-acciones">
+            <Link to={`/curso/${curso.id}`} className="button primary ancho">Ver todos los talleres â†’</Link>
+          </div>
+        </div>
+      </article>
+    )
+  }
+
+  return (
+    <article className={`course-card ${gratis ? 'gratis' : ''} ${prox ? 'proximo' : ''}`}>
+      <div className="course-portada">
+        <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+        {prox && <span className="cinta-prox">PrÃ³ximamente</span>}
+      </div>
+
+      <div className="course-info">
+        {prox ? <span className="badge proximo">En preparaciÃ³n</span>
+          : gratis ? <span className="badge verde">Acceso libre</span>
+            : tieneAcceso ? <span className="badge ok">âœ” EstÃ¡s inscrito</span>
+              : <span className="badge neutro">Requiere inscripciÃ³n</span>}
+
+        <h3>{curso.titulo}</h3>
+
+        {especial && (
+          <p className="curso-disponible-card">
+            <span className="curso-disponible-label">Disponible a partir del</span>
+            <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+          </p>
+        )}
+
+        {curso.fecha_sesion && (
+          <p className="fecha-sesion">ðŸ“… {curso.fecha_sesion}</p>
+        )}
+
+        <button className="saber-mas" onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
+          {abierto ? 'Ocultar detalles â–²' : 'Saber mÃ¡s â–¼'}
+        </button>
+
+        {abierto && (
+          <div className="course-detalle">
+            <p>{curso.descripcion}</p>
+            {curso.info_curso && (
+              <div className="course-detalle-extra">
+                {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {mostrarCustom && (
+          <>
+            <button className="saber-mas" onClick={() => setAbiertoCustom(v => !v)} aria-expanded={abiertoCustom}>
+              {abiertoCustom ? 'Ocultar informaciÃ³n â–²' : 'Â¿Quieres un curso a la medida? â–¼'}
+            </button>
+
+            {abiertoCustom && (
+              <div className="course-detalle">
+                <p>
+                  DiseÃ±o cursos y talleres <strong>personalizados</strong> para instituciones educativas,
+                  hospitales, equipos clÃ­nicos y organizaciones. Si quieres capacitar a tu equipo en un tema
+                  especÃ­fico, armamos juntos el programa, los materiales y la logÃ­stica.
+                </p>
+                <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+                   href={wa(`Hola, me interesa un curso personalizado para mÃ­ o mi instituciÃ³n. Me gustÃ³ la lÃ­nea del curso "${curso.titulo}" y quiero algo a la medida.`)}>
+                  ðŸ’¬ Quiero mi curso personalizado
+                </a>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="course-acciones">
+          {tieneDetalles && (
+            <Link to={`/curso/${curso.id}/detalles`} className="button secondary ancho">
+              ðŸ“‹ Ver detalles y rutas
+            </Link>
+          )}
+          {prox ? (
+            gestiona ? (
+              <>
+                <p className="nota" style={{ marginTop: 0 }}>ðŸ”’ Marcado como "PrÃ³ximamente" â€” el pÃºblico solo ve el botÃ³n de WhatsApp.</p>
+                <div className="card-boton-admin">
+                  <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar (vista admin) â†’</Link>
+                  <button type="button" className="candado-toggle cerrado" onClick={toggleProximamente} title="Abrir al pÃºblico">
+                    ðŸ”’
+                  </button>
+                </div>
+                {gratis && (
+                  <button type="button" className="button texto ancho" onClick={() => setEditandoTaller(true)}>
+                    âœï¸ Editar links y textos
+                  </button>
+                )}
+              </>
+            ) : (
+              <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
+                 href={wa(`Hola, me interesa el curso "${curso.titulo}". Â¿Me avisas cuÃ¡ndo abre?`)}>
+                Me interesa Â· avÃ­same
+              </a>
+            )
+          ) : gratis ? (
+            <>
+              <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar al taller</Link>
+
+              {curso.link_registro && (

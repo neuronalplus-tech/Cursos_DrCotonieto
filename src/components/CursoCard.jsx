@@ -40,8 +40,13 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
     return () => { vivo = false }
   }, [curso?.id])
 
-  const grabacionAbierta = !!material?.link_grabacion && material.grabacion_activo !== false
-  const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
+  // El candado de cada botón ahora controla si se MUESTRA al público o se
+  // oculta. Apagarlo ya no deja un botón tachado: lo quita de la vista. El
+  // admin siempre ve el candado, tenga o no link, para poder manejarlo.
+  const grabacionVisible = material?.grabacion_activo !== false
+  const registroVisible = curso.registro_activo !== false
+  const grabacionAbierta = grabacionVisible && !!material?.link_grabacion
+  const registroAbierto = registroVisible && !!curso.link_registro
   const botonesExtra = material?.botones_extra || []
 
   const toggleGrabacion = async () => {
@@ -72,6 +77,17 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
     const { error } = await supabase.from('cursos').update({ proximamente: nuevo }).eq('id', curso.id)
     if (error) { alert('Error: ' + error.message); return }
     setCurso(c => ({ ...c, proximamente: nuevo }))
+  }
+
+  // ← NUEVO: candado individual para los botones extra
+  const toggleBotonExtra = async (idx) => {
+    const nuevos = botonesExtra.map((b, i) =>
+      i === idx ? { ...b, activo: b.activo === false ? true : false } : b
+    )
+    try {
+      await guardarMaterialTaller(curso.id, { botones_extra: nuevos })
+    } catch (e) { alert('Error: ' + e.message); return }
+    setMaterial(m => ({ ...(m || {}), botones_extra: nuevos }))
   }
 
   if (esContenedor) {
@@ -187,9 +203,12 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
             <>
               <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar al taller</Link>
 
-              {curso.link_registro && (
+              {/* ← CAMBIO: admin ve el bloque aunque todavía no haya link */}
+              {(gestiona || (registroVisible && curso.link_registro)) && (
                 <div className="card-boton-admin">
-                  {registroAbierto ? (
+                  {!registroVisible ? (
+                    <button className="button azul ancho" disabled>📅 Registro (oculto)</button>
+                  ) : registroAbierto ? (
                     <a className="button azul ancho" target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
                       {curso.registro_texto || '📅 Registrarme a la sesión en vivo'}
                     </a>
@@ -199,37 +218,59 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
                   {gestiona && (
                     <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
                             onClick={toggleRegistro}
-                            title={curso.registro_activo === false ? 'Activar botón' : 'Desactivar botón'}>
+                            title={curso.registro_activo === false ? 'Mostrar botón al público' : 'Ocultar botón al público'}>
                       {curso.registro_activo === false ? '🔒' : '🔓'}
                     </button>
                   )}
                 </div>
               )}
 
-              {botonesExtra.map((b, i) => (
-                <a key={i} className={`button ${b.estilo || 'azul'} ancho`} target="_blank" rel="noopener noreferrer" href={b.url}>
-                  {b.texto}
-                </a>
-              ))}
+              {/* ← NUEVO: botones extra con candado individual */}
+              {botonesExtra.map((b, i) => {
+                const visible = b.activo !== false
+                if (!gestiona && !visible) return null
+                return (
+                  <div key={i} className="card-boton-admin">
+                    {!visible
+                      ? <button className="button secondary ancho" disabled>{b.texto} (oculto)</button>
+                      : <a className={`button ${b.estilo || 'azul'} ancho`} target="_blank"
+                           rel="noopener noreferrer" href={b.url}>{b.texto}</a>}
+                    {gestiona && (
+                      <button type="button"
+                        className={`candado-toggle ${visible ? 'abierto' : 'cerrado'}`}
+                        onClick={() => toggleBotonExtra(i)}
+                        title={visible ? 'Ocultar botón al público' : 'Mostrar botón al público'}>
+                        {visible ? '🔓' : '🔒'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
 
-              <div className="card-boton-admin">
-                {grabacionAbierta ? (
-                  <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={material.link_grabacion}>
-                    {material.grabacion_texto || '🎬 Ver grabación'}
-                  </a>
-                ) : (
-                  <button className="button secondary ancho" disabled>
-                    🎬 Grabación en proceso
-                  </button>
-                )}
-                {gestiona && material?.link_grabacion && (
-                  <button type="button" className={`candado-toggle ${material.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
-                          onClick={toggleGrabacion}
-                          title={material.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
-                    {material.grabacion_activo === false ? '🔒' : '🔓'}
-                  </button>
-                )}
-              </div>
+              {/* ← CAMBIO: admin ve el bloque aunque no haya link; el público
+                  solo si hay link y está visible */}
+              {(gestiona || (grabacionVisible && material?.link_grabacion)) && (
+                <div className="card-boton-admin">
+                  {!grabacionVisible ? (
+                    <button className="button secondary ancho" disabled>🎬 Grabación (oculta)</button>
+                  ) : grabacionAbierta ? (
+                    <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={material.link_grabacion}>
+                      {material.grabacion_texto || '🎬 Ver grabación'}
+                    </a>
+                  ) : (
+                    <button className="button secondary ancho" disabled>
+                      🎬 Grabación en proceso
+                    </button>
+                  )}
+                  {gestiona && (
+                    <button type="button" className={`candado-toggle ${material?.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
+                            onClick={toggleGrabacion}
+                            title={material?.grabacion_activo === false ? 'Mostrar botón al público' : 'Ocultar botón al público'}>
+                      {material?.grabacion_activo === false ? '🔒' : '🔓'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {gestiona && (
                 <button type="button" className="button texto ancho" onClick={() => setEditandoTaller(true)}>
@@ -257,7 +298,7 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
       {editandoTaller && (
         <Suspense fallback={<p className="nota">Cargando editor…</p>}>
           <ModalEditarTaller curso={curso} onClose={() => setEditandoTaller(false)}
-                            onGuardado={(c) => setCurso(c)} />
+                            onGuardado={(c) => { setCurso(c); materialDeTaller(c.id).then(m => setMaterial(m || {})) }} />
         </Suspense>
       )}
     </article>

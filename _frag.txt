@@ -1,0 +1,349 @@
+﻿===== CursoCard 74-190 =====
+    setCurso(c => ({ ...c, proximamente: nuevo }))
+  }
+
+  if (esContenedor) {
+    return (
+      <article className="course-card gratis contenedor">
+        <div className="course-portada">
+          <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+        </div>
+        <div className="course-info">
+          <span className="badge verde">SecciÃ³n</span>
+          <h3>{curso.titulo}</h3>
+          <p className="contenedor-desc">{curso.descripcion}</p>
+          <div className="course-acciones">
+            <Link to={`/curso/${curso.id}`} className="button primary ancho">Ver todos los talleres â†’</Link>
+          </div>
+        </div>
+      </article>
+    )
+  }
+
+  return (
+    <article className={`course-card ${gratis ? 'gratis' : ''} ${prox ? 'proximo' : ''}`}>
+      <div className="course-portada">
+        <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+        {prox && <span className="cinta-prox">PrÃ³ximamente</span>}
+      </div>
+
+      <div className="course-info">
+        {prox ? <span className="badge proximo">En preparaciÃ³n</span>
+          : gratis ? <span className="badge verde">Acceso libre</span>
+            : tieneAcceso ? <span className="badge ok">âœ” EstÃ¡s inscrito</span>
+              : <span className="badge neutro">Requiere inscripciÃ³n</span>}
+
+        <h3>{curso.titulo}</h3>
+
+        {especial && (
+          <p className="curso-disponible-card">
+            <span className="curso-disponible-label">Disponible a partir del</span>
+            <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+          </p>
+        )}
+
+        {curso.fecha_sesion && (
+          <p className="fecha-sesion">ðŸ“… {curso.fecha_sesion}</p>
+        )}
+
+        <button className="saber-mas" onClick={() => setAbierto(v => !v)} aria-expanded={abierto}>
+          {abierto ? 'Ocultar detalles â–²' : 'Saber mÃ¡s â–¼'}
+        </button>
+
+        {abierto && (
+          <div className="course-detalle">
+            <p>{curso.descripcion}</p>
+            {curso.info_curso && (
+              <div className="course-detalle-extra">
+                {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {mostrarCustom && (
+          <>
+            <button className="saber-mas" onClick={() => setAbiertoCustom(v => !v)} aria-expanded={abiertoCustom}>
+              {abiertoCustom ? 'Ocultar informaciÃ³n â–²' : 'Â¿Quieres un curso a la medida? â–¼'}
+            </button>
+
+            {abiertoCustom && (
+              <div className="course-detalle">
+                <p>
+                  DiseÃ±o cursos y talleres <strong>personalizados</strong> para instituciones educativas,
+                  hospitales, equipos clÃ­nicos y organizaciones. Si quieres capacitar a tu equipo en un tema
+                  especÃ­fico, armamos juntos el programa, los materiales y la logÃ­stica.
+                </p>
+                <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
+                   href={wa(`Hola, me interesa un curso personalizado para mÃ­ o mi instituciÃ³n. Me gustÃ³ la lÃ­nea del curso "${curso.titulo}" y quiero algo a la medida.`)}>
+                  ðŸ’¬ Quiero mi curso personalizado
+                </a>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="course-acciones">
+          {tieneDetalles && (
+            <Link to={`/curso/${curso.id}/detalles`} className="button secondary ancho">
+              ðŸ“‹ Ver detalles y rutas
+            </Link>
+          )}
+          {prox ? (
+            gestiona ? (
+              <>
+                <p className="nota" style={{ marginTop: 0 }}>ðŸ”’ Marcado como "PrÃ³ximamente" â€” el pÃºblico solo ve el botÃ³n de WhatsApp.</p>
+                <div className="card-boton-admin">
+                  <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar (vista admin) â†’</Link>
+                  <button type="button" className="candado-toggle cerrado" onClick={toggleProximamente} title="Abrir al pÃºblico">
+                    ðŸ”’
+                  </button>
+                </div>
+                {gratis && (
+                  <button type="button" className="button texto ancho" onClick={() => setEditandoTaller(true)}>
+                    âœï¸ Editar links y textos
+                  </button>
+                )}
+              </>
+            ) : (
+              <a className="button primary ancho" target="_blank" rel="noopener noreferrer"
+                 href={wa(`Hola, me interesa el curso "${curso.titulo}". Â¿Me avisas cuÃ¡ndo abre?`)}>
+                Me interesa Â· avÃ­same
+              </a>
+            )
+          ) : gratis ? (
+            <>
+              <Link to={`/curso/${curso.id}`} className="button secondary ancho">Entrar al taller</Link>
+
+              {curso.link_registro && (
+===== TallerRecursos 154-383 =====
+        <EditorBotonesExtra botones={form.botones_extra} onChange={(b) => set('botones_extra', b)} />
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
+export default function TallerRecursos({ curso: cursoProp, user, gestiona, onActualizado }) {
+  const [editando, setEditando] = useState(false)
+  const [emailLead, setEmailLead] = useState('')
+  const [solicitando, setSolicitando] = useState(false)
+  const [desbloqueado, setDesbloqueado] = useState(false)
+  const [msgLead, setMsgLead] = useState('')
+  const [verGrabacion, setVerGrabacion] = useState(false)
+  const [verMateriales, setVerMateriales] = useState(false)
+  const [verRegistro, setVerRegistro] = useState(false)
+  const [verBotonesExtra, setVerBotonesExtra] = useState({})
+
+  // El material sensible se pide por RPC y se fusiona sobre el curso. Sin
+  // permiso el RPC da null â†’ `material` queda {} â†’ no hay enlaces que
+  // pintar: la pantalla muestra "grabaciÃ³n en proceso" en lugar de un link
+  // que no debÃ­a estar. Es el seguro por defecto.
+  const [material, setMaterial] = useState(null)
+  useEffect(() => {
+    let vivo = true
+    materialDeTaller(cursoProp.id).then(m => { if (vivo) setMaterial(m || {}) })
+    return () => { vivo = false }
+  }, [cursoProp.id])
+  const curso = { ...cursoProp, ...(material || {}) }
+
+  const grabacionEmbebible = analizarUrl(curso.link_grabacion).embeddable
+  const materialesEmbebible = analizarUrl(curso.link_materiales).embeddable
+  const registroEmbebible = analizarUrl(curso.link_registro).embeddable
+  const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
+  const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
+  const botonesExtra = curso.botones_extra || []
+
+  const toggleGrabacionActivo = async () => {
+    const nuevo = curso.grabacion_activo === false
+    try {
+      await guardarMaterialTaller(curso.id, { grabacion_activo: nuevo })
+    } catch (e) { alert('Error: ' + e.message); return }
+    setMaterial(m => ({ ...(m || {}), grabacion_activo: nuevo }))
+  }
+
+  const toggleRegistroActivo = async () => {
+    const nuevo = curso.registro_activo === false
+    const { error } = await supabase.from('cursos').update({ registro_activo: nuevo }).eq('id', curso.id)
+    if (error) { alert('Error: ' + error.message); return }
+    onActualizado({ ...cursoProp, registro_activo: nuevo })
+  }
+
+  const solicitarMateriales = async () => {
+    const email = emailLead.trim().toLowerCase()
+    if (!email.includes('@') || !email.includes('.')) { setMsgLead('Escribe un correo vÃ¡lido'); return }
+    setSolicitando(true); setMsgLead('')
+    try {
+      await supabase.from('leads_talleres').insert({ curso_id: curso.id, email })
+      // El correo es "best effort": si falla, el lead ya quedÃ³ guardado.
+      enviarCorreo({ tipo: 'solicitud-materiales', curso: { titulo: curso.titulo }, email }).catch(() => {})
+      setDesbloqueado(true)
+    } catch (e) {
+      setMsgLead('Error: ' + e.message)
+    } finally {
+      setSolicitando(false)
+    }
+  }
+
+  return (
+    <section className="taller-recursos">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <h2 className="titulo-seccion">Material del taller</h2>
+        {gestiona && (
+          <button type="button" className="button secondary" onClick={() => setEditando(true)}>âœï¸ Editar taller</button>
+        )}
+      </div>
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">ðŸ“</span>
+            <div><h3>Registro a la sesiÃ³n en vivo</h3></div>
+          </div>
+          {gestiona && curso.link_registro && (
+            <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
+                    onClick={toggleRegistroActivo}
+                    title={curso.registro_activo === false ? 'Activar botÃ³n' : 'Desactivar botÃ³n'}>
+              {curso.registro_activo === false ? 'ðŸ”’' : 'ðŸ”“'}
+            </button>
+          )}
+        </div>
+        {registroAbierto ? (
+          <>
+            <div className="recurso-acciones">
+              {registroEmbebible && (
+                <button className={`button ${verRegistro ? 'secondary' : 'primary'}`} onClick={() => setVerRegistro(v => !v)}>
+                  {verRegistro ? 'Ocultar formulario' : 'Registrarme aquÃ­'}
+                </button>
+              )}
+              <a className={`button ${registroEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
+                {curso.registro_texto || 'Registrarme â†—'}
+              </a>
+            </div>
+            {registroEmbebible && verRegistro && (
+              <div className="recurso-contenido">
+                <EmbedFrame url={curso.link_registro} />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>
+              {curso.link_registro ? 'ðŸ”’ Registro cerrado (la sesiÃ³n ya se dio o aÃºn no abre)' : 'ðŸ“ Registro aÃºn no disponible'}
+            </button>
+          </div>
+        )}
+      </article>
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">ðŸŽ¬</span>
+            <div><h3>GrabaciÃ³n de la sesiÃ³n</h3></div>
+          </div>
+          {gestiona && curso.link_grabacion && (
+            <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
+                    onClick={toggleGrabacionActivo}
+                    title={curso.grabacion_activo === false ? 'Activar botÃ³n' : 'Desactivar botÃ³n'}>
+              {curso.grabacion_activo === false ? 'ðŸ”’' : 'ðŸ”“'}
+            </button>
+          )}
+        </div>
+        {grabacionAbierta ? (
+          <>
+            <div className="recurso-acciones">
+              {grabacionEmbebible && (
+                <button className={`button ${verGrabacion ? 'secondary' : 'primary'}`} onClick={() => setVerGrabacion(v => !v)}>
+                  {verGrabacion ? 'Ocultar grabaciÃ³n' : 'Ver aquÃ­'}
+                </button>
+              )}
+              <a className={`button ${grabacionEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
+                {curso.grabacion_texto || 'Ver grabaciÃ³n â†—'}
+              </a>
+            </div>
+            {grabacionEmbebible && verGrabacion && (
+              <div className="recurso-contenido">
+                <VideoPlayer url={curso.link_grabacion} />
+              </div>
+            )}
+            {/* CTA del taller gratuito para quien llega sin sesiÃ³n.
+               La grabaciÃ³n se queda abierta a todos: es el mejor imÃ¡n
+               de descubrimiento y ya era asÃ­. Lo que pide cuenta es la
+               constancia y el foro, que es lo que ofrece este botÃ³n. */}
+            {curso.gratuito && !user && (
+              <div className="recurso-acciones">
+                <Link className="button primary" to={rutaRegistro(`/curso/${curso.id}`)}>
+                  Crea tu cuenta: tu constancia y el foro con el docente
+                </Link>
+                <Link className="button secondary" to={rutaAcceso(`/curso/${curso.id}`)}>
+                  Ya tengo cuenta
+                </Link>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>
+              {curso.link_grabacion ? 'ðŸ”’ GrabaciÃ³n cargada, aÃºn cerrada' : 'ðŸŽ¬ GrabaciÃ³n en proceso'}
+            </button>
+          </div>
+        )}
+      </article>
+
+      {curso.gratuito && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">ðŸ“œ</span>
+              <div><h3>Constancia del taller</h3></div>
+            </div>
+          </div>
+          {user ? (
+            emiteConstancia(curso) ? (
+              <div className="recurso-acciones">
+                <Link className="button primary" to={`/constancia/${curso.id}`}>
+                  Descargar mi constancia
+                </Link>
+                <p className="nota" style={{ margin: 0 }}>
+                  Se emite con el nombre con el que te registraste. Cada constancia admite 2 descargas.
+                </p>
+              </div>
+            ) : (
+              <p className="nota" style={{ margin: 0 }}>
+                La constancia se habilita al terminar el taller; el botÃ³n de descarga aparecerÃ¡ aquÃ­.
+              </p>
+            )
+          ) : (
+            <div className="recurso-acciones">
+              <Link className="button secondary" to={rutaRegistro(`/curso/${curso.id}`)}>
+                Crea tu cuenta para descargar tu constancia
+              </Link>
+            </div>
+          )}
+        </article>
+      )}
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">ðŸ“„</span>
+            <div><h3>Materiales del taller</h3></div>
+          </div>
+        </div>
+
+        {!curso.link_materiales ? (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>ðŸ“„ Materiales en preparaciÃ³n</button>
+          </div>
+        ) : (user || desbloqueado) ? (
+          <>
+            <div className="recurso-acciones">

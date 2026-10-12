@@ -21,9 +21,12 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
     fecha_sesion:    curso.fecha_sesion || '',
     link_registro:   curso.link_registro || '',
     registro_texto:  curso.registro_texto || '',
+    registro_activo: curso.registro_activo !== false,
     link_grabacion:  '',
     grabacion_texto: '',
+    grabacion_activo: true,
     link_materiales: '',
+    materiales_activo: false,
     botones_extra:   [],
     constancia_gratuita_activa: curso.constancia_gratuita_activa === true,
   })
@@ -42,7 +45,9 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
         ...f,
         link_grabacion:  m.link_grabacion || '',
         grabacion_texto: m.grabacion_texto || '',
+        grabacion_activo: m.grabacion_activo !== false,
         link_materiales: m.link_materiales || '',
+        materiales_activo: m.materiales_activo === true,
         botones_extra:   Array.isArray(m.botones_extra) && m.botones_extra.length ? m.botones_extra : [],
       }))
     })
@@ -59,6 +64,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
         fecha_sesion:    form.fecha_sesion.trim() || null,
         link_registro:   form.link_registro.trim() || null,
         registro_texto:  form.registro_texto.trim() || null,
+        registro_activo: !!form.registro_activo,
         constancia_gratuita_activa: !!form.constancia_gratuita_activa,
       }
       const res = await supabase.from('cursos').update(publico).eq('id', curso.id).select().single()
@@ -69,7 +75,9 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
       await guardarMaterialTaller(curso.id, {
         link_grabacion:  form.link_grabacion.trim() || null,
         grabacion_texto: form.grabacion_texto.trim() || null,
+        grabacion_activo: !!form.grabacion_activo,
         link_materiales: form.link_materiales.trim() || null,
+        materiales_activo: !!form.materiales_activo,
         botones_extra:   botonesValidos,
       })
 
@@ -149,7 +157,9 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
 
         <label>Botones adicionales (ej. liga de Teams en vivo)</label>
         <p className="nota" style={{ marginTop: 0 }}>
-          Para sesión en vivo pega aquí la liga de <strong>Teams</strong> (abre en pestaña aparte ↗, sin límite). Agrégalos cuando programes algo y bórralos cuando ya pasó — no se quedan mostrando un "próximamente" viejo.
+          Para sesión en vivo pega aquí la liga de <strong>Teams</strong> (abre en pestaña aparte ↗, sin límite).
+          Cada botón tiene su propio candado 🔓/🔒 en la tarjeta del curso: úsalo para ocultarlo cuando ya pasó,
+          sin borrar el link — así lo reabres la próxima vez sin volver a pegar todo.
         </p>
         <EditorBotonesExtra botones={form.botones_extra} onChange={(b) => set('botones_extra', b)} />
 
@@ -190,19 +200,34 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
   }, [cursoProp.id])
   const curso = { ...cursoProp, ...(material || {}) }
 
+  // El candado controla "visible al público / oculto". Apagarlo quita el
+  // botón de la vista del público; el admin siempre ve el candado y un
+  // estado "(oculto)" para poder reactivarlo.
+  const grabacionVisible = material?.grabacion_activo !== false
+  const registroVisible = cursoProp.registro_activo !== false
+  const grabacionAbierta = grabacionVisible && !!curso.link_grabacion
+  const registroAbierto = registroVisible && !!curso.link_registro
+  const materialesVisible = material?.materiales_activo === true
+  const botonesExtra = curso.botones_extra || []
+
   const grabacionEmbebible = analizarUrl(curso.link_grabacion).embeddable
   const materialesEmbebible = analizarUrl(curso.link_materiales).embeddable
   const registroEmbebible = analizarUrl(curso.link_registro).embeddable
-  const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
-  const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
-  const botonesExtra = curso.botones_extra || []
 
   const toggleGrabacionActivo = async () => {
-    const nuevo = curso.grabacion_activo === false
+    const nuevo = material?.grabacion_activo === false
     try {
       await guardarMaterialTaller(curso.id, { grabacion_activo: nuevo })
     } catch (e) { alert('Error: ' + e.message); return }
     setMaterial(m => ({ ...(m || {}), grabacion_activo: nuevo }))
+  }
+
+  const toggleMaterialesActivo = async () => {
+    const nuevo = material?.materiales_activo !== true
+    try {
+      await guardarMaterialTaller(curso.id, { materiales_activo: nuevo })
+    } catch (e) { alert('Error: ' + e.message); return }
+    setMaterial(m => ({ ...(m || {}), materiales_activo: nuevo }))
   }
 
   const toggleRegistroActivo = async () => {
@@ -210,6 +235,17 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
     const { error } = await supabase.from('cursos').update({ registro_activo: nuevo }).eq('id', curso.id)
     if (error) { alert('Error: ' + error.message); return }
     onActualizado({ ...cursoProp, registro_activo: nuevo })
+  }
+
+  // ← NUEVO: candado individual para botones extra
+  const toggleBotonExtraActivo = async (idx) => {
+    const nuevos = botonesExtra.map((b, i) =>
+      i === idx ? { ...b, activo: b.activo === false ? true : false } : b
+    )
+    try {
+      await guardarMaterialTaller(curso.id, { botones_extra: nuevos })
+    } catch (e) { alert('Error: ' + e.message); return }
+    setMaterial(m => ({ ...(m || {}), botones_extra: nuevos }))
   }
 
   const solicitarMateriales = async () => {
@@ -243,11 +279,11 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             <span className="recurso-icono" aria-hidden="true">📝</span>
             <div><h3>Registro a la sesión en vivo</h3></div>
           </div>
-          {gestiona && curso.link_registro && (
-            <button type="button" className={`candado-toggle ${curso.registro_activo === false ? 'cerrado' : 'abierto'}`}
+          {gestiona && (
+            <button type="button" className={`candado-toggle ${registroVisible ? 'abierto' : 'cerrado'}`}
                     onClick={toggleRegistroActivo}
-                    title={curso.registro_activo === false ? 'Activar botón' : 'Desactivar botón'}>
-              {curso.registro_activo === false ? '🔒' : '🔓'}
+                    title={registroVisible ? 'Ocultar al público' : 'Mostrar al público'}>
+              {registroVisible ? '🔓' : '🔒'}
             </button>
           )}
         </div>
@@ -272,7 +308,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
         ) : (
           <div className="recurso-acciones">
             <button className="button secondary" disabled>
-              {curso.link_registro ? '🔒 Registro cerrado (la sesión ya se dio o aún no abre)' : '📝 Registro aún no disponible'}
+              {!registroVisible ? '🔒 Registro (oculto)' : curso.link_registro ? '🔒 Registro cerrado (la sesión ya se dio o aún no abre)' : '📝 Registro aún no disponible'}
             </button>
           </div>
         )}
@@ -284,11 +320,11 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             <span className="recurso-icono" aria-hidden="true">🎬</span>
             <div><h3>Grabación de la sesión</h3></div>
           </div>
-          {gestiona && curso.link_grabacion && (
-            <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
+          {gestiona && (
+            <button type="button" className={`candado-toggle ${grabacionVisible ? 'abierto' : 'cerrado'}`}
                     onClick={toggleGrabacionActivo}
-                    title={curso.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
-              {curso.grabacion_activo === false ? '🔒' : '🔓'}
+                    title={grabacionVisible ? 'Ocultar al público' : 'Mostrar al público'}>
+              {grabacionVisible ? '🔓' : '🔒'}
             </button>
           )}
         </div>
@@ -327,7 +363,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
         ) : (
           <div className="recurso-acciones">
             <button className="button secondary" disabled>
-              {curso.link_grabacion ? '🔒 Grabación cargada, aún cerrada' : '🎬 Grabación en proceso'}
+              {!grabacionVisible ? '🔒 Grabación (oculta)' : curso.link_grabacion ? '🔒 Grabación cargada, aún cerrada' : '🎬 Grabación en proceso'}
             </button>
           </div>
         )}
@@ -372,9 +408,20 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             <span className="recurso-icono" aria-hidden="true">📄</span>
             <div><h3>Materiales del taller</h3></div>
           </div>
+          {gestiona && (
+            <button type="button" className={`candado-toggle ${materialesVisible ? 'abierto' : 'cerrado'}`}
+                    onClick={toggleMaterialesActivo}
+                    title={materialesVisible ? 'Ocultar al público' : 'Mostrar al público'}>
+              {materialesVisible ? '🔓' : '🔒'}
+            </button>
+          )}
         </div>
 
-        {!curso.link_materiales ? (
+        {!materialesVisible ? (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>🔒 Materiales (ocultos)</button>
+          </div>
+        ) : !curso.link_materiales ? (
           <div className="recurso-acciones">
             <button className="button secondary" disabled>📄 Materiales en preparación</button>
           </div>
@@ -410,7 +457,10 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
         )}
       </article>
 
-      {botonesExtra.length > 0 && (
+      {/* ← CAMBIO: el público solo ve los botones con activo !== false; el
+          admin ve todos y cada uno con su candado. La sección se oculta si
+          no hay nada que mostrar. */}
+      {botonesExtra.some(b => gestiona || b.activo !== false) && (
         <article className="recurso-item">
           <div className="recurso-cabecera">
             <div className="recurso-titulo">
@@ -420,20 +470,35 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
           </div>
           <div className="recurso-acciones" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
             {botonesExtra.map((b, i) => {
+              const visible = b.activo !== false
+              if (!gestiona && !visible) return null
               const info = analizarUrl(b.url)
               const verlo = !!verBotonesExtra[i]
               return (
                 <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {info.embeddable && (
-                    <button type="button" className={`button ${verlo ? 'secondary' : 'primary'}`}
-                            onClick={() => setVerBotonesExtra(v => ({ ...v, [i]: !v[i] }))}>
-                      {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
+                  {!visible ? (
+                    <button className="button secondary" disabled>{b.texto} (oculto)</button>
+                  ) : (
+                    <>
+                      {info.embeddable && (
+                        <button type="button" className={`button ${verlo ? 'secondary' : 'primary'}`}
+                                onClick={() => setVerBotonesExtra(v => ({ ...v, [i]: !v[i] }))}>
+                          {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
+                        </button>
+                      )}
+                      <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                        {b.texto} ↗
+                      </a>
+                    </>
+                  )}
+                  {gestiona && (
+                    <button type="button" className={`candado-toggle ${visible ? 'abierto' : 'cerrado'}`}
+                            onClick={() => toggleBotonExtraActivo(i)}
+                            title={visible ? 'Ocultar al público' : 'Mostrar al público'}>
+                      {visible ? '🔓' : '🔒'}
                     </button>
                   )}
-                  <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
-                    {b.texto} ↗
-                  </a>
-                  {info.embeddable && verlo && (
+                  {visible && info.embeddable && verlo && (
                     <div className="recurso-contenido" style={{ flexBasis: '100%' }}>
                       <EmbedFrame url={b.url} />
                     </div>

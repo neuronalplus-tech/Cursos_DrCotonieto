@@ -1,0 +1,66 @@
+﻿        )}
+      </article>
+
+      {curso.gratuito && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">ðŸ“œ</span>
+              <div><h3>Constancia del taller</h3></div>
+            </div>
+          </div>
+          {user ? (
+            emiteConstancia(curso) ? (
+              <div className="recurso-acciones">
+                <Link className="button primary" to={`/constancia/${curso.id}`}>
+                  Descargar mi constancia
+                </Link>
+                <p className="nota" style={{ margin: 0 }}>
+                  Se emite con el nombre con el que te registraste. Cada constancia admite 2 descargas.
+                </p>
+              </div>
+            ) : (
+              <p className="nota" style={{ margin: 0 }}>
+                La constancia se habilita al terminar el taller; el botÃ³n de descarga aparecerÃ¡ aquÃ­.
+              </p>
+            )
+          ) : (
+            <div className="recurso-acciones">
+              <Link className="button secondary" to={rutaRegistro(`/curso/${curso.id}`)}>
+                Crea tu cuenta para descargar tu constancia
+              </Link>
+            </div>
+          )}
+        </article>
+      )}
+
+      <article className="recurso-item">
+        <div className="recurso-cabecera">
+          <div className="recurso-titulo">
+            <span className="recurso-icono" aria-hidden="true">ðŸ“„</span>
+            <div><h3>Materiales del taller</h3></div>
+          </div>
+        </div>
+
+        {!curso.link_materiales ? (
+          <div className="recurso-acciones">
+            <button className="button secondary" disabled>ðŸ“„ Materiales en preparaciÃ³n</button>
+          </div>
+        ) : (user || desbloqueado) ? (
+          <>
+            <div className="recurso-acciones">
+              {materialesEmbebible && (
+                <button className={`button ${verMateriales ? 'secondary' : 'primary'}`} onClick={() => setVerMateriales(v => !v)}>
+                  {verMateriales ? 'Ocultar materiales' : 'Ver aquÃ­'}
+                </button>
+              )}
+              <a className={`button ${materialesEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_materiales}>
+                Descargar materiales â†—
+              </a>
+            </div>
+            {materialesEmbebible && verMateriales && (
+              <div className="recurso-contenido">
+                <EmbedFrame url={curso.link_materiales} />
+              </div>
+            )}
+          </>
