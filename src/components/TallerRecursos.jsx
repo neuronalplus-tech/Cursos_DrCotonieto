@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { ModalPortal, EmbedFrame, VideoPlayer, EditorBotonesExtra } from './ui'
 import { analizarUrl, emiteConstancia } from '../lib/helpers'
 import { enviarCorreo } from '../lib/correo'
+import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
 import { rutaAcceso, rutaRegistro } from '../config'
 import ExamenModulo from './ExamenModulo'
 
@@ -20,53 +21,68 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
     fecha_sesion:    curso.fecha_sesion || '',
     link_registro:   curso.link_registro || '',
     registro_texto:  curso.registro_texto || '',
-    link_grabacion:  curso.link_grabacion || '',
-    grabacion_texto: curso.grabacion_texto || '',
-    link_materiales: curso.link_materiales || '',
-    botones_extra:   curso.botones_extra?.length ? curso.botones_extra : [],
+    link_grabacion:  '',
+    grabacion_texto: '',
+    link_materiales: '',
+    botones_extra:   [],
     constancia_gratuita_activa: curso.constancia_gratuita_activa === true,
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // El material sensible ya no vive en `cursos`: se pide por RPC y rellena
+  // el formulario. Quien no tenga permiso recibe null y los campos quedan
+  // vacíos (aquí solo entra admin/gestor, así que normalmente sí llega).
+  useEffect(() => {
+    let vivo = true
+    materialDeTaller(curso.id).then(m => {
+      if (!vivo || !m) return
+      setForm(f => ({
+        ...f,
+        link_grabacion:  m.link_grabacion || '',
+        grabacion_texto: m.grabacion_texto || '',
+        link_materiales: m.link_materiales || '',
+        botones_extra:   Array.isArray(m.botones_extra) && m.botones_extra.length ? m.botones_extra : [],
+      }))
+    })
+    return () => { vivo = false }
+  }, [curso.id])
+
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
       const botonesValidos = form.botones_extra.filter(b => (b.texto || '').trim() && (b.url || '').trim())
-      const payload = {
+
+      // Lo público (fecha, registro, constancia) sigue en `cursos`.
+      const publico = {
         fecha_sesion:    form.fecha_sesion.trim() || null,
         link_registro:   form.link_registro.trim() || null,
         registro_texto:  form.registro_texto.trim() || null,
+        constancia_gratuita_activa: !!form.constancia_gratuita_activa,
+      }
+      const res = await supabase.from('cursos').update(publico).eq('id', curso.id).select().single()
+      if (res.error) throw res.error
+
+      // Lo sensible (grabación, materiales, botones extra) va por RPC a
+      // `curso_material`, que no expone esos datos salvo a quien debe.
+      await guardarMaterialTaller(curso.id, {
         link_grabacion:  form.link_grabacion.trim() || null,
         grabacion_texto: form.grabacion_texto.trim() || null,
         link_materiales: form.link_materiales.trim() || null,
         botones_extra:   botonesValidos,
-        constancia_gratuita_activa: !!form.constancia_gratuita_activa,
-      }
-      let data = null
-      let parcial = false
-      try {
-        const res = await supabase.from('cursos').update(payload).eq('id', curso.id).select().single()
-        if (res.error) throw res.error
-        data = res.data
-      } catch (eColumna) {
-        // Si la columna botones_extra aún no existe en Supabase, guardamos el resto
-        // y avisamos cómo crearla (el botón extra queda visible solo en esta sesión).
-        const sinBotones = { ...payload }
-        delete sinBotones.botones_extra
-        const res2 = await supabase.from('cursos').update(sinBotones).eq('id', curso.id).select().single()
-        if (res2.error) throw res2.error
-        data = { ...res2.data, botones_extra: botonesValidos }
-        parcial = true
-        console.warn('Columna botones_extra ausente en Supabase, se guardó el resto:', eColumna?.message)
-        setMsg('Guardado parcial: falta crear la columna botones_extra (jsonb, default []) en la tabla cursos de Supabase. El botón extra se ve ahora, pero se perderá al recargar hasta crearla.')
-      }
-      onGuardado(data)
-      // Solo cerramos automáticamente si fue guardado completo.
-      // Si hubo guardado parcial (falta columna), dejamos el modal abierto
-      // para que leas el aviso en rojo.
-      if (!parcial) onClose()
+      })
+
+      // Devolvemos el curso público ya con el material encima, para que la
+      // tarjeta lo pinte sin recargar. El RPC es la fuente de verdad.
+      onGuardado({
+        ...res.data,
+        link_grabacion:  form.link_grabacion.trim() || null,
+        grabacion_texto: form.grabacion_texto.trim() || null,
+        link_materiales: form.link_materiales.trim() || null,
+        botones_extra:   botonesValidos,
+      })
+      onClose()
     } catch (e) {
       setMsg('Error: ' + e.message)
     } finally {
@@ -151,7 +167,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
   )
 }
 
-export default function TallerRecursos({ curso, user, gestiona, onActualizado }) {
+export default function TallerRecursos({ curso: cursoProp, user, gestiona, onActualizado }) {
   const [editando, setEditando] = useState(false)
   const [emailLead, setEmailLead] = useState('')
   const [solicitando, setSolicitando] = useState(false)
@@ -160,6 +176,19 @@ export default function TallerRecursos({ curso, user, gestiona, onActualizado })
   const [verGrabacion, setVerGrabacion] = useState(false)
   const [verMateriales, setVerMateriales] = useState(false)
   const [verRegistro, setVerRegistro] = useState(false)
+  const [verBotonesExtra, setVerBotonesExtra] = useState({})
+
+  // El material sensible se pide por RPC y se fusiona sobre el curso. Sin
+  // permiso el RPC da null → `material` queda {} → no hay enlaces que
+  // pintar: la pantalla muestra "grabación en proceso" en lugar de un link
+  // que no debía estar. Es el seguro por defecto.
+  const [material, setMaterial] = useState(null)
+  useEffect(() => {
+    let vivo = true
+    materialDeTaller(cursoProp.id).then(m => { if (vivo) setMaterial(m || {}) })
+    return () => { vivo = false }
+  }, [cursoProp.id])
+  const curso = { ...cursoProp, ...(material || {}) }
 
   const grabacionEmbebible = analizarUrl(curso.link_grabacion).embeddable
   const materialesEmbebible = analizarUrl(curso.link_materiales).embeddable
@@ -167,20 +196,20 @@ export default function TallerRecursos({ curso, user, gestiona, onActualizado })
   const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
   const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
   const botonesExtra = curso.botones_extra || []
-  const [verBotonesExtra, setVerBotonesExtra] = useState({})
 
   const toggleGrabacionActivo = async () => {
     const nuevo = curso.grabacion_activo === false
-    const { error } = await supabase.from('cursos').update({ grabacion_activo: nuevo }).eq('id', curso.id)
-    if (error) { alert('Error: ' + error.message); return }
-    onActualizado({ ...curso, grabacion_activo: nuevo })
+    try {
+      await guardarMaterialTaller(curso.id, { grabacion_activo: nuevo })
+    } catch (e) { alert('Error: ' + e.message); return }
+    setMaterial(m => ({ ...(m || {}), grabacion_activo: nuevo }))
   }
 
   const toggleRegistroActivo = async () => {
     const nuevo = curso.registro_activo === false
     const { error } = await supabase.from('cursos').update({ registro_activo: nuevo }).eq('id', curso.id)
     if (error) { alert('Error: ' + error.message); return }
-    onActualizado({ ...curso, registro_activo: nuevo })
+    onActualizado({ ...cursoProp, registro_activo: nuevo })
   }
 
   const solicitarMateriales = async () => {

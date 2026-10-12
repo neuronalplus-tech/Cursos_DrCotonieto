@@ -159,29 +159,43 @@ Protección de filas: **activada** · políticas: 3
 | `caratula` | `text` | — | — |
 | `linea` | `text` | — | — |
 | `link_sesion_vivo` | `text` | — | — |
-| `link_grabacion` | `text` | — | — |
 | `fecha_sesion` | `text` | — | — |
 | `constancia` | `boolean` | — | `true` |
 | `fecha_inicio` | `timestamp with time zone` | — | — |
 | `fecha_fin` | `timestamp with time zone` | — | — |
-| `link_materiales` | `text` | — | — |
 | `sesion_vivo_activo` | `boolean` | sí | `true` |
 | `sesion_vivo_texto` | `text` | — | — |
-| `grabacion_activo` | `boolean` | sí | `true` |
-| `grabacion_texto` | `text` | — | — |
 | `rutas_botones` | `jsonb` | sí | `'{}'::jsonb` |
-| `botones_extra` | `jsonb` | — | `'[]'::jsonb` |
 | `link_registro` | `text` | — | — |
 | `registro_texto` | `text` | — | — |
 | `registro_activo` | `boolean` | — | `true` |
 | `grabacion_activa` | `boolean` | — | `false` |
-| `materiales_texto` | `text` | — | — |
-| `materiales_activo` | `boolean` | — | `false` |
 | `proxima_sesion` | `text` | — | — |
 | `categoria_id` | `bigint` | — | — |
 | `organizacion_id` | `bigint` | — | — |
 | `ponderacion` | `jsonb` | — | — |
 | `constancia_gratuita_activa` | `boolean` | — | `false` |
+
+<!-- Grabación, cuadernillos y botones extra se movieron a `curso_material`
+     (ver MATERIAL_TALLER_PROTEGIDO.sql) para que `anon` no los lea por la
+     API. Se sirven solo por el RPC material_de_taller(). -->
+
+### `curso_material`
+
+Protección de filas: **activada** · políticas: 0 (acceso solo por RPC security definer)
+
+| Columna | Tipo | Obligatoria | Por omisión |
+|---|---|---|---|
+| `curso_id` | `integer` | sí | — |
+| `link_grabacion` | `text` | — | — |
+| `grabacion_texto` | `text` | — | — |
+| `grabacion_activo` | `boolean` | — | `true` |
+| `link_materiales` | `text` | — | — |
+| `materiales_texto` | `text` | — | — |
+| `materiales_activo` | `boolean` | — | `false` |
+| `botones_extra` | `jsonb` | — | `'[]'::jsonb` |
+| `actualizado_el` | `timestamp with time zone` | — | `now()` |
+
 
 ### `entregas`
 
@@ -603,12 +617,14 @@ Protección de filas: **activada** · políticas: 4
 | `es_facilitador_de_org` | `p_org bigint` | `boolean` | sí |
 | `fecha_limite_efectiva` | `p_tipo text, p_id bigint, p_usuario uuid` | `timestamp with time zone` | sí |
 | `get_admin_id` | `` | `uuid` | sí |
+| `guardar_material_taller` | `p_curso_id integer, p_material jsonb` | `void` | sí |
 | `inscritos_en_generacion` | `p_gen bigint` | `integer` | sí |
 | `limites_organizacion` | `p_org bigint` | `TABLE(max_alumnos integer, max_facilitadores integer, max_cursos integer, exenta boolean)` | sí |
 | `limpiar_pregunta` | `p jsonb` | `jsonb` | — |
 | `listar_inscritos_gratuitos` | `` | `TABLE(usuario_id uuid, email text, nombre_completo text, tanda integer, alta_el timestamp with time zone)` | sí |
 | `listar_usuarios_con_accesos` | `` | `TABLE(usuario_id uuid, email text, nombre_completo text, profesion text, notas_admin text, cursos_inscritos bigint, ultimo_ingreso timestamp with time zone)` | sí |
 | `manejar_alta_publica` | `` | `trigger` | sí |
+| `material_de_taller` | `p_curso_id integer` | `jsonb` | sí |
 | `mover_hilo_al_responder` | `` | `trigger` | sí |
 | `obtener_usuario_por_email` | `p_email text` | `uuid` | sí |
 | `preparar_descarga_constancia` | `p_curso bigint` | `jsonb` | sí |

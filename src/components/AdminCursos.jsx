@@ -25,17 +25,16 @@ const VACIO = {
   activo: true, gratuito: false, proximamente: false,
   caratula: '', info_curso: '',
   fecha_sesion: '', link_registro: '', registro_texto: '',
-  link_grabacion: '', grabacion_texto: '', link_materiales: '',
 }
 
-/** Los campos de taller solo estorban en un curso normal. */
+/** Los campos de taller solo estorban en un curso normal.
+    Grabación, cuadernillos y botones extra NO están aquí: son material
+    sensible y se editan en "Editar links y textos" (ModalEditarTaller),
+    que los guarda por RPC en curso_material, no como columna pública. */
 const CAMPOS_TALLER = [
   ['fecha_sesion', 'Fecha de la sesión', 'Ej. 12 de marzo, 19:00'],
   ['link_registro', 'Enlace de registro', 'https://…'],
   ['registro_texto', 'Texto del botón de registro', 'Ej. Apartar mi lugar'],
-  ['link_grabacion', 'Enlace de la grabación', 'https://…'],
-  ['grabacion_texto', 'Texto del botón de grabación', 'Ej. Ver la grabación'],
-  ['link_materiales', 'Enlace de materiales', 'https://…'],
 ]
 
 export default function AdminCursos() {

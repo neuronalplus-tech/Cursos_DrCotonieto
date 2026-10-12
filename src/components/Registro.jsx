@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { LOGO_CLARO } from '../config'
+import { LOGO_CLARO, REGISTRO_DEFECTO } from '../config'
+import { useOrganizacion } from '../lib/organizacion'
 import CampoContrasena from './CampoContrasena'
 
 /* ============================================================
@@ -58,8 +59,14 @@ function Registro() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [confirma, setConfirma] = useState('')
+  // Textos y campos editables por el admin. Arrancan en los valores por
+  // defecto del código (REGISTRO_DEFECTO) y se sobrescriben con lo que
+  // haya guardado en config_registro. Así la pantalla nunca sale vacía,
+  // ni siquiera mientras carga o si la organización no configuró nada.
+  const [cfg, setCfg] = useState(REGISTRO_DEFECTO)
   const navigate = useNavigate()
   const location = useLocation()
+  const { organizacion } = useOrganizacion()
 
   const crudo = new URLSearchParams(location.search).get('redirigir')
   const destino = crudo && crudo.startsWith('/') && !crudo.startsWith('//') ? crudo : '/'
@@ -72,6 +79,28 @@ function Registro() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Traer los textos y campos que el admin configuró para ESTA org y
+  // mezclarlos encima de los defaults. Solo pisan los que tengan valor;
+  // los null del default de la base los dejamos caer al default del
+  // código. Si la consulta falla, seguimos con REGISTRO_DEFECTO.
+  useEffect(() => {
+    if (!organizacion?.id) return
+    let vivo = true
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('config_registro').select('*')
+        .eq('organizacion_id', organizacion.id).maybeSingle()
+      if (vivo && !error && data) {
+        const mezclado = { ...REGISTRO_DEFECTO }
+        for (const k of Object.keys(REGISTRO_DEFECTO)) {
+          if (data[k] !== null && data[k] !== undefined) mezclado[k] = data[k]
+        }
+        setCfg(mezclado)
+      }
+    })()
+    return () => { vivo = false }
+  }, [organizacion?.id])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -80,9 +109,11 @@ function Registro() {
     const correo = email.trim().toLowerCase()
     const correoRepetido = email2.trim().toLowerCase()
 
-    if (nombreLimpio.length < 3) { setError('Escribe tu nombre completo, tal como quieres que salga en tu constancia.'); return }
-    if (correo !== correoRepetido) { setError('Los dos correos no coinciden. Revísalos, por favor.'); return }
-    if (password !== password2) { setError('Las dos contraseñas no coinciden.'); return }
+    // Cada campo "repetido" solo se valida si el admin lo dejó prendido:
+    // si apagó el "repite tu correo", no hay segundo correo que cruzar.
+    if (cfg.pedir_nombre && nombreLimpio.length < 3) { setError('Escribe tu nombre completo, tal como quieres que salga en tu constancia.'); return }
+    if (cfg.pedir_repeticion_email && correo !== correoRepetido) { setError('Los dos correos no coinciden. Revísalos, por favor.'); return }
+    if (cfg.pedir_repeticion_contrasena && password !== password2) { setError('Las dos contraseñas no coinciden.'); return }
     if (password.length < 6) { setError('La contraseña necesita al menos 6 caracteres.'); return }
 
     setLoading(true)
@@ -92,7 +123,12 @@ function Registro() {
       options: {
         // La metadata la lee el disparador manejar_alta_publica para
         // crear el perfil con el nombre y asignar la tanda (grupos de 50).
-        data: { nombre_completo: nombreLimpio, origen: 'autoinscripcion' },
+        // Si el admin apagó el campo de nombre, se manda el correo como
+        // respaldo para que la constancia no salga en blanco.
+        data: {
+          nombre_completo: nombreLimpio || correo,
+          origen: 'autoinscripcion',
+        },
         // Al confirmar el correo, Supabase regresa a la misma página de
         // origen con la sesión ya puesta: la persona entra directo al
         // taller desde el que se registró.
@@ -119,20 +155,14 @@ function Registro() {
       <section className="card login-card">
         <img src={LOGO_CLARO} alt="" className="logo-login" />
         <p className="eyebrow">Aula virtual</p>
-        <h1>Crear mi cuenta</h1>
+        <h1>{cfg.titulo}</h1>
 
         {confirma ? (
           <>
             <p className="sutil">
-              Casi listo. Te envié un correo de confirmación a <strong>{confirma}</strong>.
-              Abre ese enlace para activar tu cuenta: al entrar, quedarás directamente en el
-              taller desde el que te registraste.
+              {cfg.confirmacion_intro} <strong>{confirma}</strong>. {cfg.confirmacion_cierre}
             </p>
-            <p className="nota">
-              Con tu misma cuenta y contraseña entrarás también a las grabaciones y constancias
-              de futuros talleres. Si el correo no llega, revisa la carpeta de correo no
-              deseado y después escríbeme.
-            </p>
+            <p className="nota">{cfg.confirmacion_nota}</p>
             <div className="login-pie">
               <button className="enlace-texto" onClick={() => navigate(destino)}>← Volver al taller</button>
               <button className="enlace-texto" onClick={() => navigate(rutaVolver)}>Ya confirmé mi correo: ir a entrar</button>
@@ -140,30 +170,37 @@ function Registro() {
           </>
         ) : (
           <>
-            <p className="sutil">
-              Regístrate para descargar tu constancia del taller y participar en el foro.
-              Usa el nombre EXACTO con el que quieres que se emita tu constancia.
-            </p>
+            <p className="sutil">{cfg.descripcion}</p>
             <form onSubmit={handleSubmit}>
-              <label htmlFor="nombre">Nombre completo (para tu constancia)</label>
-              <input id="nombre" type="text" autoComplete="name" value={nombre}
-                     onChange={(e) => setNombre(e.target.value)} required />
+              {cfg.pedir_nombre && (
+                <>
+                  <label htmlFor="nombre">{cfg.etiqueta_nombre}</label>
+                  <input id="nombre" type="text" autoComplete="name" value={nombre}
+                         onChange={(e) => setNombre(e.target.value)} required />
+                </>
+              )}
 
-              <label htmlFor="email">Correo electrónico</label>
+              <label htmlFor="email">{cfg.etiqueta_email}</label>
               <input id="email" type="email" autoComplete="email" value={email}
                      onChange={(e) => setEmail(e.target.value)} required />
 
-              <label htmlFor="email2">Repite tu correo</label>
-              <input id="email2" type="email" autoComplete="email" value={email2}
-                     onChange={(e) => setEmail2(e.target.value)} required />
+              {cfg.pedir_repeticion_email && (
+                <>
+                  <label htmlFor="email2">{cfg.etiqueta_email2}</label>
+                  <input id="email2" type="email" autoComplete="email" value={email2}
+                         onChange={(e) => setEmail2(e.target.value)} required />
+                </>
+              )}
 
-              <CampoContrasena valor={password} onChange={setPassword}
-                               autoComplete="new-password" />
-              <CampoContrasena etiqueta="Repite tu contraseña" valor={password2}
-                               onChange={setPassword2} autoComplete="new-password" />
+              <CampoContrasena etiqueta={cfg.etiqueta_contrasena} valor={password}
+                               onChange={setPassword} autoComplete="new-password" />
+              {cfg.pedir_repeticion_contrasena && (
+                <CampoContrasena etiqueta={cfg.etiqueta_contrasena2} valor={password2}
+                                 onChange={setPassword2} autoComplete="new-password" />
+              )}
 
               <button type="submit" disabled={loading} className="button primary ancho">
-                {loading ? 'Creando tu cuenta...' : 'Crear mi cuenta'}
+                {loading ? cfg.texto_cargando : cfg.texto_boton}
               </button>
             </form>
             {error && <p className="aviso-error">{error}</p>}

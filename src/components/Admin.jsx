@@ -14,6 +14,7 @@ import BancoPreguntas from './BancoPreguntas'
 import TableroOrg from './TableroOrg'
 import AdminPlantillas from './AdminPlantillas'
 import AdminRoles from './AdminRoles'
+import AdminRegistro from './AdminRegistro'
 import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
 import { sanearDocumento } from '../lib/foro'
 import { usePermisos, useMisPermisos, useModulos } from '../lib/permisos'
@@ -127,6 +128,7 @@ const GRUPOS_PANEL = [
     ['usuarios', '👥 Gestión de usuarios'],
     ['facilitadores', '🛠️ Facilitadores'],
     ['roles', '🔑 Roles'],
+    ['registro', '📝 Registro público'],
   ]],
   ['Seguimiento', [
     ['tablero', '📈 Tablero'],
@@ -1394,8 +1396,9 @@ function Admin({ user }) {
 
             // Quien administra la organización ve todo lo que contrató.
             if (esAdmin) return true
-            // Repartir permisos no es de quien los recibió.
-            if (clave === 'roles') return false
+            // Repartir permisos no es de quien los recibió, y los ajustes
+            // del registro público tampoco: son configuración del sitio.
+            if (clave === 'roles' || clave === 'registro') return false
             const pide = PERMISO_DE[clave]
             return pide === null || permisosRol.puedeAlguno(pide)
           })
@@ -1863,6 +1866,7 @@ function Admin({ user }) {
       {vista === 'banco' && <BancoPreguntas />}
       {vista === 'plantillas' && <AdminPlantillas />}
       {vista === 'roles' && <AdminRoles />}
+      {vista === 'registro' && <AdminRegistro />}
       {vista === 'bitacora' && <AdminBitacora />}
       {vista === 'organizaciones' && esAdminPlataforma && <AdminOrganizaciones />}
       {vista === 'suscripciones' && esAdminPlataforma && <AdminSuscripciones />}

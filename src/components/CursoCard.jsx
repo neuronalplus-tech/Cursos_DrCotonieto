@@ -1,6 +1,7 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
 import { rutaAcceso, MARCA, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
@@ -26,15 +27,29 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
   const especial = cursoEspecial(curso)
   const tieneDetalles = !!especial
 
-  const grabacionAbierta = !!curso.link_grabacion && curso.grabacion_activo !== false
+  // El material sensible (grabación, cuadernillos, botones extra) ya no
+  // viaja en el objeto curso: se pide por RPC. Quien no tiene permiso
+  // (visitante sin cuenta, o curso de pago sin inscripción) recibe null y
+  // esos enlaces sencillamente no se pintan en la portada. El candado del
+  // admin necesita el material, por eso se pide siempre que haya curso.
+  const [material, setMaterial] = useState(null)
+  useEffect(() => {
+    if (!curso?.id) return
+    let vivo = true
+    materialDeTaller(curso.id).then(m => { if (vivo) setMaterial(m || {}) })
+    return () => { vivo = false }
+  }, [curso?.id])
+
+  const grabacionAbierta = !!material?.link_grabacion && material.grabacion_activo !== false
   const registroAbierto = !!curso.link_registro && curso.registro_activo !== false
-  const botonesExtra = curso.botones_extra || []
+  const botonesExtra = material?.botones_extra || []
 
   const toggleGrabacion = async () => {
-    const nuevo = curso.grabacion_activo === false
-    const { error } = await supabase.from('cursos').update({ grabacion_activo: nuevo }).eq('id', curso.id)
-    if (error) { alert('Error: ' + error.message); return }
-    setCurso(c => ({ ...c, grabacion_activo: nuevo }))
+    const nuevo = material?.grabacion_activo === false
+    try {
+      await guardarMaterialTaller(curso.id, { grabacion_activo: nuevo })
+    } catch (e) { alert('Error: ' + e.message); return }
+    setMaterial(m => ({ ...(m || {}), grabacion_activo: nuevo }))
   }
 
   const toggleRegistro = async () => {
@@ -199,19 +214,19 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
 
               <div className="card-boton-admin">
                 {grabacionAbierta ? (
-                  <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
-                    {curso.grabacion_texto || '🎬 Ver grabación'}
+                  <a className="button secondary ancho" target="_blank" rel="noopener noreferrer" href={material.link_grabacion}>
+                    {material.grabacion_texto || '🎬 Ver grabación'}
                   </a>
                 ) : (
                   <button className="button secondary ancho" disabled>
                     🎬 Grabación en proceso
                   </button>
                 )}
-                {gestiona && curso.link_grabacion && (
-                  <button type="button" className={`candado-toggle ${curso.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
+                {gestiona && material?.link_grabacion && (
+                  <button type="button" className={`candado-toggle ${material.grabacion_activo === false ? 'cerrado' : 'abierto'}`}
                           onClick={toggleGrabacion}
-                          title={curso.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
-                    {curso.grabacion_activo === false ? '🔒' : '🔓'}
+                          title={material.grabacion_activo === false ? 'Activar botón' : 'Desactivar botón'}>
+                    {material.grabacion_activo === false ? '🔒' : '🔓'}
                   </button>
                 )}
               </div>

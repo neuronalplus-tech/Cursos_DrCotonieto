@@ -93,6 +93,42 @@ export const rutaAcceso = (destino) => `/acceso?redirigir=${encodeURIComponent(d
 export const rutaRegistro = (destino) => `/registro?redirigir=${encodeURIComponent(destino)}`
 
 /* ============================================================
+   FORMULARIO DE REGISTRO PÚBLICO: VALORES POR DEFECTO
+   ------------------------------------------------------------
+   Es la fuente de verdad de los textos y campos de la pantalla
+   /registro. El admin puede sobrescribirlos desde el panel
+   (tabla config_registro, sección "Registro público" del panel);
+   lo que se guarda allí se mezcla encima de esto. Si no hay nada
+   guardado —o la organización aún no configuró nada— la pantalla
+   usa exactamente estos valores, así nunca sale vacía.
+
+   Se guarda aquí y no como DEFAULT en la SQL a propósito: un solo
+   sitio con el texto, no dos que se desincronicen.
+   ============================================================ */
+export const REGISTRO_DEFECTO = {
+  titulo: 'Crear mi cuenta',
+  descripcion:
+    'Regístrate para descargar tu constancia del taller y participar en el foro. ' +
+    'Usa el nombre EXACTO con el que quieres que se emita tu constancia.',
+  texto_boton: 'Crear mi cuenta',
+  texto_cargando: 'Creando tu cuenta...',
+  etiqueta_nombre: 'Nombre completo (para tu constancia)',
+  pedir_nombre: true,
+  etiqueta_email: 'Correo electrónico',
+  pedir_repeticion_email: true,
+  etiqueta_email2: 'Repite tu correo',
+  etiqueta_contrasena: 'Contraseña',
+  etiqueta_contrasena2: 'Repite tu contraseña',
+  pedir_repeticion_contrasena: true,
+  confirmacion_intro: 'Casi listo. Te envié un correo de confirmación a',
+  confirmacion_cierre:
+    'Abre ese enlace para activar tu cuenta: al entrar, quedarás directamente en el taller desde el que te registraste.',
+  confirmacion_nota:
+    'Con tu misma cuenta y contraseña entrarás también a las grabaciones y constancias de futuros talleres. ' +
+    'Si el correo no llega, revisa la carpeta de correo no deseado y después escríbeme.',
+}
+
+/* ============================================================
    DETALLES DEL CURSO DE DUELO
    ============================================================ */
 export const DETALLES_DUELO = {
