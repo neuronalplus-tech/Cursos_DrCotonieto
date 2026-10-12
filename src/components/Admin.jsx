@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso } from '../config'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
+import { enlaceWhatsApp, mostrarTelefono, normalizarTelefono, aplicarPlantilla, MARCADORES } from '../lib/whatsapp'
 import { ModalPortal, Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import AdminExamenes from './AdminExamenes'
 import AdminForo from './AdminForo'
@@ -198,6 +199,14 @@ function Admin({ user }) {
 
   const [usuarios, setUsuarios] = useState([])
   const [accesos, setAccesos] = useState({})
+  // usuario_id -> { whatsapp, origen: 'perfil' | 'admin' }. Viene de la
+  // RPC, que ya decide cuál de los dos números manda: el que la persona
+  // puso en su perfil gana sobre el que capturaste tú.
+  const [telefonos, setTelefonos] = useState({})
+  const [modalWhatsapp, setModalWhatsapp] = useState(null)
+  const [guardandoWa, setGuardandoWa] = useState(false)
+  const [modalBorrar, setModalBorrar] = useState(null)
+  const [borrando, setBorrando] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
   const [filtroCursoUsuario, setFiltroCursoUsuario] = useState('todos')
@@ -265,6 +274,26 @@ function Admin({ user }) {
   const [tandaDatos, setTandaDatos] = useState([])
   const [tandasDisponibles, setTandasDisponibles] = useState([])
   const [tandasCargadas, setTandasCargadas] = useState(false)
+
+  /* --- Comunicados por WhatsApp ---
+     El canal decide qué se compone (asunto + HTML, o texto plano) y
+     por dónde sale. El «a quién» es común a los dos: el mismo grupo
+     de personas se puede avisar por correo hoy y por WhatsApp mañana
+     sin volver a elegirlo. */
+  const [comunicadoCanal, setComunicadoCanal] = useState('correo')
+  const [plantillasWa, setPlantillasWa] = useState([])
+  const [plantillaWaSel, setPlantillaWaSel] = useState('')
+  const [textoWa, setTextoWa] = useState('')
+  const [nombrePlantillaWa, setNombrePlantillaWa] = useState('')
+  const [guardandoPlantillaWa, setGuardandoPlantillaWa] = useState(false)
+  const [manualWa, setManualWa] = useState('')
+  // A quién ya le diste enviar. Vive solo mientras la pantalla está
+  // abierta: es una ayuda para no perder el hilo en una lista de 50,
+  // no un registro de envíos (WhatsApp no nos dice si llegó).
+  const [enviadosWa, setEnviadosWa] = useState(() => new Set())
+  const [apiWa, setApiWa] = useState(null)
+  const [enviandoApiWa, setEnviandoApiWa] = useState(false)
+  const [msgWa, setMsgWa] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -335,6 +364,56 @@ function Admin({ user }) {
     if (!esAdmin || vista !== 'usuarios') return
     if (usuarios.length === 0) cargarGestion()
   }, [esAdmin, vista, usuarios.length])
+
+  /* Los teléfonos van en su propia llamada, y no dentro de la lista de
+     usuarios, porque los que capturas tú viven en otra tabla —para que
+     el alumno no los vea en su perfil— y eso no se resuelve con un join
+     desde el navegador. Los piden dos pantallas: Gestión (para verlos y
+     editarlos) y Comunicados (para escribirles). */
+  useEffect(() => {
+    if (!esAdmin || (vista !== 'usuarios' && vista !== 'comunicados')) return
+    if (Object.keys(telefonos).length > 0) return
+    let vivo = true
+    supabase.rpc('listar_whatsapp').then(({ data, error }) => {
+      if (!vivo || error) return
+      const mapa = {}
+      ;(data || []).forEach(t => {
+        if (t.whatsapp) mapa[t.usuario_id] = { whatsapp: t.whatsapp, origen: t.origen, email: t.email }
+      })
+      setTelefonos(mapa)
+    })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esAdmin, vista])
+
+  // Las plantillas de WhatsApp y el estado del Cloud API solo se piden
+  // al abrir ese canal: quien solo manda correos no paga esas llamadas.
+  useEffect(() => {
+    if (!esAdmin || vista !== 'comunicados' || comunicadoCanal !== 'whatsapp') return
+    let vivo = true
+    // Las de esta organización y las que no tienen ninguna (las de
+    // antes del multi-inquilino): no las de otro cliente.
+    let q = supabase.from('plantillas_whatsapp').select('*')
+    if (organizacion?.id) q = q.or(`organizacion_id.is.null,organizacion_id.eq.${organizacion.id}`)
+    q.order('orden').order('nombre')
+      .then(({ data, error }) => {
+        if (!vivo) return
+        if (error) { setMsgWa('No se pudieron cargar las plantillas: ' + error.message); return }
+        setPlantillasWa(data || [])
+      })
+    if (apiWa === null) {
+      supabase.functions.invoke('whatsapp-enviar', { body: { accion: 'estado' } })
+        .then(({ data, error }) => {
+          if (!vivo) return
+          // Que la función no exista es el caso normal mientras no se
+          // despliegue: significa «solo enlaces», no un error que contar.
+          setApiWa(error ? { configurado: false, motivo: 'La función whatsapp-enviar no está desplegada.' }
+                         : (data || { configurado: false }))
+        })
+    }
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esAdmin, vista, comunicadoCanal])
 
   // Las asignaciones de facilitador se cargan aparte de los accesos:
   // son otra tabla y otra llave (correo, no usuario_id).
@@ -763,12 +842,41 @@ function Admin({ user }) {
       const key = (f.email || '').trim().toLowerCase()
       if (!key || !key.includes('@')) return
       if (!dedup.has(key)) {
-        dedup.set(key, { email: key, nombre_completo: f.nombre_completo || '' })
+        const tel = telefonos[f.usuario_id] || null
+        dedup.set(key, {
+          email: key,
+          nombre_completo: f.nombre_completo || '',
+          usuario_id: f.usuario_id || null,
+          // Para el correo sobra; para WhatsApp es el dato que decide si
+          // a esa persona se le puede escribir o solo contarla.
+          //
+          // Se normaliza AQUÍ y no al guardarlo: el número que escribe
+          // la persona en su perfil entra como ella lo escriba («771 123
+          // 4567»), y tanto el enlace wa.me como la API de Meta solo
+          // aceptan dígitos con código de país. Lo que no se pueda
+          // marcar queda en null y cae en la lista de «sin número», que
+          // es la verdad: a esa persona no se le puede escribir.
+          whatsapp: normalizarTelefono(tel?.whatsapp) || null,
+          whatsapp_origen: tel?.origen || null,
+        })
       }
     }
 
     if (comunicadoDestino === 'manual') {
-      return parsearEmails(comunicadoManual).map(e => ({ email: e, nombre_completo: '' }))
+      // En WhatsApp la lista pegada es de números, no de correos: nadie
+      // tiene a mano el correo de un contacto de WhatsApp.
+      if (comunicadoCanal === 'whatsapp') {
+        const vistos = new Set()
+        return manualWa.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)
+          .map(s => ({ email: '', nombre_completo: '', usuario_id: null,
+                       whatsapp: normalizarTelefono(s), whatsapp_origen: 'manual', crudo: s }))
+          .filter(d => {
+            if (!d.whatsapp || vistos.has(d.whatsapp)) return false
+            vistos.add(d.whatsapp)
+            return true
+          })
+      }
+      return parsearEmails(comunicadoManual).map(e => ({ email: e, nombre_completo: '', whatsapp: null }))
     }
 
     if (comunicadoDestino === 'todos') {
@@ -878,6 +986,134 @@ function Admin({ user }) {
     }
     setComunicadoCuerpo(limpio)
     setEditorHtmlAbierto(false)
+  }
+
+  /* --- WhatsApp: plantillas guardadas --- */
+  const guardarPlantillaWa = async () => {
+    const nombre = nombrePlantillaWa.trim()
+    const texto = textoWa.trim()
+    if (!nombre) { setMsgWa('Error: ponle un nombre a la plantilla para reconocerla después.'); return }
+    if (!texto) { setMsgWa('Error: escribe el mensaje antes de guardarlo.'); return }
+    setGuardandoPlantillaWa(true)
+    setMsgWa('')
+    try {
+      // Con una plantilla elegida se actualiza esa; sin ella se crea una
+      // nueva. Así «guardar» no duplica la lista cada vez que corriges
+      // una coma.
+      const existente = plantillasWa.find(p => String(p.id) === String(plantillaWaSel))
+      if (existente) {
+        const { error } = await supabase.from('plantillas_whatsapp')
+          .update({ nombre, texto }).eq('id', existente.id)
+        if (error) throw error
+        setPlantillasWa(prev => prev.map(p => p.id === existente.id ? { ...p, nombre, texto } : p))
+        setMsgWa('✓ Plantilla actualizada')
+      } else {
+        const { data, error } = await supabase.from('plantillas_whatsapp')
+          .insert({ nombre, texto, organizacion_id: organizacion?.id || null })
+          .select().single()
+        if (error) throw error
+        setPlantillasWa(prev => [...prev, data])
+        setPlantillaWaSel(String(data.id))
+        setMsgWa('✓ Plantilla guardada')
+      }
+    } catch (e) {
+      setMsgWa('Error al guardar la plantilla: ' + e.message)
+    } finally {
+      setGuardandoPlantillaWa(false)
+    }
+  }
+
+  const borrarPlantillaWa = async () => {
+    const existente = plantillasWa.find(p => String(p.id) === String(plantillaWaSel))
+    if (!existente) return
+    const confirmado = await new Promise(resolve => {
+      setConfirmacion({
+        mensaje: `¿Borrar la plantilla «${existente.nombre}»? El mensaje que ya escribiste se queda en pantalla.`,
+        onConfirm: () => { setConfirmacion(null); resolve(true) },
+        onCancel: () => { setConfirmacion(null); resolve(false) }
+      })
+    })
+    if (!confirmado) return
+    const { error } = await supabase.from('plantillas_whatsapp').delete().eq('id', existente.id)
+    if (error) { setMsgWa('Error al borrar: ' + error.message); return }
+    setPlantillasWa(prev => prev.filter(p => p.id !== existente.id))
+    setPlantillaWaSel('')
+    setMsgWa('✓ Plantilla borrada')
+  }
+
+  const elegirPlantillaWa = (id) => {
+    setPlantillaWaSel(id)
+    const p = plantillasWa.find(x => String(x.id) === String(id))
+    if (p) { setTextoWa(p.texto); setNombrePlantillaWa(p.nombre) }
+  }
+
+  /* El curso que se usa para {{curso}}: el elegido arriba si el envío
+     es por curso, y si no, nada (mejor vacío que el nombre de otro). */
+  const cursoDelMensajeWa = comunicadoDestino === 'curso'
+    ? (cursosLista.find(c => String(c.id) === String(comunicadoCursoId))?.titulo || '')
+    : ''
+
+  const mensajeParaWa = (d) => aplicarPlantilla(textoWa, {
+    nombre: d.nombre_completo, curso: cursoDelMensajeWa,
+  })
+
+  const marcarEnviadoWa = (clave) => {
+    setEnviadosWa(prev => {
+      const c = new Set(prev)
+      if (c.has(clave)) c.delete(clave); else c.add(clave)
+      return c
+    })
+  }
+
+  /* Envío automático por el Cloud API. Solo aparece si Meta ya está
+     configurado; si no, el camino es el enlace wa.me de cada fila. */
+  const enviarWaPorApi = async () => {
+    const conNumero = calcularDestinatarios().filter(d => d.whatsapp)
+    if (conNumero.length === 0) { setMsgWa('Error: ninguno de los destinatarios tiene número.'); return }
+    if (!textoWa.trim()) { setMsgWa('Error: escribe el mensaje.'); return }
+
+    const confirmado = await new Promise(resolve => {
+      setConfirmacion({
+        mensaje: `¿Enviar este WhatsApp a ${conNumero.length} persona(s) por el API de Meta? Meta cobra por conversación y rechaza el texto libre a quien no te escribió en las últimas 24 h.`,
+        onConfirm: () => { setConfirmacion(null); resolve(true) },
+        onCancel: () => { setConfirmacion(null); resolve(false) }
+      })
+    })
+    if (!confirmado) return
+
+    setEnviandoApiWa(true)
+    setMsgWa('')
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-enviar', {
+        body: {
+          // Cada destino lleva su propio texto ya personalizado: un
+          // mensaje único para todos perdería el nombre de cada quien,
+          // que es justo lo que hace que no parezca publicidad.
+          destinos: conNumero.map(d => ({
+            numero: d.whatsapp,
+            nombre: d.nombre_completo,
+            texto: mensajeParaWa(d),
+          })),
+          texto: textoWa.trim(),
+        },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      if (data?.configurado === false) {
+        setMsgWa('⚠️ El envío automático no está configurado: ' + (data.motivo || 'faltan las claves de Meta.'))
+        return
+      }
+      setMsgWa(`✓ ${data.enviados} enviado(s)` + (data.fallidos ? `, ${data.fallidos} con error` : ''))
+      setEnviadosWa(prev => {
+        const c = new Set(prev)
+        ;(data.resultados || []).filter(r => r.ok).forEach(r => c.add(r.numero))
+        return c
+      })
+    } catch (e) {
+      setMsgWa('Error: ' + e.message)
+    } finally {
+      setEnviandoApiWa(false)
+    }
   }
 
   const limpiarEditor = () => {
@@ -1246,6 +1482,104 @@ function Admin({ user }) {
       setMsgGestion('Error al guardar nota: ' + e.message)
     } finally {
       setGuardandoNota(false)
+    }
+  }
+
+  /* El número que apuntaste tú se lee de su tabla al abrir, y no del
+     mapa de la pantalla: ese mapa guarda solo el número que GANA, y el
+     de la persona gana sobre el tuyo. Sin esta consulta, abrir la
+     ficha de alguien que ya puso su número te mostraría el campo vacío
+     aunque tú tuvieras otro guardado, y parecería que no se guardó. */
+  const abrirWhatsapp = async (u, tel) => {
+    setModalWhatsapp({
+      usuario_id: u.usuario_id, email: u.email, nombre: u.nombre_completo,
+      propio: tel?.origen === 'perfil' ? tel.whatsapp : null,
+      texto: tel?.origen === 'admin' ? tel.whatsapp : '', error: null,
+    })
+    if (tel?.origen !== 'perfil') return
+    const { data } = await supabase.from('contactos_admin')
+      .select('whatsapp').eq('usuario_id', u.usuario_id).maybeSingle()
+    if (data?.whatsapp) {
+      setModalWhatsapp(m => m && m.usuario_id === u.usuario_id ? { ...m, texto: data.whatsapp } : m)
+    }
+  }
+
+  /* El número que capturas tú va a `contactos_admin`, NO a `perfiles`.
+     El perfil lo puede leer su dueño por la API aunque la pantalla no
+     lo pinte: si escribiéramos ahí, el alumno vería un dato que él no
+     puso y pensaría —con razón— que alguien le edita el perfil. */
+  const guardarWhatsappAdmin = async () => {
+    if (!modalWhatsapp) return
+    const crudo = modalWhatsapp.texto.trim()
+    const limpio = crudo ? normalizarTelefono(crudo) : null
+    if (crudo && !limpio) {
+      setModalWhatsapp({ ...modalWhatsapp, error: 'Ese número no parece marcable. Escríbelo con los 10 dígitos (o con su código de país).' })
+      return
+    }
+    setGuardandoWa(true)
+    try {
+      if (limpio) {
+        const { error } = await supabase.from('contactos_admin').upsert({
+          usuario_id: modalWhatsapp.usuario_id,
+          whatsapp: limpio,
+          actualizado_el: new Date().toISOString(),
+          actualizado_por: user?.email || null,
+        }, { onConflict: 'usuario_id' })
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('contactos_admin')
+          .delete().eq('usuario_id', modalWhatsapp.usuario_id)
+        if (error) throw error
+      }
+
+      // El de su perfil sigue mandando: si la persona ya había puesto
+      // el suyo, guardar el tuyo no cambia a quién se le escribe.
+      setTelefonos(prev => {
+        const actual = prev[modalWhatsapp.usuario_id]
+        const copia = { ...prev }
+        if (actual?.origen === 'perfil') return copia
+        if (limpio) copia[modalWhatsapp.usuario_id] = { whatsapp: limpio, origen: 'admin', email: modalWhatsapp.email }
+        else delete copia[modalWhatsapp.usuario_id]
+        return copia
+      })
+      setModalWhatsapp(null)
+      setMsgGestion(limpio ? '✓ Número guardado (solo tú lo ves)' : '✓ Número borrado')
+    } catch (e) {
+      setModalWhatsapp(m => ({ ...m, error: 'No se pudo guardar: ' + e.message }))
+    } finally {
+      setGuardandoWa(false)
+    }
+  }
+
+  /* Abrir el borrado consulta primero QUÉ se pierde. Un «¿seguro?» sin
+     números no es una decisión informada: con 40 recursos completados
+     y una constancia de por medio, la respuesta cambia. */
+  const abrirBorrado = async (u) => {
+    setModalBorrar({ usuario_id: u.usuario_id, email: u.email, nombre: u.nombre_completo, cargando: true, texto: '' })
+    const { data, error } = await supabase.rpc('resumen_borrado_usuario', { p_usuario: u.usuario_id })
+    setModalBorrar(m => m && m.usuario_id === u.usuario_id
+      ? { ...m, cargando: false, resumen: data || null, error: error?.message || null }
+      : m)
+  }
+
+  const confirmarBorrado = async () => {
+    if (!modalBorrar) return
+    setBorrando(true)
+    try {
+      const { error } = await supabase.rpc('eliminar_usuario', {
+        p_usuario: modalBorrar.usuario_id,
+        p_confirmacion: modalBorrar.texto.trim(),
+      })
+      if (error) throw error
+      setUsuarios(prev => prev.filter(u => u.usuario_id !== modalBorrar.usuario_id))
+      setTelefonos(prev => { const c = { ...prev }; delete c[modalBorrar.usuario_id]; return c })
+      setSeleccionados(prev => { const c = new Set(prev); c.delete(modalBorrar.usuario_id); return c })
+      setMsgGestion(`✓ Cuenta de ${modalBorrar.email} eliminada`)
+      setModalBorrar(null)
+    } catch (e) {
+      setModalBorrar(m => ({ ...m, error: e.message }))
+    } finally {
+      setBorrando(false)
     }
   }
 
@@ -1823,6 +2157,7 @@ function Admin({ user }) {
                       const correoU = String(u.email || '').toLowerCase()
                       const nFacilita = facilitaPorEmail[correoU]?.size || 0
                       const autoinscrito = esAutoinscrito(u)
+                      const tel = telefonos[u.usuario_id] || null
                       return (
                         <Fragment key={u.usuario_id}>
                         <tr className={`gestion-fila ${seleccionado ? 'seleccionada' : ''} ${expandido ? 'expandida' : ''}`}>
@@ -1833,6 +2168,16 @@ function Admin({ user }) {
                             <strong>{u.nombre_completo || '(sin nombre)'}</strong>
                             <span className="celda-sub">{u.email}</span>
                             {u.profesion && <span className="celda-sub">{u.profesion}</span>}
+                            {tel && (
+                              <span className="celda-sub">
+                                📱 {mostrarTelefono(tel.whatsapp)}{' '}
+                                <span className="sutil" title={tel.origen === 'perfil'
+                                  ? 'Lo escribió la persona en su perfil'
+                                  : 'Lo capturaste tú: la persona no lo ve en su perfil'}>
+                                  ({tel.origen === 'perfil' ? 'suyo' : 'tuyo'})
+                                </span>
+                              </span>
+                            )}
                             {u.notas_admin && <span className="gestion-nota-preview">{u.notas_admin}</span>}
                           </td>
                           <td>
@@ -1868,6 +2213,18 @@ function Admin({ user }) {
                               disabled={enviandoEnlace === u.email}
                               onClick={() => enviarEnlaceClave(u.email)}>
                               {enviandoEnlace === u.email ? '…' : '🔑'}
+                            </button>
+                            <button type="button" className="button texto"
+                              title={tel?.origen === 'perfil'
+                                ? 'Tiene su propio número: puedes guardar otro de respaldo'
+                                : 'Apuntar su WhatsApp (solo tú lo ves)'}
+                              onClick={() => abrirWhatsapp(u, tel)}>
+                              📱
+                            </button>
+                            <button type="button" className="button texto"
+                              title="Eliminar esta cuenta definitivamente"
+                              onClick={() => abrirBorrado(u)}>
+                              🗑
                             </button>
                             <button type="button" className="gestion-expandir-btn" onClick={() => toggleExpandido(u.usuario_id)}>
                               {expandido ? '▲ Cursos' : '▼ Cursos'}
@@ -2121,13 +2478,22 @@ function Admin({ user }) {
       {vista === 'comunicados' && (
         <>
           <p className="seccion-intro">
-            Envía un correo personalizado a un grupo de alumnos. Se manda un solo correo con todos
-            los destinatarios en CCO — nadie ve los correos de los demás.
+            {comunicadoCanal === 'correo'
+              ? 'Envía un correo personalizado a un grupo de alumnos. Se manda un solo correo con todos los destinatarios en CCO — nadie ve los correos de los demás.'
+              : 'Escribe un mensaje de WhatsApp y mándalo al mismo grupo que elegirías para un correo. Cada mensaje sale con el nombre de quien lo recibe.'}
           </p>
 
           <div className="admin-bloque-nuevo">
             <div className="nuevo-usuario-form">
-              <h3>📧 Nuevo comunicado</h3>
+              <h3>{comunicadoCanal === 'correo' ? '📧' : '💬'} Nuevo comunicado</h3>
+
+              <label>¿Por dónde se manda?</label>
+              <select className="gestion-select" value={comunicadoCanal}
+                onChange={e => { setComunicadoCanal(e.target.value); setComunicadoMsg(''); setMsgWa(''); setComunicadoResultado(null) }}
+                style={{ width: '100%', marginBottom: 12 }}>
+                <option value="correo">Correo electrónico</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
 
               <label>¿A quién le va a llegar?</label>
               <select className="gestion-select" value={comunicadoDestino}
@@ -2170,7 +2536,7 @@ function Admin({ user }) {
                 </>
               )}
 
-              {comunicadoDestino === 'manual' && (
+              {comunicadoDestino === 'manual' && comunicadoCanal === 'correo' && (
                 <>
                   <label>Correos (separados por coma, punto y coma o salto de línea)</label>
                   <textarea rows="4" className="modal-textarea" value={comunicadoManual} onChange={e => setComunicadoManual(e.target.value)}
@@ -2178,10 +2544,40 @@ function Admin({ user }) {
                 </>
               )}
 
-              <p className="nota" style={{ marginTop: 10, marginBottom: 16 }}>
-                📬 <strong>{calcularDestinatarios().length}</strong> destinatario(s) único(s) recibirán este correo.
-              </p>
+              {comunicadoDestino === 'manual' && comunicadoCanal === 'whatsapp' && (
+                <>
+                  <label>Números (uno por línea, o separados por coma)</label>
+                  <textarea rows="4" className="modal-textarea" value={manualWa} onChange={e => setManualWa(e.target.value)}
+                    placeholder={'771 123 4567\n+52 55 1234 5678'} style={{ fontFamily: 'monospace', fontSize: 13 }} />
+                  <p className="nota">
+                    Se asume México (+52) si el número viene sin código de país. Los que no se
+                    puedan marcar se descartan solos.
+                  </p>
+                </>
+              )}
 
+              {comunicadoCanal === 'correo' && (
+                <p className="nota" style={{ marginTop: 10, marginBottom: 16 }}>
+                  📬 <strong>{calcularDestinatarios().length}</strong> destinatario(s) único(s) recibirán este correo.
+                </p>
+              )}
+
+              {comunicadoCanal === 'whatsapp' && (() => {
+                const todos = calcularDestinatarios()
+                const con = todos.filter(d => d.whatsapp).length
+                return (
+                  <p className="nota" style={{ marginTop: 10, marginBottom: 16 }}>
+                    💬 <strong>{con}</strong> de {todos.length} tiene(n) número de WhatsApp.
+                    {todos.length - con > 0 && (
+                      <> A {todos.length - con} no se le puede escribir: apunta su número en{' '}
+                        <strong>Gestión de usuarios</strong> (botón 📱) o pídeselo en su perfil.</>
+                    )}
+                  </p>
+                )
+              })()}
+
+              {comunicadoCanal === 'correo' && (
+              <>
               <label>Asunto</label>
               <input type="text" value={comunicadoAsunto} onChange={e => setComunicadoAsunto(e.target.value)}
                 placeholder="Ej. Nuevo taller en vivo el 15 de octubre" />
@@ -2267,8 +2663,144 @@ function Admin({ user }) {
                 </button>
                 <button type="button" className="button texto" onClick={limpiarEditor}>Limpiar</button>
               </div>
+              </>
+              )}
 
-              {comunicadoMsg && <p className={comunicadoMsg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{comunicadoMsg}</p>}
+              {comunicadoCanal === 'whatsapp' && (
+                <>
+                  <label>Mensaje guardado</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <select className="gestion-select" value={plantillaWaSel}
+                            onChange={e => elegirPlantillaWa(e.target.value)} style={{ flex: '1 1 240px' }}>
+                      <option value="">— Mensaje nuevo —</option>
+                      {plantillasWa.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                    </select>
+                    {plantillaWaSel && (
+                      <button type="button" className="button texto" onClick={borrarPlantillaWa}>Borrar plantilla</button>
+                    )}
+                  </div>
+
+                  <label htmlFor="texto-wa" style={{ marginTop: 12 }}>Mensaje</label>
+                  <textarea id="texto-wa" rows="7" className="modal-textarea" value={textoWa}
+                    onChange={e => setTextoWa(e.target.value)}
+                    placeholder={'Hola {{primer_nombre}}, te recuerdo que mañana es la sesión del taller…'} />
+
+                  {/* Los marcadores se insertan con un clic porque escritos a
+                      mano se equivocan (una llave de menos y llega el texto
+                      crudo al alumno). */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span className="sutil" style={{ alignSelf: 'center' }}>Insertar:</span>
+                    {MARCADORES.map(([marca, ayuda]) => (
+                      <button key={marca} type="button" className="button texto" title={ayuda}
+                        onClick={() => setTextoWa(t => (t ? t + ' ' : '') + marca)}>
+                        {marca}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+                    <input type="text" value={nombrePlantillaWa} onChange={e => setNombrePlantillaWa(e.target.value)}
+                      placeholder="Nombre para guardarlo (ej. Recordatorio de sesión)" style={{ flex: '1 1 260px', margin: 0 }} />
+                    <button type="button" className="button secondary" onClick={guardarPlantillaWa} disabled={guardandoPlantillaWa}>
+                      {guardandoPlantillaWa ? 'Guardando…' : (plantillaWaSel ? 'Actualizar plantilla' : 'Guardar como plantilla')}
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const destinos = calcularDestinatarios()
+                    const conNumero = destinos.filter(d => d.whatsapp)
+                    const sinNumero = destinos.filter(d => !d.whatsapp)
+                    const ejemplo = conNumero[0] || destinos[0]
+                    return (
+                      <>
+                        {textoWa.trim() && ejemplo && (
+                          <div className="comunicado-preview" style={{ marginTop: 16 }}>
+                            <div className="comunicado-preview-header">
+                              <p style={{ margin: 0, fontSize: 12, color: '#7A8891' }}>
+                                Así le llega a {ejemplo.nombre_completo || ejemplo.email || 'la primera persona'}
+                              </p>
+                            </div>
+                            <div className="comunicado-preview-body" style={{ whiteSpace: 'pre-wrap' }}>
+                              {mensajeParaWa(ejemplo)}
+                            </div>
+                          </div>
+                        )}
+
+                        {apiWa?.configurado && (
+                          <div style={{ marginTop: 16 }}>
+                            <button type="button" className="button whatsapp" onClick={enviarWaPorApi}
+                              disabled={enviandoApiWa || conNumero.length === 0 || !textoWa.trim()}>
+                              {enviandoApiWa ? 'Enviando…' : `Enviar automáticamente a ${conNumero.length}`}
+                            </button>
+                            <p className="nota">
+                              Sale por el API de Meta, sin abrir WhatsApp. Recuerda que el texto libre
+                              solo llega a quien te escribió en las últimas 24 horas.
+                            </p>
+                          </div>
+                        )}
+
+                        <h4 style={{ marginTop: 22, marginBottom: 6 }}>
+                          Destinatarios · {enviadosWa.size} de {conNumero.length} marcados
+                        </h4>
+                        <p className="nota" style={{ marginTop: 0 }}>
+                          Cada botón abre WhatsApp con el mensaje ya escrito; tú das enviar. Al abrirlo
+                          se marca la fila para que no pierdas el hilo en una lista larga.
+                        </p>
+
+                        {!textoWa.trim() && <p className="nota">Escribe el mensaje para poder abrir los chats.</p>}
+
+                        <div className="gestion-tabla-scroll" style={{ maxHeight: 420 }}>
+                          <table className="gestion-tabla">
+                            <tbody>
+                              {conNumero.map((d, i) => {
+                                const clave = d.whatsapp
+                                const ya = enviadosWa.has(clave)
+                                const enlace = enlaceWhatsApp(d.whatsapp, mensajeParaWa(d))
+                                return (
+                                  <tr key={clave + i} style={ya ? { opacity: 0.55 } : undefined}>
+                                    <td>
+                                      <strong>{d.nombre_completo || d.email || mostrarTelefono(d.whatsapp)}</strong>
+                                      <span className="celda-sub">
+                                        {mostrarTelefono(d.whatsapp)}
+                                        {d.whatsapp_origen === 'admin' && ' · número que apuntaste tú'}
+                                        {d.whatsapp_origen === 'manual' && ' · de la lista pegada'}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                      <a className={`button ${ya ? 'secondary' : 'whatsapp'}`} href={enlace || '#'}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={e => {
+                                          if (!textoWa.trim() || !enlace) { e.preventDefault(); return }
+                                          marcarEnviadoWa(clave)
+                                        }}>
+                                        {ya ? '✓ Abierto' : 'Abrir WhatsApp'}
+                                      </a>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                              {conNumero.length === 0 && (
+                                <tr><td className="sutil">Nadie de este grupo tiene número de WhatsApp todavía.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {sinNumero.length > 0 && (
+                          <p className="nota">
+                            Sin número ({sinNumero.length}): {sinNumero.slice(0, 8).map(d => d.email).join(', ')}
+                            {sinNumero.length > 8 && ` y ${sinNumero.length - 8} más`}.
+                          </p>
+                        )}
+
+                        {msgWa && <p className={msgWa.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{msgWa}</p>}
+                      </>
+                    )
+                  })()}
+                </>
+              )}
+
+              {comunicadoCanal === 'correo' && comunicadoMsg && <p className={comunicadoMsg.startsWith('Error') ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 12 }}>{comunicadoMsg}</p>}
 
               {comunicadoResultado && (
                 <div className="kpi-fila" style={{ marginTop: 18 }}>
@@ -2334,6 +2866,107 @@ function Admin({ user }) {
               <button type="button" className="button secondary" onClick={() => setModalNotas(null)} disabled={guardandoNota}>Cancelar</button>
               <button type="button" className="button primary" onClick={guardarNotas} disabled={guardandoNota}>
                 {guardandoNota ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+
+      {modalWhatsapp && (
+        <ModalPortal>
+        <div className="modal-overlay" onClick={() => !guardandoWa && setModalWhatsapp(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <h3>WhatsApp de {modalWhatsapp.nombre || modalWhatsapp.email}</h3>
+            {modalWhatsapp.propio ? (
+              <p className="sutil" style={{ marginBottom: 16 }}>
+                Esta persona ya puso su número en su perfil:{' '}
+                <strong>{mostrarTelefono(modalWhatsapp.propio)}</strong>. Ese es el que se
+                usa para escribirle. Aquí puedes guardar otro de respaldo, que seguirá
+                siendo solo tuyo.
+              </p>
+            ) : (
+              <p className="sutil" style={{ marginBottom: 16 }}>
+                Este número lo guardas tú y <strong>la persona no lo ve en su perfil</strong>:
+                se queda en tu libreta, no en sus datos. Si algún día lo escribe ella misma,
+                el suyo toma el lugar automáticamente.
+              </p>
+            )}
+            <input type="tel" className="input" value={modalWhatsapp.texto} autoFocus
+              onChange={e => setModalWhatsapp({ ...modalWhatsapp, texto: e.target.value, error: null })}
+              placeholder="Ej. 771 123 4567" />
+            {modalWhatsapp.texto.trim() && normalizarTelefono(modalWhatsapp.texto) && (
+              <p className="nota">Se guardará como {mostrarTelefono(modalWhatsapp.texto)}</p>
+            )}
+            {modalWhatsapp.error && <p className="aviso-error">{modalWhatsapp.error}</p>}
+            <div className="modal-botones">
+              <button type="button" className="button secondary" onClick={() => setModalWhatsapp(null)} disabled={guardandoWa}>Cancelar</button>
+              <button type="button" className="button primary" onClick={guardarWhatsappAdmin} disabled={guardandoWa}>
+                {guardandoWa ? 'Guardando…' : (modalWhatsapp.texto.trim() ? 'Guardar' : 'Quitar número')}
+              </button>
+            </div>
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+
+      {modalBorrar && (
+        <ModalPortal>
+        <div className="modal-overlay" onClick={() => !borrando && setModalBorrar(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <h3>Eliminar la cuenta de {modalBorrar.nombre || modalBorrar.email}</h3>
+
+            {modalBorrar.cargando ? (
+              <p className="nota">Revisando qué se perdería…</p>
+            ) : !modalBorrar.resumen ? (
+              <p className="aviso-error">{modalBorrar.error || 'No se pudo leer la cuenta.'}</p>
+            ) : (
+              <>
+                <p className="sutil">
+                  Se borra la cuenta y todo lo suyo. <strong>No se puede deshacer</strong> y
+                  la persona pierde el acceso de inmediato.
+                </p>
+                <ul className="lista-cursos">
+                  <li>{modalBorrar.resumen.cursos} inscripción(es) a cursos</li>
+                  <li>{modalBorrar.resumen.progreso} registro(s) de avance</li>
+                  <li>{modalBorrar.resumen.constancias} constancia(s) emitida(s)</li>
+                </ul>
+                {/* El bloqueo por constancia no es burocracia: el folio se
+                    verifica en público y borrar al dueño lo deja inválido. */}
+                {!modalBorrar.resumen.sePuede && (
+                  <p className="aviso-error">
+                    {modalBorrar.resumen.constancias > 0
+                      ? 'Esta persona ya tiene constancia emitida. Su folio se puede verificar en público y dejaría de validar si la borras; habría que eliminar antes esas constancias.'
+                      : modalBorrar.resumen.esAdmin
+                        ? 'Esa cuenta es administradora. Quítale el rol antes de borrarla.'
+                        : 'Es tu propia cuenta: no se borra desde aquí.'}
+                  </p>
+                )}
+                {modalBorrar.resumen.sePuede && (
+                  <>
+                    <label htmlFor="confirma-borrado">
+                      Escribe <strong>{modalBorrar.email}</strong> para confirmar
+                    </label>
+                    <input id="confirma-borrado" type="text" className="input" autoFocus
+                      value={modalBorrar.texto}
+                      onChange={e => setModalBorrar({ ...modalBorrar, texto: e.target.value, error: null })}
+                      placeholder={modalBorrar.email} />
+                    <p className="nota">
+                      La foto de perfil, si subió una, se queda en el almacenamiento y hay
+                      que borrarla aparte desde Supabase.
+                    </p>
+                  </>
+                )}
+                {modalBorrar.error && <p className="aviso-error">{modalBorrar.error}</p>}
+              </>
+            )}
+
+            <div className="modal-botones">
+              <button type="button" className="button secondary" onClick={() => setModalBorrar(null)} disabled={borrando}>Cancelar</button>
+              <button type="button" className="button peligro" onClick={confirmarBorrado}
+                disabled={borrando || !modalBorrar.resumen?.sePuede
+                  || modalBorrar.texto.trim().toLowerCase() !== String(modalBorrar.email).toLowerCase()}>
+                {borrando ? 'Eliminando…' : 'Eliminar definitivamente'}
               </button>
             </div>
           </div>

@@ -6,7 +6,7 @@ import { Breadcrumb, BandaRedes, WhatsAppFlotante } from './ui'
 import CampoContrasena from './CampoContrasena'
 
 function Perfil({ user }) {
-  const [perfil, setPerfil] = useState({ nombre_completo: '', profesion: '', descripcion: '', ubicacion: '', avatar_url: '' })
+  const [perfil, setPerfil] = useState({ nombre_completo: '', profesion: '', descripcion: '', ubicacion: '', whatsapp: '', avatar_url: '' })
   const [misCursos, setMisCursos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [subiendo, setSubiendo] = useState(false)
@@ -23,7 +23,8 @@ function Perfil({ user }) {
       const { data } = await supabase.from('perfiles').select('*').eq('id', user.id).maybeSingle()
       if (data) setPerfil({
         nombre_completo: data.nombre_completo || '', profesion: data.profesion || '',
-        descripcion: data.descripcion || '', ubicacion: data.ubicacion || '', avatar_url: data.avatar_url || ''
+        descripcion: data.descripcion || '', ubicacion: data.ubicacion || '',
+        whatsapp: data.whatsapp || '', avatar_url: data.avatar_url || ''
       })
       const { data: acc } = await supabase.from('acceso').select('curso_id, cursos(titulo)').eq('usuario_id', user.id)
       if (acc) setMisCursos(acc.map(a => ({ id: a.curso_id, titulo: a.cursos?.titulo })).filter(x => x.titulo))
@@ -55,7 +56,8 @@ function Perfil({ user }) {
     setMsg('')
     const { error } = await supabase.from('perfiles').upsert({
       id: user.id, nombre_completo: perfil.nombre_completo, profesion: perfil.profesion,
-      descripcion: perfil.descripcion, ubicacion: perfil.ubicacion
+      descripcion: perfil.descripcion, ubicacion: perfil.ubicacion,
+      whatsapp: perfil.whatsapp.trim() || null
     }, { onConflict: 'id' })
     setMsg(error ? 'Error: ' + error.message : 'Perfil guardado correctamente.')
   }
@@ -110,6 +112,13 @@ function Perfil({ user }) {
         <label htmlFor="ubi">Ubicación</label>
         <input id="ubi" type="text" value={perfil.ubicacion}
                onChange={(e) => setPerfil({ ...perfil, ubicacion: e.target.value })} placeholder="Ciudad, país" />
+        {/* Opcional a propósito: se usa para los avisos del taller (fechas,
+            enlace de la sesión, constancia lista), no para nada más. */}
+        <label htmlFor="wa">WhatsApp <span className="sutil">(opcional)</span></label>
+        <input id="wa" type="tel" inputMode="tel" autoComplete="tel" value={perfil.whatsapp}
+               onChange={(e) => setPerfil({ ...perfil, whatsapp: e.target.value })}
+               placeholder="Ej. 771 123 4567" />
+        <p className="nota">Para recibir por WhatsApp los avisos de tus cursos. Puedes dejarlo vacío.</p>
         <label htmlFor="desc">Sobre mí</label>
         <textarea id="desc" rows="4" value={perfil.descripcion}
                   onChange={(e) => setPerfil({ ...perfil, descripcion: e.target.value })}

@@ -54,6 +54,11 @@ a { color: var(--primary); }
 .button.primary:hover { background: var(--primary-claro); transform: translateY(-1px); }
 .button.secondary { background: transparent; border-color: var(--primary); color: var(--primary); }
 .button.secondary:hover { background: var(--bg-card); }
+/* Rojo solo para lo que no se puede deshacer (borrar una cuenta). Si se
+   usa para cualquier acción destacada, deja de avisar de nada. */
+.button.peligro { background: #B3452C; color: #fff; }
+.button.peligro:hover { background: #8f3622; }
+.button.peligro:disabled { background: #d9b4aa; cursor: not-allowed; }
 .button.whatsapp { background: var(--wa); color: #fff; }
 .button.whatsapp:hover { background: var(--wa-oscuro); transform: translateY(-1px); }
 .button.azul { background: var(--primary-claro); color: #fff; }
