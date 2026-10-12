@@ -71,6 +71,14 @@ function Registro() {
   const crudo = new URLSearchParams(location.search).get('redirigir')
   const destino = crudo && crudo.startsWith('/') && !crudo.startsWith('//') ? crudo : '/'
 
+  // El enlace que se reparte del taller es /registro?redirigir=/curso/12.
+  // De ahí sale de qué taller viene la persona, y es lo único que lo
+  // dice: un curso gratuito se abre sin fila en `acceso`, así que sin
+  // esto el autoinscrito queda registrado "sin curso" y en el panel no
+  // hay forma de saber a qué taller llegó. Se manda en la metadata y el
+  // disparador crea la inscripción (solo si ese curso es gratuito).
+  const cursoDelEnlace = (destino.match(/^\/curso\/(\d+)(?:\/|$)/) || [])[1] || null
+
   // Quien ya tiene sesión no debió llegar aquí: no hay nada que registrar.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -128,6 +136,7 @@ function Registro() {
         data: {
           nombre_completo: nombreLimpio || correo,
           origen: 'autoinscripcion',
+          ...(cursoDelEnlace ? { curso_id: cursoDelEnlace } : {}),
         },
         // Al confirmar el correo, Supabase regresa a la misma página de
         // origen con la sesión ya puesta: la persona entra directo al

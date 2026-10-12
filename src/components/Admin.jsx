@@ -201,6 +201,10 @@ function Admin({ user }) {
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
   const [filtroCursoUsuario, setFiltroCursoUsuario] = useState('todos')
+  // Filtro por tanda del alta pública ('todas' = no filtrar). Solo se
+  // ofrece cuando hay autoinscritos: en una plataforma sin talleres
+  // gratuitos sería una caja vacía que no explica nada.
+  const [filtroTanda, setFiltroTanda] = useState('todas')
   const [seleccionados, setSeleccionados] = useState(new Set())
   const [expandidos, setExpandidos] = useState(new Set())
   // correo (minúsculas) -> Set de curso_id que facilita.
@@ -284,7 +288,7 @@ function Admin({ user }) {
 
   useEffect(() => {
     if (!esAdmin || !organizacion?.id) return
-    supabase.from('cursos').select('id, titulo')
+    supabase.from('cursos').select('id, titulo, gratuito')
       .eq('activo', true).eq('organizacion_id', organizacion.id).order('orden')
       .then(({ data }) => setCursosLista(data || []))
   }, [esAdmin, organizacion])
@@ -369,6 +373,12 @@ function Admin({ user }) {
     if (!u.ultimo_ingreso) return null
     return Math.floor((Date.now() - new Date(u.ultimo_ingreso).getTime()) / (1000 * 60 * 60 * 24))
   }
+  // Quien se dio de alta solo por el enlace de un taller gratuito, en
+  // vez de haberlo creado el admin desde el panel. Lo dice la RPC
+  // (metadata del registro o tanda asignada); el `u.tanda != null` de
+  // respaldo es para que la fila se marque aunque la base todavía no
+  // tenga instalado ALTA_PUBLICA_2_TANDAS.sql.
+  const esAutoinscrito = (u) => u.autoinscrito === true || u.tanda != null
 
   const toggleExpandido = (usuario_id) => {
     setExpandidos(prev => {
@@ -1339,6 +1349,15 @@ function Admin({ user }) {
   const maxInscripcionesMes = Math.max(...metricas.inscripcionesPorMes.map(m => m.count), 1)
   const maxAlumnosCurso = Math.max(...metricas.alumnosPorCurso.map(c => c.alumnos), 1)
 
+  // Las tandas que existen de verdad entre los usuarios cargados, en
+  // orden. Salen de los datos y no de un rango fijo: si la tanda 2 aún
+  // no empieza, no se ofrece.
+  const tandasEnUsuarios = [...new Set(usuarios.map(u => u.tanda).filter(t => t != null))]
+    .sort((a, b) => a - b)
+  const cursoFiltradoGratuito = filtroCursoUsuario !== 'todos'
+    ? cursosLista.find(c => c.id === parseInt(filtroCursoUsuario) && c.gratuito)
+    : null
+
   const usuariosFiltrados = usuarios.filter(u => {
     const t = busqueda.toLowerCase()
     const matchBusqueda = !t || u.email.toLowerCase().includes(t) || (u.nombre_completo || '').toLowerCase().includes(t)
@@ -1348,13 +1367,16 @@ function Admin({ user }) {
     else if (filtroEstado === 'sin-acceso') matchEstado = (u.cursos_inscritos || 0) === 0
     else if (filtroEstado === 'activos') matchEstado = esActivo(u)
     else if (filtroEstado === 'inactivos') matchEstado = !esActivo(u) && u.ultimo_ingreso !== null
+    else if (filtroEstado === 'autoinscritos') matchEstado = esAutoinscrito(u)
 
     let matchCurso = true
     if (filtroCursoUsuario !== 'todos') {
       matchCurso = accesos[u.usuario_id]?.has(parseInt(filtroCursoUsuario)) || false
     }
 
-    return matchBusqueda && matchEstado && matchCurso
+    const matchTanda = filtroTanda === 'todas' || String(u.tanda ?? '') === String(filtroTanda)
+
+    return matchBusqueda && matchEstado && matchCurso && matchTanda
   })
 
   if (!user) return null
@@ -1697,12 +1719,36 @@ function Admin({ user }) {
               <option value="sin-acceso">Sin acceso a cursos</option>
               <option value="activos">Activos (últimos 14 días)</option>
               <option value="inactivos">Inactivos</option>
+              <option value="autoinscritos">Autoinscritos (talleres gratuitos)</option>
             </select>
             <select className="gestion-select" value={filtroCursoUsuario} onChange={e => setFiltroCursoUsuario(e.target.value)}>
               <option value="todos">Todos los cursos</option>
               {cursosLista.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
             </select>
+            {tandasEnUsuarios.length > 0 && (
+              <select className="gestion-select" value={filtroTanda} onChange={e => setFiltroTanda(e.target.value)}>
+                <option value="todas">Todas las tandas</option>
+                {tandasEnUsuarios.map(t => (
+                  <option key={t} value={t}>
+                    Tanda {t} ({usuarios.filter(u => u.tanda === t).length})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
+
+          {/* Un taller gratuito se abre sin fila en `acceso`: quien se
+              registró antes de instalar la inscripción automática no
+              aparece al filtrar por el taller aunque sí esté dado de
+              alta. Decirlo aquí evita concluir que no se registró nadie. */}
+          {cursoFiltradoGratuito && (
+            <p className="nota" style={{ marginTop: 8 }}>
+              «{cursoFiltradoGratuito.titulo}» es gratuito y se abre sin inscripción.
+              Aquí solo salen quienes se registraron desde su enlace después de
+              activar el alta automática; para ver a todos los de talleres
+              gratuitos usa el filtro <strong>Autoinscritos</strong>.
+            </p>
+          )}
 
           {msgGestion && <p className={/^(Error|⚠️)/.test(msgGestion) ? 'aviso-error' : 'aviso-ok'} style={{ marginTop: 8 }}>{msgGestion}</p>}
 
@@ -1776,6 +1822,7 @@ function Admin({ user }) {
                       const dias = diasSinEntrar(u)
                       const correoU = String(u.email || '').toLowerCase()
                       const nFacilita = facilitaPorEmail[correoU]?.size || 0
+                      const autoinscrito = esAutoinscrito(u)
                       return (
                         <Fragment key={u.usuario_id}>
                         <tr className={`gestion-fila ${seleccionado ? 'seleccionada' : ''} ${expandido ? 'expandida' : ''}`}>
@@ -1796,7 +1843,16 @@ function Admin({ user }) {
                           <td className="col-rol">
                             {nFacilita > 0 && <span className="badge rol-facil">Facilita {nFacilita}</span>}
                             {cursosDelUsuario > 0 && <span className="badge rol-alumno">Alumno</span>}
-                            {nFacilita === 0 && cursosDelUsuario === 0 && <span className="sutil">—</span>}
+                            {/* La marca del alta pública. Sin ella, un
+                                autoinscrito sin inscripción es una fila
+                                con guiones, idéntica a una cuenta suelta. */}
+                            {autoinscrito && (
+                              <span className="badge rol-alumno"
+                                    title={`Se registró solo desde un taller gratuito el ${fecha(u.alta_el)}`}>
+                                {u.tanda != null ? `Taller · Tanda ${u.tanda}` : 'Taller · sin tanda'}
+                              </span>
+                            )}
+                            {nFacilita === 0 && cursosDelUsuario === 0 && !autoinscrito && <span className="sutil">—</span>}
                           </td>
                           <td>
                             <span className="celda-sub">{fecha(u.ultimo_ingreso)}</span>

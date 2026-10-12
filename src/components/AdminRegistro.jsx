@@ -62,6 +62,105 @@ const estadoInicial = () => {
   return f
 }
 
+const fechaCorta = (d) => d
+  ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  : '—'
+
+/* ------------------------------------------------------------
+   QUIÉN SE HA REGISTRADO
+   Hasta ahora el alta pública no se veía por ningún lado: la tanda
+   se calculaba al registrarse, pero la única pantalla que la leía
+   era Comunicados. Quien quería comprobar que el enlace funciona
+   tenía que buscar correo por correo en Gestión de usuarios, donde
+   un autoinscrito parece una cuenta suelta más.
+
+   Esta tabla es la comprobación: cuántos van, en qué tanda quedó
+   cada uno y si confirmaron el correo (sin confirmar no reciben
+   nada, ni la constancia).
+   ------------------------------------------------------------ */
+function Autoinscritos() {
+  const [filas, setFilas] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let vivo = true
+    supabase.rpc('listar_inscritos_gratuitos').then(({ data, error }) => {
+      if (!vivo) return
+      if (error) { setError(error.message); setFilas([]); return }
+      setFilas(data || [])
+    })
+    return () => { vivo = false }
+  }, [])
+
+  if (filas === null) return <p className="nota">Cargando registros…</p>
+  if (error) {
+    return (
+      <p className="aviso-error">
+        No se pudo leer la lista: {error}
+        {/^.*(does not exist|schema cache|function).*$/i.test(error) &&
+          ' — falta correr supabase/ALTA_PUBLICA_2_TANDAS.sql en Supabase.'}
+      </p>
+    )
+  }
+  if (filas.length === 0) {
+    return (
+      <p className="nota">
+        Todavía no se ha registrado nadie por el enlace público. Las cuentas que
+        das de alta tú desde «Gestión de usuarios» no cuentan aquí: esta lista es
+        solo de quien se registró solo.
+      </p>
+    )
+  }
+
+  const tandas = [...new Set(filas.map(f => f.tanda).filter(t => t != null))].sort((a, b) => a - b)
+  const sinConfirmar = filas.filter(f => f.confirmado === false).length
+
+  return (
+    <>
+      <p className="nota">
+        <strong>{filas.length}</strong> persona{filas.length === 1 ? '' : 's'} registrada
+        {filas.length === 1 ? '' : 's'} por el enlace, en {tandas.length || 1} tanda
+        {tandas.length === 1 ? '' : 's'} de 50.
+        {sinConfirmar > 0 && ` ${sinConfirmar} aún no confirma${sinConfirmar === 1 ? '' : 'n'} su correo.`}
+      </p>
+
+      <div className="gestion-tabla-scroll">
+        <table className="gestion-tabla">
+          <thead>
+            <tr>
+              <th>Persona</th>
+              <th>Tanda</th>
+              <th>Correo confirmado</th>
+              <th>Se registró</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map(f => (
+              <tr key={f.usuario_id}>
+                <td>
+                  <strong>{f.nombre_completo || '(sin nombre)'}</strong>
+                  <span className="celda-sub">{f.email}</span>
+                </td>
+                <td>
+                  {f.tanda != null
+                    ? <span className="badge ok">Tanda {f.tanda}</span>
+                    : <span className="sutil">sin tanda</span>}
+                </td>
+                <td>
+                  {f.confirmado
+                    ? <span className="badge ok">Sí</span>
+                    : <span className="badge inactivo">Pendiente</span>}
+                </td>
+                <td><span className="celda-sub">{fechaCorta(f.alta_el)}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
 export default function AdminRegistro() {
   const { organizacion } = useOrganizacion()
   const [form, setForm] = useState(estadoInicial)
@@ -203,6 +302,11 @@ export default function AdminRegistro() {
               Volver al texto por defecto
             </button>
           </div>
+
+          <fieldset className="campo-grupo">
+            <legend>Quién se ha registrado</legend>
+            <Autoinscritos />
+          </fieldset>
         </>
       )}
     </div>

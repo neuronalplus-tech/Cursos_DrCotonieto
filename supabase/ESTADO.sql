@@ -45,7 +45,8 @@ with esperado(orden, script, objeto, tipo) as (
     (33, 'CONSTANCIAS_5_PERFIL_LIMITE_DESCARGAS.sql', 'preparar_descarga_constancia', 'funcion'),
     (34, 'EXAMENES_2_SERVIR_VOLATIL.sql',   'servir_examen',            'funcion_volatil'),
     (35, 'ALTA_PUBLICA.sql',                'manejar_alta_publica',     'funcion'),
-    (36, 'ALTA_PUBLICA.sql',                'listar_inscritos_gratuitos', 'funcion')
+    (36, 'ALTA_PUBLICA.sql',                'listar_inscritos_gratuitos', 'funcion'),
+    (37, 'ALTA_PUBLICA_2_TANDAS.sql',       'asignar_tandas_faltantes',   'funcion')
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,

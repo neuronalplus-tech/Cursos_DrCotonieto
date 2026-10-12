@@ -1,6 +1,11 @@
 -- =============================================================
 --  ALTA PUBLICA DE INSCRITOS GRATUITOS
 --
+--  OJO: este archivo quedó AMPLIADO por ALTA_PUBLICA_2_TANDAS.sql,
+--  que redefine el disparador y las dos funciones de listado (la
+--  tanda no se veía en el panel y el autoinscrito quedaba sin
+--  curso). Corre los dos, en orden.
+--
 --  QUÉ RESUELVE
 --  Hasta ahora las cuentas solo las creaba el admin desde el panel.
 --  Ahora quien llega de un taller gratuito puede darse de alta solo
