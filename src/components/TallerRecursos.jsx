@@ -237,7 +237,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
     onActualizado({ ...cursoProp, registro_activo: nuevo })
   }
 
-  // ← NUEVO: candado individual para botones extra
+  // Candado individual para botones extra
   const toggleBotonExtraActivo = async (idx) => {
     const nuevos = botonesExtra.map((b, i) =>
       i === idx ? { ...b, activo: b.activo === false ? true : false } : b
@@ -273,101 +273,109 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
         )}
       </div>
 
-      <article className="recurso-item">
-        <div className="recurso-cabecera">
-          <div className="recurso-titulo">
-            <span className="recurso-icono" aria-hidden="true">📝</span>
-            <div><h3>Registro a la sesión en vivo</h3></div>
-          </div>
-          {gestiona && (
-            <button type="button" className={`candado-toggle ${registroVisible ? 'abierto' : 'cerrado'}`}
-                    onClick={toggleRegistroActivo}
-                    title={registroVisible ? 'Ocultar al público' : 'Mostrar al público'}>
-              {registroVisible ? '🔓' : '🔒'}
-            </button>
-          )}
-        </div>
-        {registroAbierto ? (
-          <>
-            <div className="recurso-acciones">
-              {registroEmbebible && (
-                <button className={`button ${verRegistro ? 'secondary' : 'primary'}`} onClick={() => setVerRegistro(v => !v)}>
-                  {verRegistro ? 'Ocultar formulario' : 'Registrarme aquí'}
-                </button>
-              )}
-              <a className={`button ${registroEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
-                {curso.registro_texto || 'Registrarme ↗'}
-              </a>
+      {/* ← CAMBIO: el público solo ve el bloque si el registro está abierto.
+          El admin lo ve siempre para poder prenderlo/apagarlo. */}
+      {(gestiona || registroAbierto) && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">📝</span>
+              <div><h3>Registro a la sesión en vivo</h3></div>
             </div>
-            {registroEmbebible && verRegistro && (
-              <div className="recurso-contenido">
-                <EmbedFrame url={curso.link_registro} />
-              </div>
+            {gestiona && (
+              <button type="button" className={`candado-toggle ${registroVisible ? 'abierto' : 'cerrado'}`}
+                      onClick={toggleRegistroActivo}
+                      title={registroVisible ? 'Ocultar al público' : 'Mostrar al público'}>
+                {registroVisible ? '🔓' : '🔒'}
+              </button>
             )}
-          </>
-        ) : (
-          <div className="recurso-acciones">
-            <button className="button secondary" disabled>
-              {!registroVisible ? '🔒 Registro (oculto)' : curso.link_registro ? '🔒 Registro cerrado (la sesión ya se dio o aún no abre)' : '📝 Registro aún no disponible'}
-            </button>
           </div>
-        )}
-      </article>
-
-      <article className="recurso-item">
-        <div className="recurso-cabecera">
-          <div className="recurso-titulo">
-            <span className="recurso-icono" aria-hidden="true">🎬</span>
-            <div><h3>Grabación de la sesión</h3></div>
-          </div>
-          {gestiona && (
-            <button type="button" className={`candado-toggle ${grabacionVisible ? 'abierto' : 'cerrado'}`}
-                    onClick={toggleGrabacionActivo}
-                    title={grabacionVisible ? 'Ocultar al público' : 'Mostrar al público'}>
-              {grabacionVisible ? '🔓' : '🔒'}
-            </button>
-          )}
-        </div>
-        {grabacionAbierta ? (
-          <>
-            <div className="recurso-acciones">
-              {grabacionEmbebible && (
-                <button className={`button ${verGrabacion ? 'secondary' : 'primary'}`} onClick={() => setVerGrabacion(v => !v)}>
-                  {verGrabacion ? 'Ocultar grabación' : 'Ver aquí'}
-                </button>
-              )}
-              <a className={`button ${grabacionEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
-                {curso.grabacion_texto || 'Ver grabación ↗'}
-              </a>
-            </div>
-            {grabacionEmbebible && verGrabacion && (
-              <div className="recurso-contenido">
-                <VideoPlayer url={curso.link_grabacion} />
-              </div>
-            )}
-            {/* CTA del taller gratuito para quien llega sin sesión.
-               La grabación se queda abierta a todos: es el mejor imán
-               de descubrimiento y ya era así. Lo que pide cuenta es la
-               constancia y el foro, que es lo que ofrece este botón. */}
-            {curso.gratuito && !user && (
+          {registroAbierto ? (
+            <>
               <div className="recurso-acciones">
-                <Link className="button primary" to={rutaRegistro(`/curso/${curso.id}`)}>
-                  Crea tu cuenta: tu constancia y el foro con el docente
-                </Link>
-                <Link className="button secondary" to={rutaAcceso(`/curso/${curso.id}`)}>
-                  Ya tengo cuenta
-                </Link>
+                {registroEmbebible && (
+                  <button className={`button ${verRegistro ? 'secondary' : 'primary'}`} onClick={() => setVerRegistro(v => !v)}>
+                    {verRegistro ? 'Ocultar formulario' : 'Registrarme aquí'}
+                  </button>
+                )}
+                <a className={`button ${registroEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_registro}>
+                  {curso.registro_texto || 'Registrarme ↗'}
+                </a>
               </div>
+              {registroEmbebible && verRegistro && (
+                <div className="recurso-contenido">
+                  <EmbedFrame url={curso.link_registro} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="recurso-acciones">
+              <button className="button secondary" disabled>
+                {!registroVisible ? '🔒 Registro (oculto)' : curso.link_registro ? '🔒 Registro cerrado (la sesión ya se dio o aún no abre)' : '📝 Registro aún no disponible'}
+              </button>
+            </div>
+          )}
+        </article>
+      )}
+
+      {/* ← CAMBIO: el público solo ve la grabación si está abierta.
+          El admin la ve siempre con su candado. */}
+      {(gestiona || grabacionAbierta) && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">🎬</span>
+              <div><h3>Grabación de la sesión</h3></div>
+            </div>
+            {gestiona && (
+              <button type="button" className={`candado-toggle ${grabacionVisible ? 'abierto' : 'cerrado'}`}
+                      onClick={toggleGrabacionActivo}
+                      title={grabacionVisible ? 'Ocultar al público' : 'Mostrar al público'}>
+                {grabacionVisible ? '🔓' : '🔒'}
+              </button>
             )}
-          </>
-        ) : (
-          <div className="recurso-acciones">
-            <button className="button secondary" disabled>
-              {!grabacionVisible ? '🔒 Grabación (oculta)' : curso.link_grabacion ? '🔒 Grabación cargada, aún cerrada' : '🎬 Grabación en proceso'}
-            </button>
           </div>
-        )}
-      </article>
+          {grabacionAbierta ? (
+            <>
+              <div className="recurso-acciones">
+                {grabacionEmbebible && (
+                  <button className={`button ${verGrabacion ? 'secondary' : 'primary'}`} onClick={() => setVerGrabacion(v => !v)}>
+                    {verGrabacion ? 'Ocultar grabación' : 'Ver aquí'}
+                  </button>
+                )}
+                <a className={`button ${grabacionEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_grabacion}>
+                  {curso.grabacion_texto || 'Ver grabación ↗'}
+                </a>
+              </div>
+              {grabacionEmbebible && verGrabacion && (
+                <div className="recurso-contenido">
+                  <VideoPlayer url={curso.link_grabacion} />
+                </div>
+              )}
+              {/* CTA del taller gratuito para quien llega sin sesión.
+                 La grabación se queda abierta a todos: es el mejor imán
+                 de descubrimiento y ya era así. Lo que pide cuenta es la
+                 constancia y el foro, que es lo que ofrece este botón. */}
+              {curso.gratuito && !user && (
+                <div className="recurso-acciones">
+                  <Link className="button primary" to={rutaRegistro(`/curso/${curso.id}`)}>
+                    Crea tu cuenta: tu constancia y el foro con el docente
+                  </Link>
+                  <Link className="button secondary" to={rutaAcceso(`/curso/${curso.id}`)}>
+                    Ya tengo cuenta
+                  </Link>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="recurso-acciones">
+              <button className="button secondary" disabled>
+                {!grabacionVisible ? '🔒 Grabación (oculta)' : curso.link_grabacion ? '🔒 Grabación cargada, aún cerrada' : '🎬 Grabación en proceso'}
+              </button>
+            </div>
+          )}
+        </article>
+      )}
 
       {curso.gratuito && (
         <article className="recurso-item">
@@ -402,64 +410,68 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
         </article>
       )}
 
-      <article className="recurso-item">
-        <div className="recurso-cabecera">
-          <div className="recurso-titulo">
-            <span className="recurso-icono" aria-hidden="true">📄</span>
-            <div><h3>Materiales del taller</h3></div>
-          </div>
-          {gestiona && (
-            <button type="button" className={`candado-toggle ${materialesVisible ? 'abierto' : 'cerrado'}`}
-                    onClick={toggleMaterialesActivo}
-                    title={materialesVisible ? 'Ocultar al público' : 'Mostrar al público'}>
-              {materialesVisible ? '🔓' : '🔒'}
-            </button>
-          )}
-        </div>
-
-        {!materialesVisible ? (
-          <div className="recurso-acciones">
-            <button className="button secondary" disabled>🔒 Materiales (ocultos)</button>
-          </div>
-        ) : !curso.link_materiales ? (
-          <div className="recurso-acciones">
-            <button className="button secondary" disabled>📄 Materiales en preparación</button>
-          </div>
-        ) : (user || desbloqueado) ? (
-          <>
-            <div className="recurso-acciones">
-              {materialesEmbebible && (
-                <button className={`button ${verMateriales ? 'secondary' : 'primary'}`} onClick={() => setVerMateriales(v => !v)}>
-                  {verMateriales ? 'Ocultar materiales' : 'Ver aquí'}
-                </button>
-              )}
-              <a className={`button ${materialesEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_materiales}>
-                Descargar materiales ↗
-              </a>
+      {/* ← CAMBIO: el público solo ve materiales si están visibles Y con link.
+          El admin siempre, para poder prender/apagar y pegar el link. */}
+      {(gestiona || (materialesVisible && curso.link_materiales)) && (
+        <article className="recurso-item">
+          <div className="recurso-cabecera">
+            <div className="recurso-titulo">
+              <span className="recurso-icono" aria-hidden="true">📄</span>
+              <div><h3>Materiales del taller</h3></div>
             </div>
-            {materialesEmbebible && verMateriales && (
-              <div className="recurso-contenido">
-                <EmbedFrame url={curso.link_materiales} />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="taller-lead-form">
-            <p className="nota" style={{ marginTop: 0 }}>Déjanos tu correo para enviarte los materiales y avisarte de futuros talleres.</p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input type="email" value={emailLead} onChange={e => setEmailLead(e.target.value)} placeholder="tu@correo.com" />
-              <button type="button" className="button primary" onClick={solicitarMateriales} disabled={solicitando}>
-                {solicitando ? 'Enviando...' : 'Quiero los materiales'}
+            {gestiona && (
+              <button type="button" className={`candado-toggle ${materialesVisible ? 'abierto' : 'cerrado'}`}
+                      onClick={toggleMaterialesActivo}
+                      title={materialesVisible ? 'Ocultar al público' : 'Mostrar al público'}>
+                {materialesVisible ? '🔓' : '🔒'}
               </button>
-            </div>
-            {msgLead && <p className="aviso-error" style={{ marginTop: 8 }}>{msgLead}</p>}
+            )}
           </div>
-        )}
-      </article>
 
-      {/* ← CAMBIO: el público solo ve los botones con activo !== false; el
-          admin ve todos y cada uno con su candado. La sección se oculta si
-          no hay nada que mostrar. */}
+          {!materialesVisible ? (
+            <div className="recurso-acciones">
+              <button className="button secondary" disabled>🔒 Materiales (ocultos)</button>
+            </div>
+          ) : !curso.link_materiales ? (
+            <div className="recurso-acciones">
+              <button className="button secondary" disabled>📄 Materiales en preparación</button>
+            </div>
+          ) : (user || desbloqueado) ? (
+            <>
+              <div className="recurso-acciones">
+                {materialesEmbebible && (
+                  <button className={`button ${verMateriales ? 'secondary' : 'primary'}`} onClick={() => setVerMateriales(v => !v)}>
+                    {verMateriales ? 'Ocultar materiales' : 'Ver aquí'}
+                  </button>
+                )}
+                <a className={`button ${materialesEmbebible ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={curso.link_materiales}>
+                  Descargar materiales ↗
+                </a>
+              </div>
+              {materialesEmbebible && verMateriales && (
+                <div className="recurso-contenido">
+                  <EmbedFrame url={curso.link_materiales} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="taller-lead-form">
+              <p className="nota" style={{ marginTop: 0 }}>Déjanos tu correo para enviarte los materiales y avisarte de futuros talleres.</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input type="email" value={emailLead} onChange={e => setEmailLead(e.target.value)} placeholder="tu@correo.com" />
+                <button type="button" className="button primary" onClick={solicitarMateriales} disabled={solicitando}>
+                  {solicitando ? 'Enviando...' : 'Quiero los materiales'}
+                </button>
+              </div>
+              {msgLead && <p className="aviso-error" style={{ marginTop: 8 }}>{msgLead}</p>}
+            </div>
+          )}
+        </article>
+      )}
+
+      {/* El público solo ve los botones con activo !== false; el admin ve
+          todos y cada uno con su candado. La sección se oculta si no hay
+          nada que mostrar. */}
       {botonesExtra.some(b => gestiona || b.activo !== false) && (
         <article className="recurso-item">
           <div className="recurso-cabecera">
