@@ -182,6 +182,33 @@ function Admin({ user }) {
   const puedeEntrar = esAdmin || permisosRol.tieneAlguno
   const [vista, setVista] = useState('inscripciones')
 
+  // ¿Esta pestaña es visible para quien está viendo el panel? Es la MISMA
+  // regla que filtra la navegación (más abajo); se saca aquí para poder,
+  // además, corregir al que aterrizó en una vista que no le toca: un rol a
+  // medida SIN `alumnos.ver` entraba y caía en "Inscripciones" —la vista
+  // inicial—, que no puede ver. Los tres roles básicos sí la tienen, así
+  // que a ellos no les afecta; esto cubre los roles personalizados.
+  const esVistaVisible = (clave, soloPlataforma) => {
+    if (soloPlataforma) return esAdminPlataforma
+    if (!seccionVisible(clave, modulos)) return false
+    if (esAdmin) return true
+    if (clave === 'roles' || clave === 'registro') return false
+    const pide = PERMISO_DE[clave]
+    return pide === null || permisosRol.puedeAlguno(pide)
+  }
+
+  // Si la pestaña activa no es visible para esta persona, saltar a la
+  // primera que sí lo sea. Converge: solo actúa cuando la actual no vale.
+  useEffect(() => {
+    if (!permisosCargados || !permisosRol.cargado || !puedeEntrar) return
+    const todas = GRUPOS_PANEL.flatMap(([, ps]) => ps)
+    const actual = todas.find(([c]) => c === vista)
+    if (actual && esVistaVisible(actual[0], actual[2])) return
+    const primera = todas.find(([c, , sp]) => esVistaVisible(c, sp))
+    if (primera && primera[0] !== vista) setVista(primera[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permisosCargados, permisosRol.cargado, puedeEntrar, vista, modulos, organizacion?.id])
+
   const [filas, setFilas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [filtro, setFiltro] = useState('todos')
@@ -1740,23 +1767,10 @@ function Admin({ user }) {
           contenido, personas o dinero?". */}
       <nav className="admin-tabs" aria-label="Secciones del panel">
         {GRUPOS_PANEL.map(([grupo, pestañas]) => {
-          const visibles = pestañas.filter(([clave, , soloPlataforma]) => {
-            if (soloPlataforma && !esAdminPlataforma) return false
-
-            // El MÓDULO va antes que el permiso, y antes que el atajo
-            // de administrador: lo que no se contrató no se enseña ni
-            // a quien dirige la institución. Lo de la plataforma no se
-            // filtra —no se contrata, es tuyo—.
-            if (!soloPlataforma && !seccionVisible(clave, modulos)) return false
-
-            // Quien administra la organización ve todo lo que contrató.
-            if (esAdmin) return true
-            // Repartir permisos no es de quien los recibió, y los ajustes
-            // del registro público tampoco: son configuración del sitio.
-            if (clave === 'roles' || clave === 'registro') return false
-            const pide = PERMISO_DE[clave]
-            return pide === null || permisosRol.puedeAlguno(pide)
-          })
+          // Misma regla que `esVistaVisible` (definida arriba), para que la
+          // navegación y la redirección de pestaña no se desincronicen.
+          const visibles = pestañas.filter(([clave, , soloPlataforma]) =>
+            esVistaVisible(clave, soloPlataforma))
           if (!visibles.length) return null
           return (
             <div key={grupo} className="admin-grupo">

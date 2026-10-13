@@ -211,17 +211,19 @@ aislamiento entre organizaciones. Y la mitad del plan depende de saber qué est�
   persona con rol "Coordinación" (sin ser admin) puede ver lo que su permiso concede.
 - **Esfuerzo:** S. **Depende de:** F0-1.
 
-#### F1-2 · Llevar los permisos de rol a las políticas de la base, tabla por tabla
-- **Sirve a:** que un rol conceda de verdad, no solo en la pantalla. **Cruza:** la nota final de
-  `ROLES_5_PERMISOS.sql` ("las políticas siguen mirando `admins` y `facilitadores`").
-- **Pasos:** este es el trabajo delicado que el propio script advierte. Hacerlo **una tabla a la vez**,
-  añadiendo `or public.tiene_permiso('<permiso>', organizacion_id, …)` a la política existente **sin
-  quitar** la condición de `admins`/`facilitadores` (se suma, no se reemplaza). Orden sugerido por
-  riesgo bajo→alto: `asistencia` (permiso `asistencia.pasar`) → `generaciones` (`grupos.gestionar`) →
-  `tareas`/`entregas` (`calificaciones.capturar`) → `cursos`/`modulos`/`recursos` (`cursos.editar`).
-- **Prueba de aceptación:** por cada tabla, una persona con el permiso correspondiente (y sin ser admin)
-  puede hacer la acción; sin el permiso, la RLS la rechaza.
-- **Esfuerzo:** L. **Depende de:** F1-1. **Nota:** no relajar `es_admin()` para lograrlo (eso es M4).
+#### F1-2 · Llevar los permisos de rol a las políticas de la base
+- **CORRECCIÓN (auditado el 12 oct):** esto **YA ESTÁ ESCRITO**, no es trabajo pendiente. El puente
+  permisos→políticas vive en `ROLES_6_POLITICAS.sql` (grupos, sesiones, asistencia, inscripciones,
+  sedes, plantillas, perfiles) y `ROLES_7_CONTENIDO.sql` (cursos, módulos, recursos, exámenes, banco,
+  tareas, rúbricas, entregas, intentos, foro, progreso, prórrogas, constancias). Las políticas son
+  aditivas (sufijo `_rol`, se suman con OR) y no quitan acceso a nadie.
+- **Qué hacer entonces:** simplemente correr ROLES_6 y ROLES_7 junto con ROLES_5 (van en F1-1), y
+  probar con las pruebas de aceptación. La guía ejecutable está en `docs/FASE_1_ROLES_DESPLIEGUE.md`.
+- **Lo único que NO se concede por rol, a propósito:** crear cursos, emitir constancias (pasa por
+  `emitir_constancia`), y borrar evidencia de evaluación (intentos/entregas) — siguen siendo del
+  administrador. Un "Docente" por rol ya **no** necesita estar en `facilitadores`.
+- **Esfuerzo:** XS (correr dos scripts más). **Depende de:** F1-1. **Nota:** no relajar `es_admin()`
+  (eso es M4, el script-regresión ya retirado).
 
 ---
 
