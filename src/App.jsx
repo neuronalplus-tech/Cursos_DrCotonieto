@@ -18,6 +18,7 @@ import './App.css'
 const Admin = lazy(() => import('./components/Admin'))
 const Perfil = lazy(() => import('./components/Perfil'))
 const MisCalificaciones = lazy(() => import('./components/MisCalificaciones'))
+const MisCursos = lazy(() => import('./components/MisCursos'))
 const Calendario = lazy(() => import('./components/Calendario'))
 const CursoView = lazy(() => import('./components/CursoView'))
 const CursoDetalle = lazy(() => import('./components/CursoDetalle'))
@@ -101,6 +102,7 @@ function App() {
               <Route path="/registro" element={<Registro />} />
               <Route path="/recuperar" element={<Recuperar />} />
               <Route path="/perfil" element={<Perfil user={user} />} />
+              <Route path="/mis-cursos" element={<MisCursos user={user} />} />
               <Route path="/mis-calificaciones" element={<MisCalificaciones user={user} />} />
               <Route path="/calendario" element={<Calendario user={user} />} />
               <Route path="/admin" element={<Admin user={user} />} />

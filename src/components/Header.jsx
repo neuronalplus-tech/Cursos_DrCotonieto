@@ -150,6 +150,7 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
                         <hr />
                       </>
                     )}
+                    <button role="menuitem" onClick={() => ir('/mis-cursos')}>Mis cursos</button>
                     <button role="menuitem" onClick={() => ir('/perfil')}>Mi perfil</button>
                     <button role="menuitem" onClick={() => ir('/mis-calificaciones')}>
                       Mis calificaciones

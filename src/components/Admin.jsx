@@ -2223,6 +2223,7 @@ function Admin({ user }) {
                             </button>
                             <button type="button" className="button texto"
                               title="Enviarle un enlace para crear una contraseña nueva"
+                              aria-label={`Enviar enlace de contraseña a ${u.nombre_completo || u.email}`}
                               disabled={enviandoEnlace === u.email}
                               onClick={() => enviarEnlaceClave(u.email)}>
                               {enviandoEnlace === u.email ? '…' : '🔑'}
@@ -2231,11 +2232,13 @@ function Admin({ user }) {
                               title={tel?.origen === 'perfil'
                                 ? 'Tiene su propio número: puedes guardar otro de respaldo'
                                 : 'Apuntar su WhatsApp (solo tú lo ves)'}
+                              aria-label={`WhatsApp de ${u.nombre_completo || u.email}`}
                               onClick={() => abrirWhatsapp(u, tel)}>
                               📱
                             </button>
                             <button type="button" className="button texto"
                               title="Eliminar esta cuenta definitivamente"
+                              aria-label={`Eliminar la cuenta de ${u.nombre_completo || u.email}`}
                               onClick={() => abrirBorrado(u)}>
                               🗑
                             </button>
