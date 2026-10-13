@@ -122,6 +122,92 @@ export function ModalNuevoModulo({ cursoId, orden, onClose, onCreado }) {
   )
 }
 
+/* Edición de un módulo ya creado. Antes esto no existía: título,
+   descripción, orden y subgrupo solo se escribían al crear o al duplicar,
+   así que corregir una errata obligaba a entrar a Supabase.
+
+   `oculto` y `disponible` son DOS interruptores distintos a propósito:
+     · oculto = el alumno no lo ve ni en la lista lateral.
+     · disponible = visible pero cerrado ("próximamente").
+   (La casilla `oculto` necesita la columna que crea MODULOS_VISIBILIDAD.sql;
+   el alta de módulos ya la escribe, así que la dependencia es la misma.) */
+export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
+  const [titulo, setTitulo] = useState(modulo.titulo || '')
+  const [descripcion, setDescripcion] = useState(modulo.descripcion || '')
+  const [grupo, setGrupo] = useState(modulo.grupo || '')
+  const [ordenVal, setOrdenVal] = useState(modulo.orden ?? 100)
+  const [oculto, setOculto] = useState(modulo.oculto === true)
+  const [disponible, setDisponible] = useState(modulo.disponible !== false)
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const guardar = async () => {
+    if (!titulo.trim()) { setMsg('El título es obligatorio'); return }
+    setGuardando(true); setMsg('')
+    try {
+      const cambios = {
+        titulo:      titulo.trim(),
+        descripcion: descripcion.trim() || null,
+        orden:       parseInt(ordenVal, 10) || 100,
+        grupo:       grupo.trim() || null,
+        oculto,
+        disponible,
+      }
+      const { data, error } = await supabase.from('modulos')
+        .update(cambios).eq('id', modulo.id).select().single()
+      if (error) throw error
+      onGuardado(data)
+      onClose()
+    } catch (e) {
+      setMsg('Error: ' + e.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <ModalPortal onClose={() => !guardando && onClose()} label="Editar módulo">
+    <div className="modal-overlay" onClick={() => !guardando && onClose()}>
+      <div className="modal-box modal-recurso" onClick={e => e.stopPropagation()}>
+        <h3>✏️ Editar módulo</h3>
+
+        <label htmlFor="em-titulo">Título</label>
+        <input id="em-titulo" type="text" value={titulo} onChange={e => setTitulo(e.target.value)} />
+
+        <label htmlFor="em-desc">Descripción</label>
+        <textarea id="em-desc" rows="3" value={descripcion} onChange={e => setDescripcion(e.target.value)}
+                  placeholder="Texto que aparece debajo del título" />
+
+        <label htmlFor="em-grupo">Subgrupo (grupo)</label>
+        <input id="em-grupo" type="text" value={grupo} onChange={e => setGrupo(e.target.value)}
+               placeholder="Vacío = visible para todo el curso" />
+
+        <label htmlFor="em-orden">Orden</label>
+        <input id="em-orden" type="number" value={ordenVal} onChange={e => setOrdenVal(e.target.value)} />
+
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 14 }}>
+          <input type="checkbox" checked={disponible} onChange={e => setDisponible(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>Disponible para alumnos <span className="sutil">(desmárcalo para dejarlo como «próximamente»)</span></span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8 }}>
+          <input type="checkbox" checked={oculto} onChange={e => setOculto(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>Oculto <span className="sutil">(no aparece en la lista; ni siquiera como «próximamente»)</span></span>
+        </label>
+
+        {msg && <p className="aviso-error" style={{ marginTop: 12 }}>{msg}</p>}
+
+        <div className="modal-botones" style={{ marginTop: 18 }}>
+          <button type="button" className="button secondary" onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  )
+}
+
 /* Botones extra de un módulo concreto. */
 export function ModalEditarBotonesModulo({ modulo, onClose, onGuardado, incluirEntregables = false }) {
   const [botones, setBotones] = useState(() => {

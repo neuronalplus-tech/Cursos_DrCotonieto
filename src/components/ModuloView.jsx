@@ -12,7 +12,7 @@ import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
 import AdminTareas from './AdminTareas'
 import TareasAlumno from './TareasAlumno'
-import { ModalEditarBotonesModulo } from './AdminModales'
+import { ModalEditarBotonesModulo, ModalEditarModulo } from './AdminModales'
 import {
   Autoevaluacion, ModalEditarRecurso, ModalDuplicarModulo, ModalDuplicarRecurso,
   ModalNotificarRecurso, RecursoCard, DiapositivasPresentarCaso, Entregables,
@@ -45,6 +45,7 @@ function ModuloView({ user }) {
   // Las tareas la necesitan para filtrar las que son de una ruta.
   const [miGrupo, setMiGrupo] = useState(null)
   const [editandoBotonesModulo, setEditandoBotonesModulo] = useState(false)
+  const [editandoModulo, setEditandoModulo] = useState(false)
   const [duplicandoRecurso, setDuplicandoRecurso] = useState(null)
   const [notificandoRecurso, setNotificandoRecurso] = useState(null)
 
@@ -293,6 +294,9 @@ function ModuloView({ user }) {
           {/* ✨ NUEVO: botón de "Nuevo recurso" solo para admin */}
           {gestiona && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+              <button type="button" className="button secondary" onClick={() => setEditandoModulo(true)}>
+                ✏️ Editar módulo
+              </button>
               <button type="button" className="button secondary" onClick={() => setEditandoBotonesModulo(true)}>
                 🔗 Botones del módulo
               </button>
@@ -378,6 +382,14 @@ function ModuloView({ user }) {
           modulo={modulo}
           recursos={recursos}
           onClose={() => setDuplicando(false)}
+        />
+      )}
+
+      {editandoModulo && (
+        <ModalEditarModulo
+          modulo={modulo}
+          onClose={() => setEditandoModulo(false)}
+          onGuardado={(m) => setModulo(prev => ({ ...prev, ...m }))}
         />
       )}
 

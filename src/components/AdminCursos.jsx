@@ -22,7 +22,7 @@ import EditorPonderacion from './EditorPonderacion'
 
 const VACIO = {
   titulo: '', descripcion: '', linea: '', categoria_id: '', orden: 100,
-  activo: true, gratuito: false, proximamente: false,
+  activo: true, gratuito: false, proximamente: false, constancia: true,
   caratula: '', info_curso: '',
   fecha_sesion: '', link_registro: '', registro_texto: '',
 }
@@ -291,6 +291,16 @@ export default function AdminCursos() {
                      onChange={e => campo('proximamente', e.target.checked)} />
               <span>Próximamente <em className="nota">(anuncio, aún no abre)</em></span>
             </label>
+            {/* Para un curso de pago, si emite constancia al aprobar. (En los
+                talleres gratuitos esto lo controla «Constancia habilitada»
+                dentro del propio taller, con constancia_gratuita_activa.) */}
+            {!form.gratuito && (
+              <label>
+                <input type="checkbox" checked={form.constancia !== false}
+                       onChange={e => campo('constancia', e.target.checked)} />
+                <span>Emite constancia <em className="nota">(al aprobar el curso)</em></span>
+              </label>
+            )}
           </div>
 
           <EditorPonderacion

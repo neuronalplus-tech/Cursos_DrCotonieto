@@ -65,6 +65,10 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
     setCuerpo('')
     setCalifica(false)
     setPuntosMax(10)
+    // Reiniciar la fecha: sin esto, un tema nuevo heredaba el plazo del
+    // último que se editó (AdminForo.jsx ya lo hacía bien; aquí faltaba).
+    setFechaLimite(null)
+    setCierraAlVencer(true)
     setMsg(null)
     setFormAbierto(true)
   }
@@ -231,7 +235,11 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
                   <label style={{ marginTop: 10 }}>Puntaje máximo por aportación</label>
                   <input className="input" type="number" min="1" value={puntosMax}
                          onChange={(e) => setPuntosMax(e.target.value)} />
+                </>
+              )}
 
+              {/* La fecha límite vive FUERA de «calificar»: un tema de debate
+                  no calificable también puede tener plazo para participar. */}
               <CamposPlazo fecha={fechaLimite} cierra={cierraAlVencer}
                            onFecha={setFechaLimite} onCierra={setCierraAlVencer} />
 
@@ -239,8 +247,7 @@ export default function AdminForoModal({ cursoId, user, onClose }) {
                 <Prorrogas tipo="foro" actividadId={editando.id}
                            cursoId={cursoId} fechaOriginal={fechaLimite} />
               )}
-                </>
-              )}
+
               <label style={{ marginTop: 14 }}>Contenido</label>
               <EditorForo valor={cuerpo} onChange={setCuerpo} minAlto={120} onGuardar={guardar} />
 
