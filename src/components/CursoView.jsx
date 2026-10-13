@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   esContenedorTalleres, esTallerIndividual,
-  cursoEspecial, normalizarTexto,
+  cursoEspecial, moduloAbiertoPorFecha,
 } from '../lib/helpers'
 import { rutaAcceso, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
@@ -191,6 +191,9 @@ function CursoView({ user }) {
   const esModuloBloqueado = (m) => {
     if (gestiona) return false
     if (m.disponible === false) return true
+    // Fecha de apertura/cierre (MODULOS_FECHAS.sql). Sin fechas no cambia
+    // nada; una apertura futura o un cierre pasado lo bloquean al alumno.
+    if (!moduloAbiertoPorFecha(m)) return true
     if (!user) return true
     if (m.grupo && miGrupo !== m.grupo) return true
     return false
@@ -242,14 +245,17 @@ function CursoView({ user }) {
       setNotificando(m.id)
       const { data: todas, error: errA } = await supabase
         .from('vista_admin_inscripciones')
-        .select('email, nombre_completo, curso, usuario_id')
+        .select('email, nombre_completo, curso_id, usuario_id')
       if (errA) throw errA
 
-      const tituloNorm = normalizarTexto(curso.titulo)
+      // Se empareja por `curso_id`, no por el título: dos cursos con el
+      // mismo nombre (o con una tilde distinta que la normalización
+      // colapsaba) se avisaban cruzado —los de uno recibían el módulo
+      // del otro—.
       const vistos = new Set()
       const alumnos = []
       for (const a of (todas || [])) {
-        if (normalizarTexto(a.curso) !== tituloNorm) continue
+        if (String(a.curso_id) !== String(curso.id)) continue
         if (vistos.has(a.usuario_id)) continue
         vistos.add(a.usuario_id)
         alumnos.push({ email: a.email, nombre_completo: a.nombre_completo })

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import {
   esTallerIndividual, moduloVisible, moduloBloqueadoParaAlumno,
   emiteConstancia, analizarUrl, esCursoProblemasContemporaneos,
+  moduloAbiertoPorFecha,
 } from '../lib/helpers'
 import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
@@ -80,6 +81,15 @@ function ModuloView({ user }) {
 
         if (!gestionaCurso && m.disponible === false) {
           setError('Este módulo todavía no está abierto. Te avisaré por WhatsApp cuando esté disponible.')
+          return
+        }
+        // Fecha de apertura/cierre (MODULOS_FECHAS.sql). Sin fechas no
+        // cambia nada; el gestor entra siempre.
+        if (!gestionaCurso && !moduloAbiertoPorFecha(m)) {
+          const abre = m.abre_el ? new Date(m.abre_el) : null
+          setError(abre && abre.getTime() > Date.now()
+            ? `Este módulo se abre el ${abre.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}.`
+            : 'Este módulo ya no está disponible.')
           return
         }
 

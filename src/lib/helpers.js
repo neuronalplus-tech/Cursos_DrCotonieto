@@ -65,6 +65,24 @@ export function moduloBloqueadoParaAlumno(m) {
   return !!m && m.disponible === false
 }
 
+/**
+ * ¿El módulo está abierto SEGÚN SUS FECHAS? (MODULOS_FECHAS.sql)
+ *
+ * Sin fechas —o si la columna todavía no existe en la base— siempre
+ * abierto: es lo que tienen todos los módulos de hoy, así que no cambia
+ * nada hasta que el gestor ponga una fecha. Una apertura futura lo
+ * mantiene cerrado hasta esa fecha; un cierre pasado lo cierra. Fechas
+ * inválidas se ignoran (mejor abierto que roto).
+ */
+export function moduloAbiertoPorFecha(m, ahora = Date.now()) {
+  if (!m) return false
+  const abre = m.abre_el ? new Date(m.abre_el).getTime() : null
+  const cierra = m.cierra_el ? new Date(m.cierra_el).getTime() : null
+  if (abre != null && !Number.isNaN(abre) && ahora < abre) return false
+  if (cierra != null && !Number.isNaN(cierra) && ahora >= cierra) return false
+  return true
+}
+
 export function emiteConstancia(curso) {
   if (!curso) return false
   // Un taller gratuito emite constancia solo cuando el docente la

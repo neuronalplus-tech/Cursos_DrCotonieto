@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ModalPortal, EditorBotonesExtra } from './ui'
+import { aCampoLocal, deCampoLocal } from '../lib/plazos'
 
 /**
  * Modales de administración del curso: botones de ruta, alta de módulo y
@@ -138,26 +139,42 @@ export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
   const [ordenVal, setOrdenVal] = useState(modulo.orden ?? 100)
   const [oculto, setOculto] = useState(modulo.oculto === true)
   const [disponible, setDisponible] = useState(modulo.disponible !== false)
+  const [abreEl, setAbreEl] = useState(aCampoLocal(modulo.abre_el))
+  const [cierraEl, setCierraEl] = useState(aCampoLocal(modulo.cierra_el))
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
 
   const guardar = async () => {
     if (!titulo.trim()) { setMsg('El título es obligatorio'); return }
     setGuardando(true); setMsg('')
+    const base = {
+      titulo:      titulo.trim(),
+      descripcion: descripcion.trim() || null,
+      orden:       parseInt(ordenVal, 10) || 100,
+      grupo:       grupo.trim() || null,
+      disponible,
+    }
+    // Columnas que dependen de un SQL que podría no estar corrido:
+    // `oculto` (MODULOS_VISIBILIDAD.sql) y las fechas (MODULOS_FECHAS.sql).
+    // Si faltan, el update entero fallaría con "column does not exist" y
+    // no se podría ni corregir un título. Por eso: se intenta con todo y,
+    // si la base dice que una columna no existe, se reintenta sin ellas.
+    const completo = { ...base, oculto, abre_el: deCampoLocal(abreEl), cierra_el: deCampoLocal(cierraEl) }
+    let degradado = false
     try {
-      const cambios = {
-        titulo:      titulo.trim(),
-        descripcion: descripcion.trim() || null,
-        orden:       parseInt(ordenVal, 10) || 100,
-        grupo:       grupo.trim() || null,
-        oculto,
-        disponible,
+      let { data, error } = await supabase.from('modulos')
+        .update(completo).eq('id', modulo.id).select().single()
+      if (error && (error.code === '42703' || /column .* does not exist|could not find/i.test(error.message || ''))) {
+        const r = await supabase.from('modulos').update(base).eq('id', modulo.id).select().single()
+        data = r.data; error = r.error; degradado = true
       }
-      const { data, error } = await supabase.from('modulos')
-        .update(cambios).eq('id', modulo.id).select().single()
       if (error) throw error
       onGuardado(data)
-      onClose()
+      if (degradado) {
+        setMsg('Guardado. Las fechas y «oculto» necesitan correr MODULOS_FECHAS.sql y MODULOS_VISIBILIDAD.sql en Supabase.')
+      } else {
+        onClose()
+      }
     } catch (e) {
       setMsg('Error: ' + e.message)
     } finally {
@@ -184,6 +201,18 @@ export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
 
         <label htmlFor="em-orden">Orden</label>
         <input id="em-orden" type="number" value={ordenVal} onChange={e => setOrdenVal(e.target.value)} />
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+          <div style={{ flex: '1 1 180px' }}>
+            <label htmlFor="em-abre">Se abre el <span className="sutil">(opcional)</span></label>
+            <input id="em-abre" type="datetime-local" value={abreEl} onChange={e => setAbreEl(e.target.value)} />
+          </div>
+          <div style={{ flex: '1 1 180px' }}>
+            <label htmlFor="em-cierra">Se cierra el <span className="sutil">(opcional)</span></label>
+            <input id="em-cierra" type="datetime-local" value={cierraEl} onChange={e => setCierraEl(e.target.value)} />
+          </div>
+        </div>
+        <p className="nota">Vacío = lo decide «Disponible». Con fecha de apertura, el alumno no entra hasta ese momento (tú sí).</p>
 
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 14 }}>
           <input type="checkbox" checked={disponible} onChange={e => setDisponible(e.target.checked)} style={{ marginTop: 3 }} />
