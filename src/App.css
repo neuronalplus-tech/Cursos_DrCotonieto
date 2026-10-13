@@ -3801,3 +3801,15 @@ a { color: var(--primary); }
 .salto-contenido:focus {
   top: 0;
 }
+
+/* Botones ↑/↓ para reordenar módulos (CursoView) y recursos (ModuloView). */
+.modulo-orden { display: inline-flex; flex-direction: column; gap: 2px; }
+.modulo-orden-btn {
+  width: 28px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--borde); border-radius: 6px;
+  background: var(--blanco); color: var(--primary);
+  font-size: 12px; line-height: 1; cursor: pointer;
+}
+.modulo-orden-btn:hover:not(:disabled) { background: var(--bg-card); }
+.modulo-orden-btn:disabled { opacity: .35; cursor: not-allowed; }

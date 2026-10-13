@@ -616,7 +616,7 @@ export function ModalNotificarRecurso({ recurso, modulo, curso, onClose }) {
   )
 }
 
-export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gestiona, onEditar, onDuplicar, onNotificar, onToggleDisponible, esGratuito }) {
+export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gestiona, onEditar, onDuplicar, onNotificar, onToggleDisponible, esGratuito, onMover, esPrimero, esUltimo }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const enlaceEmbebible = recurso.tipo === 'enlace' && analizarUrl(recurso.url).embeddable
@@ -668,6 +668,14 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gesti
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
           {visto && <span className="badge ok">✔ Visto</span>}
           {gestiona && recurso.disponible === false && <span className="etiqueta-grupo">🔒 Oculto para alumnos</span>}
+          {gestiona && onMover && (
+            <div className="modulo-orden">
+              <button type="button" className="modulo-orden-btn" aria-label={`Subir ${recurso.titulo}`}
+                disabled={esPrimero} onClick={() => onMover(recurso, -1)}>↑</button>
+              <button type="button" className="modulo-orden-btn" aria-label={`Bajar ${recurso.titulo}`}
+                disabled={esUltimo} onClick={() => onMover(recurso, 1)}>↓</button>
+            </div>
+          )}
           {gestiona && onToggleDisponible && (
             <button type="button" className={`candado-toggle ${recurso.disponible === false ? 'cerrado' : 'abierto'}`}
                     onClick={() => onToggleDisponible(recurso)}

@@ -308,7 +308,31 @@ function CursoView({ user }) {
     setModulos(prev => prev.filter(x => x.id !== m.id))
   }
 
-  const renderModulo = (m, i) => {
+  // Reordenar con ↑/↓ en vez de teclear un número (lo que pedía el
+  // diagnóstico). Intercambia el `orden` con el módulo vecino de la misma
+  // lista y lo guarda; el estado se reordena solo al repintar.
+  const moverModulo = async (m, lista, dir) => {
+    const j = lista.findIndex(x => x.id === m.id)
+    const k = j + dir
+    if (k < 0 || k >= lista.length) return
+    const otro = lista[k]
+    const ordenM = m.orden ?? j
+    const ordenO = otro.orden ?? k
+    const nuevoM = ordenO === ordenM ? k : ordenO
+    const nuevoO = ordenO === ordenM ? j : ordenM
+    // Se reordena el array además de cambiar los valores: la vista sin
+    // grupos pinta en el orden del array, no reordena en cada render.
+    setModulos(prev => prev
+      .map(x => x.id === m.id ? { ...x, orden: nuevoM } : x.id === otro.id ? { ...x, orden: nuevoO } : x)
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0)))
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      supabase.from('modulos').update({ orden: nuevoM }).eq('id', m.id),
+      supabase.from('modulos').update({ orden: nuevoO }).eq('id', otro.id),
+    ])
+    if (e1 || e2) window.alert('No se pudo reordenar: ' + (e1 || e2).message)
+  }
+
+  const renderModulo = (m, i, lista = modulos) => {
     const bloqueado = esModuloBloqueado(m)
     const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !gestiona
     const bloqueadoPorDisponibilidad = bloqueado && m.disponible === false && !gestiona
@@ -338,6 +362,12 @@ function CursoView({ user }) {
     return (
       <div key={m.id} className="modulo-row">
         <Link to={`/modulo/${m.id}`} className="modulo-card">{contenido}</Link>
+        <div className="modulo-orden">
+          <button type="button" className="modulo-orden-btn" aria-label={`Subir ${m.titulo}`}
+            disabled={i === 0} onClick={() => moverModulo(m, lista, -1)}>↑</button>
+          <button type="button" className="modulo-orden-btn" aria-label={`Bajar ${m.titulo}`}
+            disabled={i === lista.length - 1} onClick={() => moverModulo(m, lista, 1)}>↓</button>
+        </div>
         <button type="button"
           className={`candado-toggle ${m.disponible ? 'abierto' : 'cerrado'}`}
           onClick={() => toggleDisponible(m)}
@@ -461,7 +491,7 @@ function CursoView({ user }) {
               </header>
 
               <div className="modulo-grid">
-                {modsRuta.map((m, i) => renderModulo(m, i))}
+                {modsRuta.map((m, i) => renderModulo(m, i, modsRuta))}
                 {modsRuta.length === 0 && <p className="sutil">Esta ruta aún no tiene módulos publicados.</p>}
               </div>
 
@@ -488,7 +518,7 @@ function CursoView({ user }) {
         })
       ) : (
         <div className="modulo-grid">
-          {modulos.map((m, i) => renderModulo(m, i))}
+          {modulos.map((m, i) => renderModulo(m, i, modulos))}
           {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
         </div>
       )}
@@ -496,7 +526,7 @@ function CursoView({ user }) {
       {modsSinGrupo.length > 0 && grupos.length > 0 && (
         <section className="ruta-section">
           <h2 className="titulo-seccion">Otros módulos</h2>
-          <div className="modulo-grid">{modsSinGrupo.map((m, i) => renderModulo(m, i))}</div>
+          <div className="modulo-grid">{modsSinGrupo.map((m, i) => renderModulo(m, i, modsSinGrupo))}</div>
         </section>
       )}
       </>

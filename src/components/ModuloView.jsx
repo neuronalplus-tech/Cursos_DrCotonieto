@@ -161,6 +161,26 @@ function ModuloView({ user }) {
     setModulo(m => ({ ...m, disponible: true }))
   }
 
+  // Reordenar recursos con ↑/↓ (igual que los módulos en CursoView).
+  const moverRecurso = async (r, dir) => {
+    const j = recursos.findIndex(x => x.id === r.id)
+    const k = j + dir
+    if (k < 0 || k >= recursos.length) return
+    const otro = recursos[k]
+    const ordenR = r.orden ?? j
+    const ordenO = otro.orden ?? k
+    const nuevoR = ordenO === ordenR ? k : ordenO
+    const nuevoO = ordenO === ordenR ? j : ordenR
+    setRecursos(prev => prev
+      .map(x => x.id === r.id ? { ...x, orden: nuevoR } : x.id === otro.id ? { ...x, orden: nuevoO } : x)
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0)))
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      supabase.from('recursos').update({ orden: nuevoR }).eq('id', r.id),
+      supabase.from('recursos').update({ orden: nuevoO }).eq('id', otro.id),
+    ])
+    if (e1 || e2) window.alert('No se pudo reordenar: ' + (e1 || e2).message)
+  }
+
   const toggleRecursoDisponible = async (r) => {
     const nuevo = r.disponible === false
     const { error } = await supabase.from('recursos').update({ disponible: nuevo }).eq('id', r.id)
@@ -342,7 +362,7 @@ function ModuloView({ user }) {
 
           <div className="recursos-list">
             {mostrarEntregables && <Entregables modulo={modulo} gestiona={gestiona} onGuardado={setModulo} />}
-            {recursos.map((r) => (
+            {recursos.map((r, i) => (
               <RecursoCard
                 key={r.id}
                 recurso={r}
@@ -356,6 +376,9 @@ function ModuloView({ user }) {
                 onNotificar={setNotificandoRecurso}
                 onToggleDisponible={toggleRecursoDisponible}
                 esGratuito={!!curso?.gratuito}
+                onMover={moverRecurso}
+                esPrimero={i === 0}
+                esUltimo={i === recursos.length - 1}
               />
             ))}
             {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
