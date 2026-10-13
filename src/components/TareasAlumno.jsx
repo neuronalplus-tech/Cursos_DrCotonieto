@@ -246,18 +246,22 @@ function UnaTarea({ tarea, user }) {
 export default function TareasAlumno({ cursoId = null, moduloId = null, user, miGrupo = null }) {
   const [tareas, setTareas] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [errorTareas, setErrorTareas] = useState(null)
 
   useEffect(() => {
     const valor = cursoId || moduloId
     if (!valor || !user) { setCargando(false); return }
     let vivo = true
     ;(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('tareas').select('*')
         .eq(cursoId ? 'curso_id' : 'modulo_id', valor)
         .eq('activo', true)
         .order('creado_en')
       if (!vivo) return
+      // Si la consulta falla, antes la sección desaparecía entera y el
+      // alumno nunca sabía que había una entrega. Ahora se dice.
+      setErrorTareas(error ? error.message : null)
       // Una tarea con `grupo` es de una ruta concreta, igual que los
       // módulos: solo la ve quien está en esa ruta.
       setTareas((data || []).filter(t => !t.grupo || t.grupo === miGrupo))
@@ -266,7 +270,17 @@ export default function TareasAlumno({ cursoId = null, moduloId = null, user, mi
     return () => { vivo = false }
   }, [cursoId, moduloId, user, miGrupo])
 
-  if (cargando || !tareas.length) return null
+  if (cargando) return null
+  if (errorTareas) {
+    return (
+      <section className="tareas-alumno">
+        <p className="aviso-error" role="alert">
+          No se pudieron cargar las tareas de este curso. Recarga la página; si sigue, escríbeme.
+        </p>
+      </section>
+    )
+  }
+  if (!tareas.length) return null
 
   return (
     <section className="tareas-alumno">

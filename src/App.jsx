@@ -45,7 +45,11 @@ function App() {
         const t = localStorage.getItem('login_time')
         if (t && Date.now() - parseInt(t, 10) > 30 * 24 * 60 * 60 * 1000) {
           await supabase.auth.signOut(); localStorage.removeItem('login_time')
-          setSession(null); setMessage('Tu acceso expiró. Escríbeme para renovarlo.')
+          // Es la SESIÓN la que caduca por seguridad a los 30 días, no la
+          // inscripción. El mensaje anterior ("tu acceso expiró") hacía que
+          // un alumno de un curso de 6 meses creyera que perdió el curso y
+          // escribiera alarmado. Entra de nuevo con la misma contraseña.
+          setSession(null); setMessage('Por seguridad cerramos tu sesión. Vuelve a entrar con tu misma contraseña.')
           setLoading(false); return
         }
         if (!t) localStorage.setItem('login_time', String(Date.now()))
@@ -107,12 +111,35 @@ function App() {
               <Route path="/verificar/:folio?" element={<VerificarConstancia />} />
               <Route path="/mensajes" element={<PaginaMensajes user={user} esAdmin={esAdmin} />} />
               <Route path="/foro/:cursoId" element={<ForoCurso user={user} />} />
+              {/* Antes, un enlace con una errata (un WhatsApp copiado a
+                  medias, p. ej.) pintaba el header y un <main> vacío, sin
+                  decir que no existía ni cómo volver. */}
+              <Route path="*" element={<NoEncontrado />} />
             </Routes>
           </Suspense>
         </BarreraErrores>
       </main>
       <WhatsAppFlotante />
     </>
+  )
+}
+
+/* Página 404. Simple a propósito: no necesita datos ni sesión, solo sacar
+   a la persona del callejón. */
+function NoEncontrado() {
+  const navigate = useNavigate()
+  return (
+    <section className="contenedor" style={{ textAlign: 'center', padding: '48px 16px' }}>
+      <h1 className="titulo-seccion">Esta página no existe</h1>
+      <p className="sutil" style={{ maxWidth: 480, margin: '8px auto 24px' }}>
+        El enlace puede estar incompleto o haber cambiado. Desde aquí puedes volver
+        al inicio o ir a tus cursos.
+      </p>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button type="button" className="button primary" onClick={() => navigate('/')}>Ir al inicio</button>
+        <button type="button" className="button secondary" onClick={() => navigate('/perfil')}>Mi perfil</button>
+      </div>
+    </section>
   )
 }
 

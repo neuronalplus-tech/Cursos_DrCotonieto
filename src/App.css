@@ -6,12 +6,18 @@
   --accent: #C17A5E;
   --accent-claro: #E0A88C;
   --body: #33414A;
-  --gris: #7A8891;
+  /* Gris de texto secundario. Subido de #7A8891 (3.49:1 sobre el fondo,
+     reprobaba WCAG AA) a #5A6771 (~5.4:1): el mismo gris, legible para
+     quien tiene presbicia o un monitor mal calibrado. Toca ~90 reglas de
+     una sola vez. El #7A8891 original se reserva para bordes e iconos
+     decorativos, donde el contraste de texto no aplica. */
+  --gris: #5A6771;
   /* Alias de --gris. Hay una treintena de reglas que usan --muted y
      nunca estuvo definida: `color: var(--muted)` sin valor es
      invalido, asi que esos textos salian heredando el color del
      padre en vez de en gris. */
-  --muted: #7A8891;
+  --muted: #5A6771;
+  --gris-borde: #7A8891;
   --bg: #FAFAF8;
   --bg-card: #F2EEE9;
   --bg-info: #EEF2F4;
@@ -23,6 +29,14 @@
   --blanco: #fff;
   --wa: #25D366;
   --wa-oscuro: #1da851;
+  /* El verde de marca de WhatsApp (#25D366) con texto blanco da 1.98:1:
+     el botón "Escríbeme" era el texto menos legible del sitio, y es el
+     CTA comercial. Para el BOTÓN se usa un verde más oscuro (#0E7A38,
+     ~4.8:1 con blanco) que sigue leyéndose como WhatsApp. El --wa claro
+     se queda para el icono flotante y los acentos, donde no hay texto
+     encima. */
+  --wa-boton: #0E7A38;
+  --wa-boton-oscuro: #0b5f2c;
   --titulo: 'Fraunces', Georgia, serif;
   --texto: 'Inter', system-ui, sans-serif;
   --sombra: 0 1px 3px rgba(27,58,75,.06), 0 8px 24px rgba(27,58,75,.06);
@@ -59,8 +73,8 @@ a { color: var(--primary); }
 .button.peligro { background: #B3452C; color: #fff; }
 .button.peligro:hover { background: #8f3622; }
 .button.peligro:disabled { background: #d9b4aa; cursor: not-allowed; }
-.button.whatsapp { background: var(--wa); color: #fff; }
-.button.whatsapp:hover { background: var(--wa-oscuro); transform: translateY(-1px); }
+.button.whatsapp { background: var(--wa-boton); color: #fff; }
+.button.whatsapp:hover { background: var(--wa-boton-oscuro); transform: translateY(-1px); }
 .button.azul { background: var(--primary-claro); color: #fff; }
 .button.azul:hover { background: var(--primary); transform: translateY(-1px); }
 .button.texto { background: none; color: var(--gris); padding: 11px 8px; text-decoration: underline; }

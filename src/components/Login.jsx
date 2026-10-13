@@ -97,7 +97,7 @@ function Login({ message }) {
                   onClick={() => navigate(destino !== '/'
                     ? `/registro?redirigir=${encodeURIComponent(destino)}`
                     : '/registro')}>
-            ¿No tienes cuenta? Créeala aquí
+            ¿No tienes cuenta? Créala aquí
           </button>
           <button className="enlace-texto" onClick={() => navigate('/recuperar')}>
             Olvidé mi contraseña

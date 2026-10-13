@@ -232,7 +232,7 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
         // completo. Un "no" de la base se dice tal cual.
         const sinMigrar = e?.code === 'PGRST202'
           || /column .*pendiente|column .*preguntas|relation .*intentos_examen/.test(e?.message || '')
-        if (!sinMigracion) {
+        if (!sinMigrar) {
           alert('No se pudo abrir un intento nuevo: ' + (e?.message || e))
           return
         }

@@ -117,7 +117,10 @@ export default function AdminCursos() {
     const cat = categorias.find(k => String(k.id) === String(form.categoria_id))
     payload.categoria_id = cat ? cat.id : null
     payload.linea = cat ? cat.nombre : null
-    if (editando === 'nueva' && organizacion?.id) {
+    // 'nuevo' es el valor que fija el botón de alta (ver setEditando). Antes
+    // decía 'nueva' y no coincidía nunca, así que un curso nuevo nacía sin
+    // organización y desaparecía de su propia lista.
+    if (editando === 'nuevo' && organizacion?.id) {
       payload.organizacion_id = organizacion.id
     }
     // null = promedio simple. Guardar un objeto con todo en cero

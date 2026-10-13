@@ -1,4 +1,19 @@
 -- =============================================================
+--  ⛔ OBSOLETO — NO CORRER ESTE SCRIPT ⛔
+--
+--  Quedó como regresión peligrosa. Si se corre:
+--   · Redefine es_admin() SIN el filtro `organizacion_id is null`, con
+--     lo que TODO admin de organización pasa a ser admin de PLATAFORMA.
+--   · Reabre `intentos_insert_own` a `with check (usuario_id = auth.uid())`,
+--     que EXAMENES_ALEATORIOS.sql cerró a `with check (false)` a
+--     propósito: con él abierto, un alumno puede insertar su propio
+--     intento con la calificación que escriba.
+--
+--  No está en ESTADO.sql y no debe instalarse. Se conserva solo como
+--  registro histórico. La RLS de exámenes vive en EXAMENES_ALEATORIOS.sql
+--  y EXAMENES_2_SERVIR_VOLATIL.sql.
+-- =============================================================
+--
 --  RLS para la tabla `examenes` (y `intentos_examen`)
 --
 --  PROBLEMA QUE RESUELVE

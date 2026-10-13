@@ -168,6 +168,16 @@ begin
   select u.email::text into v_obj from auth.users u where u.id = p_usuario;
   if v_obj is null then raise exception 'Esa cuenta ya no existe'; end if;
 
+  -- Aislamiento entre organizaciones: un admin de un cliente no puede
+  -- NI SIQUIERA VER el resumen de borrado de alguien ajeno (si no, esta
+  -- función servía de oráculo de datos de otros inquilinos). El admin de
+  -- plataforma (es_admin) sí; un admin de organización solo de su gente.
+  if v_email is not null
+     and not public.es_admin()
+     and not public.es_alumno_de_org_que_administro(p_usuario) then
+    raise exception 'No autorizado' using errcode = '42501';
+  end if;
+
   select count(*) into v_constancias from public.constancias where usuario_id = p_usuario;
   select count(*) into v_cursos      from public.acceso      where usuario_id = p_usuario;
   select count(*) into v_progreso    from public.progreso_usuario where usuario_id = p_usuario;
@@ -224,6 +234,9 @@ begin
     raise exception 'No autorizado';
   end if;
 
+  -- resumen_borrado_usuario ya valida el aislamiento entre organizaciones
+  -- y lanza si el objetivo es de otro inquilino; esta llamada hereda esa
+  -- protección antes de borrar nada.
   v_resumen := public.resumen_borrado_usuario(p_usuario);
   v_obj := v_resumen ->> 'email';
 

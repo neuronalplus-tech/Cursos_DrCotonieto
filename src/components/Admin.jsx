@@ -296,23 +296,30 @@ function Admin({ user }) {
   const [msgWa, setMsgWa] = useState('')
   const navigate = useNavigate()
 
+  /* ÚNICA vía para escribir `filas`. La vista `vista_admin_inscripciones`
+     es de TODA la plataforma; el filtro por organización se aplica aquí
+     dentro. Antes cada refresco (alta, alta masiva, dar/quitar acceso,
+     acción masiva) repetía la consulta SIN el filtro, así que tras
+     cualquiera de esas acciones el panel empezaba a mostrar las
+     inscripciones de los demás clientes. Centralizarlo cierra esa fuga. */
+  const recargarInscripciones = async () => {
+    const { data: misCursos } = organizacion?.id
+      ? await supabase.from('cursos').select('id').eq('organizacion_id', organizacion.id)
+      : { data: null }
+    const idsCurso = misCursos ? new Set(misCursos.map(c => c.id)) : null
+    const { data, error } = await supabase.from('vista_admin_inscripciones')
+      .select('*').order('inscrito_el', { ascending: false })
+    if (error) { setError(error.message); return }
+    setFilas(idsCurso ? (data || []).filter(f => idsCurso.has(f.curso_id)) : (data || []))
+  }
+
   useEffect(() => {
     if (!user) { navigate(rutaAcceso('/admin')); return }
-    async function load() {
-      const { data: misCursos } = organizacion?.id
-        ? await supabase.from('cursos').select('id').eq('organizacion_id', organizacion.id)
-        : { data: null }
-      const idsCurso = misCursos ? new Set(misCursos.map(c => c.id)) : null
-
-      const { data, error } = await supabase.from('vista_admin_inscripciones')
-        .select('*').order('inscrito_el', { ascending: false })
-      if (error) setError(error.message)
-      // La vista es de toda la plataforma: aquí se acota a lo de esta
-      // organización, que es lo único que su administrador debe ver.
-      else setFilas(idsCurso ? (data || []).filter(f => idsCurso.has(f.curso_id)) : (data || []))
+    ;(async () => {
+      await recargarInscripciones()
       setCargando(false)
-    }
-    load()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate, organizacion])
 
   useEffect(() => {
@@ -622,9 +629,7 @@ function Admin({ user }) {
         setNuevoEmail('')
         setNuevoPass('')
         setCursosSeleccionados([])
-        const { data } = await supabase.from('vista_admin_inscripciones')
-          .select('*').order('inscrito_el', { ascending: false })
-        setFilas(data || [])
+        await recargarInscripciones()
         setUsuarios([])
       }
     } catch (e) {
@@ -818,9 +823,7 @@ function Admin({ user }) {
       })
       setMsgMasivo(`✓ Proceso terminado: ${creados} creados, ${existentes} ya existían, ` + `${errores} con error.${avisoPadron}`)
 
-      const { data } = await supabase.from('vista_admin_inscripciones')
-        .select('*').order('inscrito_el', { ascending: false })
-      setFilas(data || [])
+      await recargarInscripciones()
       setUsuarios([])
       setEmailsMasivos('')
       setCursosMasivos([])
@@ -1353,9 +1356,7 @@ function Admin({ user }) {
         })
         setMsgGestion('✓ Acceso otorgado')
       }
-      const { data } = await supabase.from('vista_admin_inscripciones')
-        .select('*').order('inscrito_el', { ascending: false })
-      setFilas(data || [])
+      await recargarInscripciones()
       setUsuarios(prev => prev.map(u => {
         if (u.usuario_id !== usuario_id) return u
         const count = (accesos[usuario_id]?.size || 0)
@@ -1451,9 +1452,7 @@ function Admin({ user }) {
       setMsgGestion(`✓ Acción completada para ${usuariosArr.length} usuario(s)`)
       setSeleccionados(new Set())
 
-      const { data } = await supabase.from('vista_admin_inscripciones')
-        .select('*').order('inscrito_el', { ascending: false })
-      setFilas(data || [])
+      await recargarInscripciones()
 
       await cargarGestion()
 

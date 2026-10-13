@@ -21,19 +21,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Informativos, NO bloqueantes.
+      # El LINT sí bloquea, pero SOLO por errores (no por avisos de estilo).
       #
-      # Se pusieron como bloqueantes y el sitio dejó de actualizarse: si
-      # cualquiera de los dos falla en CI, el deploy no corre y la versión
-      # publicada se queda atrás sin aviso visible. Un fallo de lint no
-      # justifica dejar la plataforma congelada.
-      #
-      # La red de seguridad de verdad sigue siendo `npm run build`, que sí
-      # bloquea: si el código no compila, no se publica.
-      - name: Lint (identificadores sin definir)
-        run: npm run lint
-        continue-on-error: true
+      # Historia: se puso bloqueante del todo, un aviso de hooks congeló el
+      # deploy y se desactivó por completo. El problema era bloquear por
+      # AVISOS. Con `--max-warnings 999` el deploy solo se detiene ante un
+      # ERROR real (p. ej. una variable inexistente como la que dejó
+      # muerto "Volver a intentar" en los exámenes durante semanas, porque
+      # el lint lo detectaba pero no bloqueaba). Los avisos siguen saliendo
+      # en el log sin frenar nada.
+      - name: Lint (errores, no avisos)
+        run: npm run lint -- --max-warnings 999
 
+      # El check de imports/columnas sigue informativo: da falsos positivos
+      # (avisa de imports "sin usar" que sí se usan en JSX) y no debe frenar.
       - name: Comprobar imports de componentes
         run: npm run check
         continue-on-error: true

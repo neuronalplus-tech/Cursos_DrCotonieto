@@ -396,7 +396,7 @@ function CursoView({ user }) {
         </div>
       )}
 
-      {user && !curso.gratuito && (
+      {user && (
         <div className="progreso-container">
           <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
           <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }} /></div>
@@ -436,7 +436,10 @@ function CursoView({ user }) {
                 )}
                 {(curso.rutas_botones?.[g] || []).length > 0 && (
                   <div className="ruta-botones-extra">
-                    {curso.rutas_botones[g].map((b, i) => (
+                    {/* Respeta la casilla "Activo" del editor: antes se pintaban
+                        todos, así que apagar un botón no lo quitaba. El gestor
+                        sí los ve todos, para poder reactivarlos. */}
+                    {curso.rutas_botones[g].filter(b => gestiona || b.activo !== false).map((b, i) => (
                       <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
                         {b.texto}
                       </a>

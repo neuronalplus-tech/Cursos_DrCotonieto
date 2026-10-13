@@ -136,6 +136,19 @@ function ModuloView({ user }) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  // Abre el módulo desde la propia pantalla, en vez de pedirle al docente
+  // que copie una sentencia SQL (que además dejaba ver la estructura de la
+  // base a cualquier facilitador).
+  const [abriendoModulo, setAbriendoModulo] = useState(false)
+  const abrirModuloParaAlumnos = async () => {
+    if (!modulo) return
+    setAbriendoModulo(true)
+    const { error: e } = await supabase.from('modulos').update({ disponible: true }).eq('id', modulo.id)
+    setAbriendoModulo(false)
+    if (e) { alert('No se pudo abrir el módulo: ' + e.message); return }
+    setModulo(m => ({ ...m, disponible: true }))
+  }
+
   const toggleRecursoDisponible = async (r) => {
     const nuevo = r.disponible === false
     const { error } = await supabase.from('recursos').update({ disponible: nuevo }).eq('id', r.id)
@@ -189,8 +202,13 @@ function ModuloView({ user }) {
 
       {gestiona && bloqueadoParaAlumno && (
         <div className="admin-banner">
-          <strong>Vista de administrador.</strong> Este módulo aún no está visible para alumnos (disponible = false).
-          Para abrirlo: <code>update modulos set disponible = true where id = {modulo.id};</code>
+          <strong>Vista de administrador.</strong> Este módulo aún no está visible para los alumnos.
+          {' '}
+          <button type="button" className="button secondary" style={{ marginLeft: 8 }}
+                  disabled={abriendoModulo}
+                  onClick={abrirModuloParaAlumnos}>
+            {abriendoModulo ? 'Abriendo…' : 'Abrir para alumnos'}
+          </button>
         </div>
       )}
 

@@ -48,7 +48,11 @@ with esperado(orden, script, objeto, tipo) as (
     (36, 'ALTA_PUBLICA.sql',                'listar_inscritos_gratuitos', 'funcion'),
     (37, 'ALTA_PUBLICA_2_TANDAS.sql',       'asignar_tandas_faltantes',   'funcion'),
     (38, 'WHATSAPP_Y_BAJAS.sql',            'contactos_admin',            'tabla'),
-    (39, 'WHATSAPP_Y_BAJAS.sql',            'eliminar_usuario',           'funcion')
+    (39, 'WHATSAPP_Y_BAJAS.sql',            'eliminar_usuario',           'funcion'),
+    (40, 'MODULOS_VISIBILIDAD.sql',         'oculto',                     'columna')
+    -- Nota: SEG_1/SEG_2 redefinen funciones y políticas ya listadas
+    -- (bulk_*, modulos_lectura_publica); su efecto se comprueba aparte,
+    -- no añaden objetos nuevos que contar aquí.
 ),
 hay as (
   select e.orden, e.script, e.objeto, e.tipo,
@@ -73,6 +77,12 @@ hay as (
       when 'restriccion' then exists (
         select 1 from pg_constraint
         where conname = e.objeto)
+      -- 'columna' comprueba una columna concreta. El nombre de la tabla
+      -- va implícito por el script; aquí se busca por nombre de columna,
+      -- que para los casos listados es único y basta.
+      when 'columna' then exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and column_name = e.objeto)
     end as instalado
   from esperado e
 )

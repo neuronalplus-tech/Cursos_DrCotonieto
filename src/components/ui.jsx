@@ -4,7 +4,7 @@
    durante el refactor (etapa 2b). Mismo render, mismo comportamiento.
    ============================================================ */
 
-import { Component } from 'react'
+import { Component, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { analizarUrl } from '../lib/helpers'
@@ -62,8 +62,39 @@ export class BarreraErrores extends Component {
    nuevo containing block para position:fixed, así que el modal se ve chico y
    parpadea al entrar/salir del hover.
    ------------------------------------------------------------ */
-export function ModalPortal({ children }) {
-  return createPortal(children, document.body)
+/* El contrato de accesibilidad de un diálogo, en un solo sitio. Los ~32
+   modales que usan ModalPortal lo heredan sin tocarse:
+   · role="dialog" + aria-modal => el lector de pantalla lo anuncia como
+     diálogo en vez de leer el fondo.
+   · bloqueo del scroll del fondo => en móvil el fondo deja de arrastrarse
+     al desplazar un modal alto.
+   · Escape y retorno del foco => SOLO cuando el llamador pasa `onClose`,
+     para no cambiar el comportamiento de los que no lo esperan.
+   Todo es aditivo: un modal que no pase `onClose` se comporta igual que
+   antes, solo que ahora se anuncia y no deja correr el fondo. */
+export function ModalPortal({ children, onClose, label }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const foco = document.activeElement
+    const alTeclear = (e) => { if (e.key === 'Escape' && onClose) onClose() }
+    document.addEventListener('keydown', alTeclear)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', alTeclear)
+      // Devuelve el foco a quien abrió el modal, si sigue en el documento.
+      if (foco && typeof foco.focus === 'function' && document.contains(foco)) {
+        foco.focus()
+      }
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={label || undefined} style={{ display: 'contents' }}>
+      {children}
+    </div>,
+    document.body
+  )
 }
 
 export function Breadcrumb({ items }) {
