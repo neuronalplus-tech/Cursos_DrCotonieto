@@ -23,6 +23,7 @@
 
 import { useEffect, useReducer } from 'react'
 import { supabase } from './supabase'
+import { sanearCss } from './encuestas'
 
 const BASE = (import.meta.env.VITE_DOMINIO_BASE || '').toLowerCase().trim()
 
@@ -110,4 +111,19 @@ export function aplicarMarca(org) {
   if (org.color_primario) raiz.style.setProperty('--primary', org.color_primario)
   if (org.color_acento) raiz.style.setProperty('--accent', org.color_acento)
   if (org.nombre) document.title = org.nombre
+  // CSS extra del cliente (marca blanca), saneado antes de aplicarlo:
+  // un `@import` o un `url()` no pasan aunque venga del suyo.
+  // Si falta la columna (SQL no corrido), no hay CSS y nada cambia.
+  const css = sanearCss(org.css_extra)
+  let hoja = document.getElementById('marca-css-extra')
+  if (css) {
+    if (!hoja) {
+      hoja = document.createElement('style')
+      hoja.id = 'marca-css-extra'
+      document.head.appendChild(hoja)
+    }
+    hoja.textContent = css
+  } else if (hoja) {
+    hoja.remove()
+  }
 }

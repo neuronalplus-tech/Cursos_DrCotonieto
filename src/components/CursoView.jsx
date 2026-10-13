@@ -20,6 +20,7 @@ import ExamenModulo from './ExamenModulo'
 import { ModalEditarBotonesRuta, ModalNuevoModulo } from './AdminModales'
 import CursoCard from './CursoCard'
 import PortadaCurso from './PortadaCurso'
+import EncuestaNps from './EncuestaNps'
 
 function CursoView({ user }) {
   const { id } = useParams()
@@ -467,6 +468,11 @@ function CursoView({ user }) {
           <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
           <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }} /></div>
         </div>
+      )}
+
+      {/* NPS (F5-3): solo al 100% y como alumno; gestiona no responde. */}
+      {user && !gestiona && progreso === 100 && (
+        <EncuestaNps user={user} cursoId={id} />
       )}
 
       {esTallerIndividual(curso) ? (

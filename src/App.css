@@ -3349,6 +3349,27 @@ a { color: var(--primary); }
 .tablero-fila-parada { background: var(--bg-card); }
 .tablero-fila-parada td:first-child a { color: var(--gris); }
 
+/* Retención (F5-2) y NPS (F5-3): dos secciones hermanas del
+   tablero con el mismo marco suave. */
+.tablero-retencion { margin-top: 24px; padding: 16px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.tablero-retencion h3 { margin: 0 0 6px; color: var(--primary); }
+
+/* ============================================================
+   ENCUESTA NPS — escala 0-10 del alumno
+   ============================================================ */
+.nps-bloque { margin: 22px 0; padding: 18px; border-radius: 12px;
+  background: var(--bg-info); border: 1px solid var(--borde); }
+.nps-bloque h3 { margin: 0 0 4px; color: var(--primary); }
+.nps-escala { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.nps-boton { width: 40px; height: 40px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--borde); background: var(--blanco);
+  font-weight: 700; color: var(--body); transition: all .12s ease; }
+.nps-boton:hover { border-color: var(--accent); }
+.nps-boton-activo { background: var(--primary); border-color: var(--primary);
+  color: #fff; }
+.nps-bloque textarea { margin-bottom: 12px; }
+
 @media (max-width: 640px) {
   .tablero-datos { grid-template-columns: 1fr 1fr; }
   .tablero-dato strong { font-size: 19px; }

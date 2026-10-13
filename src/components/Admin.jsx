@@ -18,6 +18,7 @@ import AdminRoles from './AdminRoles'
 import AdminRegistro from './AdminRegistro'
 import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron'
 import { sanearDocumento } from '../lib/foro'
+import { etiquetaDestino, filaHistorial, programadosVencidos } from '../lib/comunicados'
 import { usePermisos, useMisPermisos, useModulos } from '../lib/permisos'
 import { seccionVisible } from '../lib/modulos'
 import { useOrganizacion } from '../lib/organizacion'
@@ -293,6 +294,15 @@ function Admin({ user }) {
   const [comunicadoResultado, setComunicadoResultado] = useState(null)
   const [comunicadoPreview, setComunicadoPreview] = useState(false)
   const [comunicadoEditorKey, setComunicadoEditorKey] = useState(0)
+  // Historial (F5-1): lo que ya se mandó o quedó programado. Si
+  // falta correr COMUNICADOS_1_HISTORIAL.sql, queda en null y la
+  // sección avisa en vez de romperse.
+  const [historialCom, setHistorialCom] = useState(null)
+  const [historialFalta, setHistorialFalta] = useState(false)
+  // Programar (F5-1, 2ª mitad): fecha/hora en el editor. Vacío =
+  // enviar ahora, como siempre. Con fecha = guardar programado.
+  const [comunicadoCuando, setComunicadoCuando] = useState('')
+  const [programando, setProgramando] = useState(false)
   const comunicadoEditorRef = useRef(null)
   const [editorHtmlAbierto, setEditorHtmlAbierto] = useState(false)
   const [editorHtmlTexto, setEditorHtmlTexto] = useState('')
@@ -371,6 +381,31 @@ function Admin({ user }) {
     })
     return () => { vivo = false }
   }, [vista, comunicadoDestino, tandasCargadas])
+
+  // Historial de comunicados: se carga una vez al abrir la pestaña.
+  // Si la tabla no existe (falta el SQL), se avisa y el envío sigue
+  // igual: el historial es registro, no requisito para mandar.
+  useEffect(() => {
+    if (!esAdmin || vista !== 'comunicados' || !organizacion?.id) return
+    if (historialCom !== null || historialFalta) return
+    let vivo = true
+    supabase.from('comunicados').select('*')
+      .eq('organizacion_id', organizacion.id)
+      .order('creado_en', { ascending: false }).limit(50)
+      .then(({ data, error }) => {
+        if (!vivo) return
+        if (error) {
+          if (error.code === '42P01' || /no existe|does not exist/i.test(error.message || '')) {
+            setHistorialFalta(true)
+            return
+          }
+          return
+        }
+        setHistorialCom(data || [])
+      })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esAdmin, vista, organizacion?.id])
 
   const cargarGestion = async () => {
     setCargandoGestion(true)
@@ -1154,7 +1189,72 @@ function Admin({ user }) {
     setComunicadoManual('')
     setComunicadoMsg('')
     setComunicadoResultado(null)
+    setComunicadoCuando('')
     setComunicadoEditorKey(k => k + 1)
+  }
+
+  // Guardar para después (F5-1, 2ª mitad). No envía nada: deja la
+  // fila en estado `programado` para que el aviso de vencidos la
+  // recuerde al abrir la pestaña. Sin cron en el plan gratuito,
+  // el envío lo dispara quien lo programó con un clic.
+  const programarComunicado = async () => {
+    setComunicadoMsg('')
+    setComunicadoResultado(null)
+    const destinatarios = calcularDestinatarios()
+    if (!comunicadoAsunto.trim()) { setComunicadoMsg('Error: escribe un asunto'); return }
+    const cuerpoLimpio = comunicadoCuerpo.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+    if (!cuerpoLimpio) { setComunicadoMsg('Error: escribe el cuerpo del mensaje'); return }
+    if (destinatarios.length === 0) { setComunicadoMsg('Error: no hay destinatarios con ese criterio'); return }
+    if (!comunicadoCuando) { setComunicadoMsg('Error: elige fecha y hora para programar'); return }
+    const cuando = new Date(comunicadoCuando)
+    if (Number.isNaN(cuando.getTime())) { setComunicadoMsg('Error: fecha no válida'); return }
+    if (cuando.getTime() <= Date.now()) { setComunicadoMsg('Error: la fecha debe ser futura'); return }
+    setProgramando(true)
+    try {
+      const cuerpoSano = sanearDocumento(comunicadoCuerpo)
+      const cursoSel = cursosLista.find(c => String(c.id) === String(comunicadoCursoId))
+      const fila = filaHistorial({
+        organizacionId: organizacion?.id,
+        canal: 'correo',
+        asunto: comunicadoAsunto,
+        cuerpo: cuerpoSano.trim(),
+        destino: comunicadoDestino,
+        detalle: {
+          ...(comunicadoDestino === 'curso'
+            ? { curso_id: comunicadoCursoId, curso_titulo: cursoSel?.titulo || null } : {}),
+          ...(comunicadoDestino === 'tanda' ? { tanda: comunicadoTanda || null } : {}),
+          ...(comunicadoDestino === 'manual' ? { lista: 'pegada' } : {}),
+        },
+        total: destinatarios.length,
+        estado: 'programado',
+        programadoPara: cuando.toISOString(),
+        email: user?.email || null,
+      })
+      const { data: guardada, error: errH } = await supabase
+        .from('comunicados').insert(fila).select('*').maybeSingle()
+      if (errH) throw errH
+      if (guardada) setHistorialCom(prev => [guardada, ...(prev || [])].slice(0, 50))
+      setComunicadoMsg(`✓ Programado para ${cuando.toLocaleString('es-MX')}: ${destinatarios.length} destinatario(s). Vuelve ese día y envíalo desde el historial.`)
+      setComunicadoAsunto('')
+      setComunicadoCuerpo('')
+      setComunicadoCuando('')
+      setComunicadoEditorKey(k => k + 1)
+    } catch (e) {
+      setComunicadoMsg('Error: ' + (e?.message || e))
+    } finally {
+      setProgramando(false)
+    }
+  }
+
+  // Marcar un programado como enviado después de mandarlo a mano.
+  // El panel no envía solo: quien lo programó copia el contenido,
+  // lo manda con el botón de siempre y marca este como hecho.
+  const marcarProgramadoEnviado = async (id) => {
+    const { data, error } = await supabase.from('comunicados')
+      .update({ estado: 'enviado', enviado_en: new Date().toISOString() })
+      .eq('id', id).select('*').maybeSingle()
+    if (error) { setComunicadoMsg('Error: ' + error.message); return }
+    if (data) setHistorialCom(prev => (prev || []).map(h => (h.id === id ? data : h)))
   }
 
   const enviarComunicado = async () => {
@@ -1215,6 +1315,34 @@ function Admin({ user }) {
         asunto: comunicadoAsunto.trim(),
       })
       setComunicadoMsg(`✓ Comunicado enviado a ${destinatarios.length} alumno(s). Revisa "Enviados" en Gmail.`)
+      // Registrar en el historial (F5-1): si la tabla no existe o
+      // falla, el envío YA salió y no se revierte por eso. Se avisa
+      // en consola y la lista se actualiza en la próxima apertura.
+      try {
+        const cursoSel = cursosLista.find(c => String(c.id) === String(comunicadoCursoId))
+        const fila = filaHistorial({
+          organizacionId: organizacion?.id,
+          canal: 'correo',
+          asunto: comunicadoAsunto,
+          cuerpo: cuerpoSano.trim(),
+          destino: comunicadoDestino,
+          detalle: {
+            ...(comunicadoDestino === 'curso'
+              ? { curso_id: comunicadoCursoId, curso_titulo: cursoSel?.titulo || null } : {}),
+            ...(comunicadoDestino === 'tanda' ? { tanda: comunicadoTanda || null } : {}),
+            ...(comunicadoDestino === 'manual' ? { lista: 'pegada' } : {}),
+          },
+          total: destinatarios.length,
+          estado: 'enviado',
+          email: user?.email || null,
+        })
+        const { data: guardada, error: errH } = await supabase
+          .from('comunicados').insert(fila).select('*').maybeSingle()
+        if (!errH && guardada) setHistorialCom(prev => [guardada, ...(prev || [])].slice(0, 50))
+        else if (errH) console.error('No se pudo registrar el comunicado:', errH.message)
+      } catch (eH) {
+        console.error('No se pudo registrar el comunicado:', eH?.message || eH)
+      }
       setComunicadoAsunto('')
       setComunicadoCuerpo('')
       setComunicadoEditorKey(k => k + 1)
@@ -2679,6 +2807,21 @@ function Admin({ user }) {
                 </button>
                 <button type="button" className="button texto" onClick={limpiarEditor}>Limpiar</button>
               </div>
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <label htmlFor="comunicado-cuando" className="sutil">O programar para después:</label>
+                <input id="comunicado-cuando" type="datetime-local" className="input"
+                  value={comunicadoCuando} onChange={e => setComunicadoCuando(e.target.value)}
+                  style={{ width: 'auto' }} />
+                <button type="button" className="button secondary" onClick={programarComunicado}
+                  disabled={programando || calcularDestinatarios().length === 0 || !comunicadoAsunto.trim() || !comunicadoCuando}>
+                  {programando ? 'Guardando…' : 'Programar'}
+                </button>
+              </div>
+              <p className="nota" style={{ marginTop: 6 }}>
+                Programar lo deja anotado en el historial; el panel no envía solo
+                (el plan gratuito no tiene tareas nocturnas). Vuelve ese día,
+                mándalo con el botón de siempre y márcalo como enviado abajo.
+              </p>
               </>
               )}
 
@@ -2825,6 +2968,72 @@ function Admin({ user }) {
               )}
             </div>
           </div>
+
+          <section className="metricas-bloque">
+            <h3 className="metricas-titulo">🗂️ Historial</h3>
+            {historialFalta ? (
+              <p className="nota">
+                Falta correr <code>supabase/COMUNICADOS_1_HISTORIAL.sql</code> para
+                guardar el historial. El envío funciona igual sin él.
+              </p>
+            ) : !historialCom ? (
+              <p className="nota">Cargando historial…</p>
+            ) : !historialCom.length ? (
+              <p className="nota">Todavía no hay comunicados registrados.</p>
+            ) : (
+              <>
+                {(() => {
+                  const vencidos = programadosVencidos(historialCom)
+                  return vencidos.length > 0 && (
+                    <p className="aviso-ok" style={{ marginTop: 0 }}>
+                      ⏰ {vencidos.length} programado(s) con fecha ya llegada: {
+                        vencidos.slice(0, 3).map(v => `«${v.asunto || '(sin asunto)'}»`).join(', ')
+                      }{vencidos.length > 3 && ` y ${vencidos.length - 3} más`}.
+                      Mándalos con el editor y márcalos abajo.
+                    </p>
+                  )
+                })()}
+                <div className="gestion-tabla-scroll" style={{ maxHeight: 320 }}>
+                  <table className="gestion-tabla">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Asunto</th>
+                        <th>Destino</th>
+                        <th>Canal</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historialCom.map((h) => (
+                        <tr key={h.id}>
+                          <td>{h.enviado_en ? fecha(h.enviado_en) : (h.programado_para ? `Prog. ${fecha(h.programado_para)}` : fecha(h.creado_en))}</td>
+                          <td>
+                            {h.asunto || '(sin asunto)'}
+                            <span className="celda-sub">{h.total} destinatario(s){h.creador_email ? ` · ${h.creador_email}` : ''}</span>
+                          </td>
+                          <td>{etiquetaDestino(h)}</td>
+                          <td>{h.canal === 'whatsapp' ? 'WhatsApp' : 'Correo'}</td>
+                          <td>
+                            {h.estado === 'programado' ? (
+                              <>
+                                <span>Programado</span>
+                                <button type="button" className="button texto"
+                                  onClick={() => marcarProgramadoEnviado(h.id)}
+                                  style={{ marginLeft: 8 }}>
+                                  Marcar enviado
+                                </button>
+                              </>
+                            ) : 'Enviado'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
 
           <section className="metricas-bloque">
             <h3 className="metricas-titulo">💡 Sugerencias de uso</h3>

@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
+import { soloAlertas, resumirRiesgo, ETIQUETA_RIESGO } from '../lib/retencion'
 import ExportarDatos from './ExportarDatos'
 
 function cuando(fecha) {
@@ -56,6 +57,15 @@ export default function TableroOrg() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [orden, setOrden] = useState('atencion')
+  // Retención (F5-2): una fila por inscripción con días inactivo
+  // y avance. Si falta correr RETENCION_1_ALERTAS.sql, queda en
+  // null y la sección avisa qué falta en vez de romperse.
+  const [retencion, setRetencion] = useState(null)
+  const [retencionFalta, setRetencionFalta] = useState(false)
+  // NPS por curso (F5-3). Mismo patrón: sin ENCUESTAS_1_NPS.sql
+  // la sección avisa y el resto del tablero sigue.
+  const [nps, setNps] = useState([])
+  const [npsFalta, setNpsFalta] = useState(false)
 
   const orgId = organizacion?.id
 
@@ -70,6 +80,37 @@ export default function TableroOrg() {
         supabase.rpc('tablero_cursos', { p_org: orgId }),
       ])
       if (!vivo) return
+      // Retención aparte y sin romper: si la función no existe
+      // (falta correr el SQL), el tablero sigue igual y solo esa
+      // sección avisa. Cualquier otro error sí se enseña.
+      const { data: r, error: eR } = await supabase
+        .rpc('alertas_retencion', { p_org: orgId })
+      if (!vivo) return
+      if (!eR) {
+        setRetencion(r || [])
+        setRetencionFalta(false)
+      } else if (
+        eR.code === '42883' || /no existe|does not exist|not exist/i.test(eR.message || '')
+      ) {
+        setRetencion(null)
+        setRetencionFalta(true)
+      } else {
+        setRetencion(null)
+        setRetencionFalta(false)
+      }
+      // NPS por curso (F5-3), mismo trato degradado que retención.
+      const { data: n, error: eN } = await supabase
+        .rpc('nps_organizacion', { p_org: orgId })
+      if (!vivo) return
+      if (!eN) {
+        setNps(n || [])
+        setNpsFalta(false)
+      } else if (
+        eN.code === '42883' || /no existe|does not exist|not exist/i.test(eN.message || '')
+      ) {
+        setNps([])
+        setNpsFalta(true)
+      }
       // Se dice CUAL de las dos falló. Juntarlas en un solo mensaje
       // obligaba a adivinar dónde mirar, y las dos consultan cosas
       // distintas.
@@ -116,12 +157,135 @@ export default function TableroOrg() {
     return pb - pa
   })
 
+  const alertas = retencion ? soloAlertas(retencion) : []
+  const resumen = retencion ? resumirRiesgo(retencion) : null
+
   return (
     <div className="tablero">
       <p className="seccion-intro">
         Cómo va <strong>{organizacion?.nombre}</strong> en conjunto. Para el
         detalle de un grupo, entra al curso y abre su panel de progreso.
       </p>
+
+      <div className="tablero-retencion">
+        <h3>A quién llamar esta semana</h3>
+        {retencionFalta ? (
+          <p className="nota">
+            Falta correr <code>supabase/RETENCION_1_ALERTAS.sql</code> para
+            ver esta lista. El resto del tablero funciona igual.
+          </p>
+        ) : !retencion ? (
+          <p className="nota">Cargando alertas…</p>
+        ) : !alertas.length ? (
+          <p className="nota">
+            Nadie en riesgo ahora mismo
+            {resumen && resumen.total > 0
+              ? ` · ${resumen.total} inscripción(es) al corriente.`
+              : '.'}
+          </p>
+        ) : (
+          <>
+            <p className="nota">
+              {resumen.alto > 0 && `${resumen.alto} en riesgo alto`}
+              {resumen.alto > 0 && resumen.medio > 0 && ' · '}
+              {resumen.medio > 0 && `${resumen.medio} en riesgo medio`}
+              . Primero los que más días llevan sin entrar.
+            </p>
+            <div className="gestion-tabla-scroll">
+              <table className="gestion-tabla">
+                <thead>
+                  <tr>
+                    <th>Alumno</th>
+                    <th>Curso</th>
+                    <th>Nivel</th>
+                    <th>Sin entrar</th>
+                    <th>Avance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alertas.slice(0, 30).map((a) => (
+                    <tr key={`${a.curso_id}-${a.usuario_id}`}>
+                      <td>
+                        {a.nombre || a.email || 'Sin nombre'}
+                        {a.email && a.nombre && (
+                          <span className="celda-sub">{a.email}</span>
+                        )}
+                      </td>
+                      <td>{a.curso_titulo}</td>
+                      <td>
+                        <span className={`badge ${a.riesgo === 'alto' ? 'rol-alumno' : ''}`}>
+                          {ETIQUETA_RIESGO[a.riesgo]}
+                        </span>
+                      </td>
+                      <td>{a.dias_inactivo} días</td>
+                      <td>{a.avance_medio}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {alertas.length > 30 && (
+              <p className="nota">
+                Se enseñan 30 de {alertas.length}. La lista completa sale
+                en ⬇️ Datos.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="tablero-retencion">
+        <h3>Qué dicen los alumnos (NPS)</h3>
+        {npsFalta ? (
+          <p className="nota">
+            Falta correr <code>supabase/ENCUESTAS_1_NPS.sql</code> para ver
+            el NPS por curso. El resto del tablero funciona igual.
+          </p>
+        ) : !nps.length ? (
+          <p className="nota">
+            Todavía no hay respuestas. La encuesta aparece a cada alumno
+            cuando termina su curso (100% de avance).
+          </p>
+        ) : (
+          <>
+            <p className="nota">
+              NPS = % promotores (9-10) − % detractores (0-6). Con menos de
+              10 respuestas un curso no muestra número: con muestras chicas
+              el NPS se mueve por una sola persona.
+            </p>
+            <div className="gestion-tabla-scroll">
+              <table className="gestion-tabla">
+                <thead>
+                  <tr>
+                    <th>Curso</th>
+                    <th>Respuestas</th>
+                    <th>Promotores</th>
+                    <th>Pasivos</th>
+                    <th>Detractores</th>
+                    <th>NPS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nps.map((f) => (
+                    <tr key={f.curso_id}>
+                      <td>{f.titulo}</td>
+                      <td>{f.respuestas}</td>
+                      <td>{f.promotores}</td>
+                      <td>{f.pasivos}</td>
+                      <td>{f.detractores}</td>
+                      <td>
+                        {f.nps == null
+                          ? <span className="sutil">faltan datos</span>
+                          : <span className={`badge ${f.nps >= 50 ? 'rol-alumno' : ''}`}>{f.nps}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="tablero-datos">
         <Dato valor={tot.alumnos ?? 0} etiqueta="alumnos"

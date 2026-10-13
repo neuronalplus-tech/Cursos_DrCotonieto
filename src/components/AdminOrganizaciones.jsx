@@ -18,6 +18,7 @@ import Sedes from './Sedes'
 const VACIA = {
   slug: '', nombre: '', dominio: '', logo_url: '',
   color_primario: '', color_acento: '', contacto_email: '', activa: true,
+  css_extra: '',
 }
 
 const BASE = import.meta.env.VITE_DOMINIO_BASE || ''
@@ -34,6 +35,8 @@ export default function AdminOrganizaciones() {
   // se pregunta ANTES de firmar, no al irse.
   const [exportando, setExportando] = useState(null)
   const [sedesDe, setSedesDe] = useState(null)
+  // Aviso de que MARCA_1_CSS.sql no se ha corrido (columna ausente).
+  const [faltaCss, setFaltaCss] = useState(false)
 
   const recargar = async () => {
     setCargando(true)
@@ -55,7 +58,7 @@ export default function AdminOrganizaciones() {
 
   const campo = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const abrirNueva = () => { setForm(VACIA); setEditando('nueva'); setMsg(null) }
+  const abrirNueva = () => { setForm(VACIA); setEditando('nueva'); setMsg(null); setFaltaCss(false) }
 
   const abrirEdicion = (o) => {
     const f = { ...VACIA }
@@ -63,6 +66,7 @@ export default function AdminOrganizaciones() {
     setForm(f)
     setEditando(o.id)
     setMsg(null)
+    setFaltaCss(false)
   }
 
   const guardar = async () => {
@@ -85,10 +89,20 @@ export default function AdminOrganizaciones() {
       color_acento: form.color_acento.trim() || null,
       contacto_email: form.contacto_email.trim().toLowerCase() || null,
       activa: !!form.activa,
+      css_extra: form.css_extra.trim() || null,
     }
-    const { error } = editando === 'nueva'
+    let { error } = editando === 'nueva'
       ? await supabase.from('organizaciones').insert(payload)
       : await supabase.from('organizaciones').update(payload).eq('id', editando)
+    // Si falta MARCA_1_CSS.sql, la columna css_extra no existe (42703):
+    // se guarda todo lo demás y se avisa, sin perder lo escrito.
+    if (error && /css_extra|42703/i.test(error.message)) {
+      delete payload.css_extra
+      ;({ error } = editando === 'nueva'
+        ? await supabase.from('organizaciones').insert(payload)
+        : await supabase.from('organizaciones').update(payload).eq('id', editando))
+      setFaltaCss(true)
+    }
     setGuardando(false)
     if (error) {
       return setMsg({
@@ -180,6 +194,22 @@ export default function AdminOrganizaciones() {
           <label>Correo de contacto</label>
           <input className="input" type="email" value={form.contacto_email}
                  onChange={e => campo('contacto_email', e.target.value)} />
+
+          <label>CSS extra (opcional, marca blanca)</label>
+          <textarea className="input" rows={3} value={form.css_extra}
+                    onChange={e => campo('css_extra', e.target.value)}
+                    placeholder=".curso-titulo { letter-spacing: 1px }" />
+          <p className="nota">
+            Se aplica tras los colores de arriba. Solo reglas simples:
+            no acepta imágenes, fuentes remotas ni <code>@import</code>.
+            Si algo se ve mal, bórralo aquí y guarda.
+          </p>
+          {faltaCss && (
+            <p className="aviso-error">
+              Falta correr <code>MARCA_1_CSS.sql</code> en Supabase para que
+              exista la columna <code>css_extra</code>. Lo demás se guardó bien.
+            </p>
+          )}
 
           <label className="gen-activa">
             <input type="checkbox" checked={form.activa}
