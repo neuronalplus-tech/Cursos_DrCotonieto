@@ -13,6 +13,7 @@ import TallerRecursos from './TallerRecursos'
 import ExamenModulo from './ExamenModulo'
 import AdminTareas from './AdminTareas'
 import TareasAlumno from './TareasAlumno'
+import MisApuntes from './MisApuntes'
 import { ModalEditarBotonesModulo, ModalEditarModulo } from './AdminModales'
 import {
   Autoevaluacion, ModalEditarRecurso, ModalDuplicarModulo, ModalDuplicarRecurso,
@@ -362,6 +363,11 @@ function ModuloView({ user }) {
           <ExamenModulo moduloId={modulo.id} user={user} gestiona={gestiona} etiquetaDestino={`el módulo "${modulo.titulo}"`} />
 
           <TareasAlumno moduloId={modulo.id} user={user} miGrupo={miGrupo} />
+
+          {/* Bloc de notas privado del alumno (se oculta solo si falta
+              correr APUNTES.sql). */}
+          {user && <MisApuntes moduloId={modulo.id} user={user} />}
+
           <nav className="navegacion-modulos">
             {prev
               ? <button className="button secondary" onClick={() => navigate(`/modulo/${prev.id}`)}>← {prev.titulo}</button>

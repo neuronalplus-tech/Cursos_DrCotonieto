@@ -21,6 +21,7 @@ import { Breadcrumb } from './ui'
 function MisCursos({ user }) {
   const navigate = useNavigate()
   const [cursos, setCursos] = useState([])
+  const [asistencia, setAsistencia] = useState({})
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -81,6 +82,19 @@ function MisCursos({ user }) {
           return { ...c, pct: t > 0 ? Math.round((h / t) * 100) : null, total: t, hechos: h }
         })
         if (vivo) { setCursos(lista); setCargando(false) }
+
+        // Asistencia por curso (ASISTENCIA_ALUMNO.sql). Va aparte y no
+        // bloquea el pintado: si la RPC no existe aún, se ignora. Solo se
+        // mostrará en los cursos que tengan sesiones.
+        const asis = await Promise.all(lista.map(c =>
+          supabase.rpc('mi_asistencia', { p_curso: c.id })
+            .then(({ data, error }) => ({ id: c.id, fila: error ? null : (data?.[0] || null) }))
+        ))
+        if (vivo) {
+          const mapa = {}
+          for (const a of asis) if (a.fila && a.fila.sesiones > 0) mapa[a.id] = a.fila
+          setAsistencia(mapa)
+        }
       } catch {
         if (vivo) setCargando(false)
       }
@@ -117,6 +131,14 @@ function MisCursos({ user }) {
                   </div>
                 ) : (
                   <p className="sutil mis-curso-avance">Sin recursos con avance todavía.</p>
+                )}
+
+                {asistencia[c.id] && (
+                  <p className="sutil" style={{ marginTop: 8 }}>
+                    📅 Asistencia: {asistencia[c.id].presentes + asistencia[c.id].retardos}/{asistencia[c.id].sesiones} sesiones
+                    {asistencia[c.id].porcentaje != null && ` · ${asistencia[c.id].porcentaje}%`}
+                    {asistencia[c.id].justificadas > 0 && ` · ${asistencia[c.id].justificadas} justificada(s)`}
+                  </p>
                 )}
               </div>
 

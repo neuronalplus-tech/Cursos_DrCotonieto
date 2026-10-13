@@ -49,7 +49,10 @@ with esperado(orden, script, objeto, tipo) as (
     (37, 'ALTA_PUBLICA_2_TANDAS.sql',       'asignar_tandas_faltantes',   'funcion'),
     (38, 'WHATSAPP_Y_BAJAS.sql',            'contactos_admin',            'tabla'),
     (39, 'WHATSAPP_Y_BAJAS.sql',            'eliminar_usuario',           'funcion'),
-    (40, 'MODULOS_VISIBILIDAD.sql',         'oculto',                     'columna')
+    (40, 'MODULOS_VISIBILIDAD.sql',         'oculto',                     'columna'),
+    (41, 'MODULOS_FECHAS.sql',              'abre_el',                    'columna'),
+    (42, 'ASISTENCIA_ALUMNO.sql',           'mi_asistencia',              'funcion'),
+    (43, 'APUNTES.sql',                     'apuntes',                    'tabla')
     -- Nota: SEG_1/SEG_2 redefinen funciones y políticas ya listadas
     -- (bulk_*, modulos_lectura_publica); su efecto se comprueba aparte,
     -- no añaden objetos nuevos que contar aquí.
