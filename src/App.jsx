@@ -90,8 +90,11 @@ function App() {
 
   return (
     <>
+      {/* Saltar al contenido: quien navega con teclado o lector de pantalla
+          no tiene que atravesar el header y el menú en cada página. */}
+      <a href="#contenido" className="salto-contenido">Saltar al contenido</a>
       <Header user={user} esAdmin={esAdmin} onLogout={handleLogout} nombreUsuario={nombreUsuario} />
-      <main className="app-main">
+      <main className="app-main" id="contenido">
         <BarreraErrores key={pathname}>
           {/* El fallback vive dentro del main para no mover el header ni el
               botón de WhatsApp mientras carga el chunk de la ruta. */}

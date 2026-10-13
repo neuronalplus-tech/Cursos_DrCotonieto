@@ -99,7 +99,12 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
     <header className="app-header">
       <div className="header-content">
         <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
-             onKeyDown={(e) => e.key === 'Enter' && navigate('/')}>
+             aria-label="Ir al inicio"
+             onKeyDown={(e) => {
+               // Un role="button" debe responder a Enter Y a Espacio; antes
+               // solo a Enter, así que con Espacio la página solo hacía scroll.
+               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/') }
+             }}>
           <img src={marcaLogo} alt={marcaNombre} className="logo-header" />
           <span className="brand-name">{marcaNombre}</span>
         </div>
