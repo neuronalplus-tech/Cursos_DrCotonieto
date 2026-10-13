@@ -35,6 +35,9 @@ function CursoView({ user }) {
   const [borrandoModulo, setBorrandoModulo] = useState(null)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
+  // Módulos que el alumno ya completó (todos sus recursos vistos). Lo usa
+  // el prerrequisito para decidir si desbloquear otro módulo.
+  const [modulosCompletos, setModulosCompletos] = useState(new Set())
   const [talleres, setTalleres] = useState([])
   const [miGrupo, setMiGrupo] = useState(null)
   // Tener fila en `acceso` da acceso al curso, diga o no diga grupo.
@@ -94,16 +97,32 @@ function CursoView({ user }) {
             if (m.grupo && m.grupo !== grupo) return false
             return true
           })
-          const ids = []
+          // Una sola consulta de recursos (antes era una por módulo) y una
+          // de progreso: con eso se calcula el % global Y qué módulos están
+          // COMPLETOS (todos sus recursos vistos), que es lo que necesita el
+          // prerrequisito.
+          const idsMods = modsConAcceso.map(m => m.id)
+          const { data: rs } = idsMods.length
+            ? await supabase.from('recursos').select('id, modulo_id').in('modulo_id', idsMods)
+            : { data: [] }
+          const porModulo = {}
+          for (const r of rs || []) (porModulo[r.modulo_id] ||= []).push(r.id)
+          const idsRec = (rs || []).map(r => r.id)
+
+          const { data: comp } = idsRec.length
+            ? await supabase.from('progreso_usuario').select('recurso_id')
+                .eq('usuario_id', user.id).in('recurso_id', idsRec).eq('completado', true)
+            : { data: [] }
+          const hechos = new Set((comp || []).map(c => c.recurso_id))
+
+          if (idsRec.length) setProgreso(Math.round((hechos.size / idsRec.length) * 100))
+
+          const completos = new Set()
           for (const m of modsConAcceso) {
-            const { data: rs } = await supabase.from('recursos').select('id').eq('modulo_id', m.id)
-            ids.push(...(rs || []).map(r => r.id))
+            const recs = porModulo[m.id] || []
+            if (recs.length > 0 && recs.every(rid => hechos.has(rid))) completos.add(m.id)
           }
-          if (ids.length) {
-            const { data: comp } = await supabase.from('progreso_usuario').select('recurso_id')
-              .eq('usuario_id', user.id).in('recurso_id', ids).eq('completado', true)
-            setProgreso(Math.round(((comp?.length || 0) / ids.length) * 100))
-          }
+          setModulosCompletos(completos)
         }
         setEstado('ok')
       } catch (e) {
@@ -194,10 +213,17 @@ function CursoView({ user }) {
     // Fecha de apertura/cierre (MODULOS_FECHAS.sql). Sin fechas no cambia
     // nada; una apertura futura o un cierre pasado lo bloquean al alumno.
     if (!moduloAbiertoPorFecha(m)) return true
+    // Prerrequisito (MODULOS_PRERREQUISITO.sql): bloqueado hasta completar
+    // el módulo requerido. Sin prerrequisito —o sin la columna— no cambia.
+    if (m.requiere_modulo_id && !modulosCompletos.has(m.requiere_modulo_id)) return true
     if (!user) return true
     if (m.grupo && miGrupo !== m.grupo) return true
     return false
   }
+
+  // Título del módulo que falta completar, para el aviso al alumno.
+  const tituloRequerido = (m) =>
+    modulos.find(x => x.id === m.requiere_modulo_id)?.titulo || 'el módulo anterior'
 
   const toggleCursoProximamente = async () => {
     if (!gestiona) return
@@ -337,6 +363,9 @@ function CursoView({ user }) {
     const bloqueadoPorRuta = bloqueado && user && m.grupo && miGrupo !== m.grupo && !gestiona
     const bloqueadoPorDisponibilidad = bloqueado && m.disponible === false && !gestiona
     const bloqueadoPorLogin = bloqueado && !user && !gestiona
+    const bloqueadoPorPrerrequisito = bloqueado && !gestiona && user
+      && m.requiere_modulo_id && !modulosCompletos.has(m.requiere_modulo_id)
+      && m.disponible !== false && moduloAbiertoPorFecha(m)
 
     const contenido = (
       <>
@@ -347,6 +376,7 @@ function CursoView({ user }) {
             {bloqueadoPorLogin && <span className="etiqueta-grupo">🔒 Requiere acceso</span>}
             {bloqueadoPorRuta && <span className="etiqueta-grupo">🔒 Otra ruta</span>}
             {bloqueadoPorDisponibilidad && <span className="etiqueta-grupo">🔒 Próximamente</span>}
+            {bloqueadoPorPrerrequisito && <span className="etiqueta-grupo">🔒 Completa primero «{tituloRequerido(m)}»</span>}
             {gestiona && m.disponible === false && <span className="etiqueta-grupo">🔒 Oculto para alumnos</span>}
             {gestiona && m.grupo && <span className="etiqueta-grupo">{m.grupo}</span>}
           </h3>

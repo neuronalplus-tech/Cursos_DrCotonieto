@@ -427,6 +427,7 @@ function ModuloView({ user }) {
       {editandoModulo && (
         <ModalEditarModulo
           modulo={modulo}
+          modulos={modulosCurso}
           onClose={() => setEditandoModulo(false)}
           onGuardado={(m) => setModulo(prev => ({ ...prev, ...m }))}
         />

@@ -132,7 +132,7 @@ export function ModalNuevoModulo({ cursoId, orden, onClose, onCreado }) {
      · disponible = visible pero cerrado ("próximamente").
    (La casilla `oculto` necesita la columna que crea MODULOS_VISIBILIDAD.sql;
    el alta de módulos ya la escribe, así que la dependencia es la misma.) */
-export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
+export function ModalEditarModulo({ modulo, modulos = [], onClose, onGuardado }) {
   const [titulo, setTitulo] = useState(modulo.titulo || '')
   const [descripcion, setDescripcion] = useState(modulo.descripcion || '')
   const [grupo, setGrupo] = useState(modulo.grupo || '')
@@ -141,6 +141,10 @@ export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
   const [disponible, setDisponible] = useState(modulo.disponible !== false)
   const [abreEl, setAbreEl] = useState(aCampoLocal(modulo.abre_el))
   const [cierraEl, setCierraEl] = useState(aCampoLocal(modulo.cierra_el))
+  const [requiere, setRequiere] = useState(modulo.requiere_modulo_id || '')
+  // Los demás módulos del curso, para el prerrequisito (no puede requerirse
+  // a sí mismo).
+  const otrosModulos = (modulos || []).filter(x => x.id !== modulo.id)
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -159,7 +163,11 @@ export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
     // Si faltan, el update entero fallaría con "column does not exist" y
     // no se podría ni corregir un título. Por eso: se intenta con todo y,
     // si la base dice que una columna no existe, se reintenta sin ellas.
-    const completo = { ...base, oculto, abre_el: deCampoLocal(abreEl), cierra_el: deCampoLocal(cierraEl) }
+    const completo = {
+      ...base, oculto,
+      abre_el: deCampoLocal(abreEl), cierra_el: deCampoLocal(cierraEl),
+      requiere_modulo_id: requiere ? Number(requiere) : null,
+    }
     let degradado = false
     try {
       let { data, error } = await supabase.from('modulos')
@@ -171,7 +179,7 @@ export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
       if (error) throw error
       onGuardado(data)
       if (degradado) {
-        setMsg('Guardado. Las fechas y «oculto» necesitan correr MODULOS_FECHAS.sql y MODULOS_VISIBILIDAD.sql en Supabase.')
+        setMsg('Guardado. Las fechas, «oculto» y el prerrequisito necesitan correr MODULOS_VISIBILIDAD.sql, MODULOS_FECHAS.sql y MODULOS_PRERREQUISITO.sql en Supabase.')
       } else {
         onClose()
       }
@@ -213,6 +221,18 @@ export function ModalEditarModulo({ modulo, onClose, onGuardado }) {
           </div>
         </div>
         <p className="nota">Vacío = lo decide «Disponible». Con fecha de apertura, el alumno no entra hasta ese momento (tú sí).</p>
+
+        {otrosModulos.length > 0 && (
+          <>
+            <label htmlFor="em-req">Requiere completar antes <span className="sutil">(opcional)</span></label>
+            <select id="em-req" className="gestion-select" value={requiere}
+                    onChange={e => setRequiere(e.target.value)} style={{ width: '100%' }}>
+              <option value="">— Sin prerrequisito —</option>
+              {otrosModulos.map(x => <option key={x.id} value={x.id}>{x.titulo}</option>)}
+            </select>
+            <p className="nota">El alumno no entra a este módulo hasta marcar como vistos todos los recursos del elegido.</p>
+          </>
+        )}
 
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 14 }}>
           <input type="checkbox" checked={disponible} onChange={e => setDisponible(e.target.checked)} style={{ marginTop: 3 }} />
