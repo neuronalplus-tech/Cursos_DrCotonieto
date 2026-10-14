@@ -38,9 +38,6 @@ with esperado(orden, script, objeto, tipo) as (
     (26, 'EXAMENES_ALEATORIOS.sql',     'servir_examen',            'funcion'),
     (27, 'ASISTENCIA.sql',              'asistencia',               'tabla'),
     (28, 'PLANTILLAS.sql',              'plantillas_documento',     'tabla'),
--- 46 | 2026-10-13 | Comunicados: historial + programado      | COMUNICADOS_1_HISTORIAL.sql | PENDIENTE
--- 47 | 2026-10-13 | Encuestas NPS al terminar el curso       | ENCUESTAS_1_NPS.sql         | PENDIENTE
--- 48 | 2026-10-13 | Marca blanca: CSS extra por organización | MARCA_1_CSS.sql             | PENDIENTE
 
     (29, 'ROLES_5_PERMISOS.sql',        'tiene_permiso',            'funcion'),
     (30, 'ROLES_6_POLITICAS.sql',       'puedo_en_generacion',      'funcion'),
@@ -59,7 +56,9 @@ with esperado(orden, script, objeto, tipo) as (
     (43, 'APUNTES.sql',                     'apuntes',                    'tabla'),
     (44, 'MODULOS_PRERREQUISITO.sql',       'requiere_modulo_id',         'columna'),
     (45, 'RETENCION_1_ALERTAS.sql',         'alertas_retencion',          'funcion'),
-    (46, 'COMUNICADOS_1_HISTORIAL.sql',     'comunicados',                'tabla')
+    (46, 'COMUNICADOS_1_HISTORIAL.sql',     'comunicados',                'tabla'),
+    (47, 'ENCUESTAS_1_NPS.sql',             'encuestas',                  'tabla'),
+    (48, 'MARCA_1_CSS.sql',                 'css_extra',                  'columna')
     -- Nota: SEG_1/SEG_2 redefinen funciones y políticas ya listadas
     -- (bulk_*, modulos_lectura_publica); su efecto se comprueba aparte,
     -- no añaden objetos nuevos que contar aquí.

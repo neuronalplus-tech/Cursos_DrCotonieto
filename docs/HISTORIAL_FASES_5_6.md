@@ -75,3 +75,39 @@
 - **Estado:** ⚠️ FALTA CORRER `ENCUESTAS_1_NPS.sql` y `MARCA_1_CSS.sql`
   en Supabase. Sin esas dos, la encuesta no aparece y el tablero
   avisa; el resto del curso funciona igual.
+
+### 2026-10-13 — E04 F6-2 Frenos y bitácora en las edge functions (sin SQL nuevo)
+- **Qué:** en `supabase/functions/crear-usuarios/index.ts` y
+  `supabase/functions/whatsapp-enviar/index.ts`: **tope de cuerpo**
+  (128 KB y 1 MB; primero por la cabecera Content-Length y otra vez
+  sobre lo leído, por si la cabecera falta), **límite por
+  admin/minuto** en memoria de la instancia (30/min y 10/min; la
+  consulta `estado` de WhatsApp no consume cupo porque es lo que hace
+  el panel al abrir; capa extra por IP antes de comprobar la sesión,
+  120/min y 60/min, solo si llega `x-forwarded-for`), y **una
+  entrada en `auditoria` por llamada autenticada** —`ALTA`,
+  `ENLACE`, `ENVIO`, `ESTADO` o `INTENTO`— escrita con la clave de
+  servicio. Un 4xx/5xx se anota como `INTENTO`; el 429 deja como
+  mucho un renglón por ventana (un bombardeo no debe llenar la
+  bitácora); las llamadas sin sesión no se anotan (sin autor fiable,
+  cualquier anónimo de internet llenaría la tabla). Si falta
+  `BITACORA.sql`, la consola avisa con ese nombre y la llamada se
+  contesta igual. En `src/components/AdminBitacora.jsx`: verbos
+  ALTA/ENLACE/ENVIO/ESTADO/INTENTO, filtro «Cuentas» y «WhatsApp» y
+  párrafo de entrada actualizado. En `src/components/Admin.jsx`: el
+  envío por API ahora lee el cuerpo del error cuando `invoke`
+  devuelve 4xx/5xx, para que el tope se entienda en pantalla (los
+  otros caminos ya leían `json.error`).
+- **Revertir:** `git revert` del commit es lo limpio. A mano: quitar
+  de cada función el bloque «F6-2 · frenos y bitácora» (constantes,
+  `apuntar`, `FALTAN_EN_AUDITORIA`, tipos), el bloque `salir` /
+  `salidaParaElCatch` y volver cada `return await salir(…)` a
+  `return responder(…)` (los de error conservan su cuerpo y código);
+  en AdminBitacora quitar los cinco verbos y las dos tablas nuevas;
+  en Admin.jsx volver a `if (error) throw error`.
+- **Estado:** sin SQL nuevo. Depende de `BITACORA.sql` (fila 7 de
+  ESTADO.sql) solo para guardar los renglones; sin él, la consola de
+  la función avisa y todo lo demás funciona. El límite es por
+  instancia y memoria: se reinicia en cada despliegue y el tope
+  efectivo puede ser mayor (nunca menor) si Supabase reparte la
+  carga.

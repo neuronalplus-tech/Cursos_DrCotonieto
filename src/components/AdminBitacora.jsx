@@ -21,12 +21,21 @@ const NOMBRE_TABLA = {
   foro_hilos: 'Tema del foro',
   facilitadores: 'Facilitador',
   acceso: 'Inscripción',
+  // Las escribe el servidor (edge functions), no los disparadores.
+  'crear-usuarios': 'Cuentas',
+  'whatsapp-enviar': 'WhatsApp',
 }
 
 const VERBO = {
   INSERT: { texto: 'creó', clase: 'op-alta' },
   UPDATE: { texto: 'editó', clase: 'op-cambio' },
   DELETE: { texto: 'eliminó', clase: 'op-baja' },
+  // F6-2: llamadas del panel a las edge functions.
+  ALTA: { texto: 'dio de alta', clase: 'op-alta' },
+  ENLACE: { texto: 'generó enlace', clase: 'op-cambio' },
+  ENVIO: { texto: 'envió', clase: 'op-cambio' },
+  ESTADO: { texto: 'consultó', clase: '' },
+  INTENTO: { texto: 'intentó', clase: 'op-baja' },
 }
 
 /** Campos que no aportan nada al leer un cambio. */
@@ -88,8 +97,9 @@ export default function AdminBitacora() {
       <p className="seccion-intro">
         Todo cambio en cursos, módulos, recursos, exámenes, foro, inscripciones y
         facilitadores queda registrado aquí, con quién lo hizo y qué decía antes.
-        Lo escribe la base de datos, no la aplicación: también registra lo que se
-        cambie desde fuera del panel.
+        También las llamadas del panel a los servicios del servidor (altas de
+        cuenta y envíos de WhatsApp). Lo escribe la base de datos y el servidor,
+        nunca el navegador: desde aquí sigue sin poder escribirse.
       </p>
 
       <div className="bitacora-barra">

@@ -1149,7 +1149,7 @@ function Admin({ user }) {
     setEnviandoApiWa(true)
     setMsgWa('')
     try {
-      const { data, error } = await supabase.functions.invoke('whatsapp-enviar', {
+      const { data, error, response } = await supabase.functions.invoke('whatsapp-enviar', {
         body: {
           // Cada destino lleva su propio texto ya personalizado: un
           // mensaje único para todos perdería el nombre de cada quien,
@@ -1162,7 +1162,16 @@ function Admin({ user }) {
           texto: textoWa.trim(),
         },
       })
-      if (error) throw error
+      if (error) {
+        // En un 4xx/5xx supabase-js solo trae «non-2xx»: el texto
+        // útil (p. ej. el tope de llamadas del F6-2) está en el
+        // cuerpo de la respuesta, que aún no se ha leído.
+        if (response && typeof response.json === 'function') {
+          const fallo = await response.json().catch(() => null)
+          if (fallo?.error) throw new Error(fallo.error)
+        }
+        throw error
+      }
       if (data?.error) throw new Error(data.error)
       if (data?.configurado === false) {
         setMsgWa('⚠️ El envío automático no está configurado: ' + (data.motivo || 'faltan las claves de Meta.'))

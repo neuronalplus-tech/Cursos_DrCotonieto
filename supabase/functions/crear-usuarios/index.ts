@@ -35,6 +35,12 @@
       minúsculas y sin espacios; si la cuenta se crea con una
       mayúscula, nadie podrá teclear esa dirección igual.
 
+   5. FRENOS Y BITÁCORA (F6-2). Cada llamada con sesión deja una
+      entrada en `auditoria`; hay tope de 30 llamadas por
+      administrador/minuto y de 128 KB de cuerpo. Si falta correr
+      supabase/BITACORA.sql, la consola lo avisa y el alta sigue:
+      la bitácora nunca tumba la llamada.
+
    CÓMO SE INSTALA
    Supabase -> Edge Functions -> Deploy a new function
      · Nombre EXACTO: crear-usuarios
@@ -61,6 +67,70 @@ const responder = (cuerpo: unknown, status = 200) =>
 
 const limpiarCorreo = (s: unknown) => String(s ?? '').trim().toLowerCase()
 const esCorreo = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+
+/* --- F6-2 · frenos y bitácora --------------------------------
+   Tres defensas que no dependen de que nadie se acuerde:
+
+   · TOPE DE CUERPO. Un JSON enorme obliga a cargarlo entero en
+     memoria antes de mirarlo. Se corta dos veces: por la cabecera
+     Content-Length si la trae, y después sobre lo leído, porque la
+     cabecera puede faltar en transferencias por trozos.
+
+   · LÍMITE POR ADMINISTRADOR/MINUTO. Contadores en memoria de ESTA
+     instancia: si Supabase reparte entre varias, cada una aplica la
+     suya — el tope efectivo puede ser mayor, nunca menor que uno.
+     Se borran al desplegar y no se persiste a propósito: es un
+     freno, no una policía.
+
+   · UNA ENTRADA EN `auditoria` POR LLAMADA. La escribe la función
+     con la clave de servicio; desde el navegador sigue sin poder
+     escribirse. Las llamadas sin sesión válida no se anotan: sin
+     autor fiable, cualquier anónimo de internet llenaría la tabla. */
+const VENTANA_MS = 60_000
+const MAX_CUERPO = 128 * 1024   // el mayor padrón legítimo ronda los 60 KB
+const LIMITE_ADMIN = 30         // un padrón de 200 correos son 8 llamadas
+const LIMITE_IP = 120
+
+type Cubeta = { inicio: number; n: number; anotoLimite: boolean }
+const cubetas = new Map<string, Cubeta>()
+
+/** Apunta una llamada a la cubeta de `clave`. `rechazado` = pasó del
+    tope; `primeraVez` = el rechazo de esta ventana todavía no se
+    anotó, para que un bombardeo cueste un renglón por minuto, no uno
+    por petición. */
+const apuntar = (clave: string, max: number) => {
+  const ahora = Date.now()
+  if (cubetas.size > 500) {
+    for (const [k, v] of cubetas) if (ahora - v.inicio >= VENTANA_MS) cubetas.delete(k)
+  }
+  let c = cubetas.get(clave)
+  if (!c || ahora - c.inicio >= VENTANA_MS) {
+    c = { inicio: ahora, n: 0, anotoLimite: false }
+    cubetas.set(clave, c)
+  }
+  c.n += 1
+  if (c.n <= max) return { rechazado: false, primeraVez: false }
+  const primeraVez = !c.anotoLimite
+  c.anotoLimite = true
+  return { rechazado: true, primeraVez }
+}
+
+/** Códigos con los que PostgrES se niega a escribir en `auditoria`
+    porque falta correr supabase/BITACORA.sql (o cambió la tabla). */
+const FALTAN_EN_AUDITORIA = new Set(['42P01', '42703', '42883', 'PGRST205'])
+
+type Operacion = 'ALTA' | 'ENLACE' | 'INTENTO'
+type Salida = (o: {
+  cuerpo: Record<string, unknown>
+  status: number
+  operacion: Operacion
+  /** Se usa si `cuerpo.error` no sirve de título. */
+  titulo?: string
+  /** Detalle extra para la bitácora; NUNCA el cuerpo completo (lleva contraseñas). */
+  despues?: Record<string, unknown>
+  /** false = no dejar renglón (429 repetidos). */
+  anotar?: boolean
+}) => Promise<Response>
 
 type Resultado = { email: string; status: string; mensaje: string; id?: string }
 
@@ -95,6 +165,26 @@ const destinoRecuperacion = (crudo: unknown) => {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
+  // Tope de cuerpo (F6-2) antes de leer nada: si la cabecera falta
+  // o miente, la redada se repite sobre lo leído, más abajo.
+  if (Number(req.headers.get('content-length') || 0) > MAX_CUERPO) {
+    return responder({ error: 'El cuerpo de la petición es demasiado grande.' }, 413)
+  }
+
+  // Tope por IP antes de comprobar la sesión: comprobarla cuesta
+  // una llamada al servidor de autenticación. Solo si llega la
+  // cabecera x-forwarded-for; sin ella no se junta a todos los que
+  // llaman en una sola cubeta.
+  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+  if (ip && apuntar(`ip:${ip}`, LIMITE_IP).rechazado) {
+    return responder({ error: 'Demasiadas llamadas desde esta conexión. Espera un minuto.' }, 429)
+  }
+
+  // Si la sesión se comprueba, `salir` se encarga de anotar cada
+  // llamada en la bitácora antes de contestar; el catch de abajo
+  // también la usa si el fallo venía después.
+  let salidaParaElCatch: Salida | null = null
+
   try {
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -111,27 +201,81 @@ Deno.serve(async (req: Request) => {
       return responder({ error: 'Tu sesión caducó. Vuelve a entrar al panel.' }, 401)
     }
     const correoAdmin = quien.user.email.toLowerCase()
+    const autorId = quien.user.id
+
+    /* Una entrada en `auditoria` por llamada (F6-2). Nunca tumba la
+       llamada: si falta la tabla u otro error de escritura, se avisa
+       por consola —con el script que falta— y se contesta igual. */
+    const salir: Salida = async (o) => {
+      if (o.anotar !== false) {
+        const aviso = typeof o.cuerpo.error === 'string' ? o.cuerpo.error : ''
+        const { error: eBit } = await admin.from('auditoria').insert({
+          tabla: 'crear-usuarios',
+          registro_id: null,
+          // Un fallo no es un alta: los 4xx/5xx se anotan como intento.
+          operacion: o.status >= 400 ? 'INTENTO' : o.operacion,
+          autor_id: autorId,
+          autor_email: correoAdmin,
+          antes: null,
+          despues: { titulo: o.titulo || aviso || 'Llamada', http: o.status, ...(o.despues ?? {}) },
+          cambios: null,
+        })
+        if (eBit) {
+          console.error(
+            FALTAN_EN_AUDITORIA.has(eBit.code || '')
+              ? 'No pude anotar en auditoria: falta correr supabase/BITACORA.sql — ' + eBit.message
+              : 'No pude anotar en auditoria: ' + eBit.message,
+          )
+        }
+      }
+      return responder(o.cuerpo, o.status)
+    }
+    salidaParaElCatch = salir
+
+    // Límite por admin/minuto (F6-2). El padrón del panel son 8
+    // llamadas de 25 correos; 30 deja margen para repetir sin esperar.
+    const tope = apuntar(`admin:${autorId}`, LIMITE_ADMIN)
+    if (tope.rechazado) {
+      return await salir({
+        cuerpo: { error: `Límite de ${LIMITE_ADMIN} llamadas por minuto alcanzado. Espera un minuto y vuelve a intentarlo.` },
+        status: 429,
+        operacion: 'INTENTO',
+        anotar: tope.primeraVez,
+      })
+    }
 
     // Varias filas son normales y no son un error. No usar .single().
     const { data: filasAdmin, error: eA } = await admin
       .from('admins').select('email, organizacion_id').ilike('email', correoAdmin)
 
-    if (eA) return responder({ error: 'No pude comprobar tu permiso: ' + eA.message }, 500)
+    if (eA) return await salir({ cuerpo: { error: 'No pude comprobar tu permiso: ' + eA.message }, status: 500, operacion: 'INTENTO' })
     if (!filasAdmin || filasAdmin.length === 0) {
-      return responder({
-        error: `${correoAdmin} no aparece en la tabla admins, así que no puede dar de alta.`,
-      }, 403)
+      return await salir({
+        cuerpo: { error: `${correoAdmin} no aparece en la tabla admins, así que no puede dar de alta.` },
+        status: 403,
+        operacion: 'INTENTO',
+      })
     }
 
     /* --- 2. Qué se pide --- */
-    const cuerpo = await req.json().catch(() => ({}))
+    // Segunda redada del tope de cuerpo (F6-2): la cabecera pudo
+    // faltar. Se cuenta en caracteres; los límites llevan margen.
+    const crudo = await req.text().catch(() => '')
+    if (crudo.length > MAX_CUERPO) {
+      return await salir({ cuerpo: { error: 'El cuerpo de la petición es demasiado grande.' }, status: 413, operacion: 'INTENTO' })
+    }
+    let cuerpo: any = {}
+    try { cuerpo = JSON.parse(crudo || '{}') } catch { cuerpo = {} }
+    if (!cuerpo || typeof cuerpo !== 'object') cuerpo = {}
 
     // Los enlaces de recuperación se generan en servidor para que no
     // dependan del verificador PKCE guardado en el navegador del docente:
     // el alumno abre el correo en su propio dispositivo.
     if (cuerpo.accion === 'enlace-recuperacion') {
       const email = limpiarCorreo(cuerpo.email)
-      if (!esCorreo(email)) return responder({ error: 'El correo no es válido.' }, 400)
+      if (!esCorreo(email)) {
+        return await salir({ cuerpo: { error: 'El correo no es válido.' }, status: 400, operacion: 'INTENTO' })
+      }
 
       // El enlace SE DEVUELVE al navegador que llama, así que vale tanto
       // como la contraseña de esa cuenta: quien lo recibe puede entrar.
@@ -146,11 +290,13 @@ Deno.serve(async (req: Request) => {
         if (!esPlataforma) {
           const { data: objetivoAdmin, error: eO } = await admin
             .from('admins').select('email').ilike('email', email).limit(1)
-          if (eO) return responder({ error: 'No pude comprobar la cuenta destino: ' + eO.message }, 500)
+          if (eO) return await salir({ cuerpo: { error: 'No pude comprobar la cuenta destino: ' + eO.message }, status: 500, operacion: 'INTENTO' })
           if (objetivoAdmin && objetivoAdmin.length > 0) {
-            return responder({
-              error: `${email} administra el sitio. Solo esa persona puede pedir su propio enlace.`,
-            }, 403)
+            return await salir({
+              cuerpo: { error: `${email} administra el sitio. Solo esa persona puede pedir su propio enlace.` },
+              status: 403,
+              operacion: 'INTENTO',
+            })
           }
         }
       }
@@ -160,10 +306,19 @@ Deno.serve(async (req: Request) => {
         email,
         options: { redirectTo: destinoRecuperacion(cuerpo.redirect_to) },
       })
-      if (error) return responder({ error: 'No se pudo generar el enlace: ' + error.message }, 400)
+      if (error) return await salir({ cuerpo: { error: 'No se pudo generar el enlace: ' + error.message }, status: 400, operacion: 'INTENTO' })
       const actionLink = data?.properties?.action_link
-      if (!actionLink) return responder({ error: 'Supabase no devolvió un enlace de recuperación.' }, 502)
-      return responder({ action_link: actionLink })
+      if (!actionLink) {
+        return await salir({ cuerpo: { error: 'Supabase no devolvió un enlace de recuperación.' }, status: 502, operacion: 'INTENTO' })
+      }
+      return await salir({
+        cuerpo: { action_link: actionLink },
+        status: 200,
+        operacion: 'ENLACE',
+        titulo: `Enlace de recuperación generado para ${email}`,
+        // El enlace mismo NO se anota: vale tanto como la contraseña.
+        despues: { email, destino: destinoRecuperacion(cuerpo.redirect_to) },
+      })
     }
 
     const lista: unknown[] = Array.isArray(cuerpo.emails)
@@ -174,10 +329,10 @@ Deno.serve(async (req: Request) => {
       ? cuerpo.curso_ids.map(Number).filter((n: number) => Number.isFinite(n))
       : []
 
-    if (!lista.length) return responder({ error: 'No mandaste ningún correo.' }, 400)
-    if (lista.length > 200) return responder({ error: 'Máximo 200 correos por llamada.' }, 400)
+    if (!lista.length) return await salir({ cuerpo: { error: 'No mandaste ningún correo.' }, status: 400, operacion: 'INTENTO' })
+    if (lista.length > 200) return await salir({ cuerpo: { error: 'Máximo 200 correos por llamada.' }, status: 400, operacion: 'INTENTO' })
     if (password.length < 6) {
-      return responder({ error: 'La contraseña debe tener al menos 6 caracteres.' }, 400)
+      return await salir({ cuerpo: { error: 'La contraseña debe tener al menos 6 caracteres.' }, status: 400, operacion: 'INTENTO' })
     }
 
     /* --- 3. Alta, una por una --- */
@@ -274,20 +429,34 @@ Deno.serve(async (req: Request) => {
     const existentes = resultados.filter((r) => r.status === 'existente').length
     const errores = resultados.filter((r) => r.status === 'error' || r.status === 'sin_cupo').length
 
-    return responder({
-      creados,
-      existentes,
-      errores,
-      resultados,
-      // Lo que lee el alta individual.
-      email: resultados[0]?.email ?? null,
-      id: resultados[0]?.id ?? null,
-      // Un alta de una sola persona que falla debe FALLAR, no
-      // contestar 200 con un error escondido dentro.
-      ...(lista.length === 1 && errores === 1 ? { error: resultados[0].mensaje } : {}),
-    }, lista.length === 1 && errores === 1 ? 400 : 200)
+    // Un alta de una sola persona que falla debe FALLAR, no
+    // contestar 200 con un error escondido dentro.
+    const fallaSolo = lista.length === 1 && errores === 1
+
+    return await salir({
+      cuerpo: {
+        creados,
+        existentes,
+        errores,
+        resultados,
+        // Lo que lee el alta individual.
+        email: resultados[0]?.email ?? null,
+        id: resultados[0]?.id ?? null,
+        ...(fallaSolo ? { error: resultados[0].mensaje } : {}),
+      },
+      status: fallaSolo ? 400 : 200,
+      operacion: 'ALTA',
+      titulo: fallaSolo
+        ? resultados[0].mensaje
+        : `${lista.length} correo(s): ${creados} creada(s), ${existentes} existente(s), ${errores} con error`,
+      despues: { creados, existentes, errores, resultados },
+    })
 
   } catch (e) {
-    return responder({ error: 'Error inesperado: ' + ((e as Error).message || String(e)) }, 500)
+    const cuerpo = { error: 'Error inesperado: ' + ((e as Error).message || String(e)) }
+    // Si la sesión ya se había comprobado, el fallo también deja
+    // renglón; si no, no hay autor y no se anota (ver cabecera).
+    if (salidaParaElCatch) return salidaParaElCatch({ cuerpo, status: 500, operacion: 'INTENTO' })
+    return responder(cuerpo, 500)
   }
 })
