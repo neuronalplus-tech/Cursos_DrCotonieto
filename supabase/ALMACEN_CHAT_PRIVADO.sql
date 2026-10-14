@@ -34,6 +34,32 @@
 -- =============================================================
 
 -- -------------------------------------------------------------
+-- 0) LAS POLITICAS QUE DEJO EL PANEL AL PONERLO PUBLICO
+--
+--    Cuando el bucket se creo publico desde el panel, Supabase
+--    dejo tres politicas suyas: chat_adjuntos_select (a PUBLIC,
+--    o sea, a cualquiera sin sesion), chat_adjuntos_insert y
+--    chat_adjuntos_delete. Las dos ultimas sobran: la de insert
+--    permite subir a cualquier carpeta del bucket, no solo a la
+--    propia, y la de delete hace lo mismo que
+--    chat_adjuntos_borrar pero sin dejar borrar a la
+--    administracion.
+--
+--    La de SELECT es grave. Las politicas permisivas se unen
+--    con OR: mientras esa exista, cualquiera puede leer
+--    cualquier adjunto aunque el bucket este privado y aunque
+--    chat_adjuntos_ver este perfecta. Se borran las tres aqui,
+--    antes de crear las nuestras.
+--
+--    OJO: si algun dia vuelves a poner el bucket publico desde
+--    el panel, el panel puede volver a crear estas tres. Vuelve
+--    a comprobarlo con la consulta del paso 4.
+-- -------------------------------------------------------------
+drop policy if exists "chat_adjuntos_select"  on storage.objects;
+drop policy if exists "chat_adjuntos_insert"  on storage.objects;
+drop policy if exists "chat_adjuntos_delete"  on storage.objects;
+
+-- -------------------------------------------------------------
 -- 1) QUIEN PUEDE VER UN ADJUNTO
 --
 --    Dos casos, y solo dos: lo subiste tu, o te lo mandaron.

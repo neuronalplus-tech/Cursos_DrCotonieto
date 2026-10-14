@@ -171,8 +171,14 @@ order by c.relname;
 
 -- =============================================================
 --  RESULTADO ESPERADO
---  Siete filas: acceso, cursos, examenes, facilitadores,
---  foro_hilos, modulos y recursos.
+--  Este script deja siete: acceso, cursos, examenes,
+--  facilitadores, foro_hilos, modulos y recursos.
+--  La consulta de arriba devuelve DOCE, y es lo correcto:
+--  CATEGORIAS.sql, CONSTANCIAS_2_EMISION.sql,
+--  GENERACIONES.sql y TAREAS_1_BASE.sql añaden las suyas
+--  (categorias, constancias, generaciones, tareas y
+--  rubrica_criterios). Las doce coinciden una por una con
+--  las que lista supabase/ESTRUCTURA.md.
 --
 --  PARA PROBARLO
 --  Cambia el título de un curso desde el panel y luego:
