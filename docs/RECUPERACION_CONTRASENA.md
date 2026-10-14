@@ -51,26 +51,30 @@ al *Site URL*. La persona acaba dentro del aula sin ver nunca el
 formulario. `App.jsx` tiene una red de seguridad que la lleva a
 `/recuperar` si eso pasa, pero conviene que no pase.
 
-## Hay DOS cosas que desplegar, y ninguna la sube Cloudflare
+## Hay TRES cosas que desplegar, y ninguna la sube Cloudflare
 
 Esto fue lo que nos costó una tarde. El deploy de Cloudflare solo sube
 `dist/`. Aparte van:
 
 1. La **Edge Function** de Supabase (`crear-usuarios`), que genera el enlace.
-2. El **Apps Script** (`Notificador.gs`), que manda el correo.
+2. La **Edge Function** `correo-enviar` (F6-3), por la que pasa hoy todo
+   el correo desde la web; exige el secreto `CORREO_SECRETO`.
+3. El **Apps Script** (`Notificador.gs` v5), que manda el correo y exige
+   ese mismo secreto como propiedad de script (Configuración del
+   proyecto → Propiedades de script → `CORREO_SECRETO`).
 
 Si el Apps Script desplegado está atrasado, el enlace se genera bien y el
-correo no sale. Para saber qué versión está viva, abre esta URL en una
-pestaña (no envía nada, solo responde):
+correo no sale. Para saber qué versión está viva, haz un ping desde una
+terminal (el parámetro `secreto` es obligatorio desde v5):
 
 ```
-<APPS_SCRIPT_URL>?payload=%7B%22tipo%22%3A%22ping%22%7D
+curl "<APPS_SCRIPT_URL>?payload=%7B%22tipo%22%3A%22ping%22%7D&secreto=TU_SECRETO"
 ```
 
 La respuesta **buena** trae cuatro datos:
 
 ```json
-{"ok":true,"version":"2026-10-03.v4-fallback-remitente",
+{"ok":true,"version":"2026-10-13.v5-secreto",
  "remitenteEnElScript":"…","cuentaQueEnvia":"…","mensaje":"Conexión OK…"}
 ```
 
@@ -187,3 +191,10 @@ Ahora el manejador global no borra nada; borra `finalizar`, y solo él.
 Además el botón se restaura en un `finally` y la llamada a la Edge
 Function tiene corte a los 20 s, para que ningún camino nuevo pueda
 volver a dejar la interfaz esperando.
+
+**Actualización F6-3:** el envío ya no usa JSONP. La web llama a la
+Edge Function `correo-enviar` con fetch y recibe JSON de verdad; el
+protocolo `reqid`/JSONP sigue en el `.gs` por si se prueba a mano,
+pero la web no lo usa. Si la función contesta que el `.gs` es
+«anterior a v5», hay que pegar el `Notificador.gs` nuevo y publicar
+Nueva versión.

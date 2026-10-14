@@ -29,6 +29,16 @@ globalThis.GmailApp = {
 }
 globalThis.Session = { getActiveUser: () => ({ getEmail: () => 'neuronal.plus@gmail.com' }) }
 
+// F6-3: el .gs exige la propiedad de script CORREO_SECRETO. Aquí se
+// simula conmutable para probar los tres casos: bien, mal y ausente.
+const SECRETO_PRUEBA = 'secreto-de-prueba'
+let propSecreto = SECRETO_PRUEBA
+globalThis.PropertiesService = {
+  getScriptProperties: () => ({ getProperty: () => propSecreto }),
+}
+/** Todo pedido con secreto pasa por aquí: mismo valor que la propiedad. */
+const conSecreto = (parameter) => ({ parameter: { ...parameter, secreto: SECRETO_PRUEBA } })
+
 /** Carga el script, opcionalmente con otro valor de CONFIG.remitente. */
 function cargar(remitente) {
   const codigo = remitente === undefined
@@ -54,23 +64,23 @@ const textoDe = (res) => {
 }
 
 // El ping sin reqid devuelve JSON plano, mucho más fácil de parsear.
-const ping = () => JSON.parse(textoDe(M.responder({ parameter: { payload: JSON.stringify({ tipo: 'ping' }) } })))
+const ping = () => JSON.parse(textoDe(M.responder(conSecreto({ payload: JSON.stringify({ tipo: 'ping' }) }))))
 
 const enviar = (mod, alumnos, reqid = 'r') => {
   enviados.length = 0
-  const res = mod.responder({ parameter: { reqid, payload: JSON.stringify({ tipo: 'recurso-nuevo', alumnos }) } })
+  const res = mod.responder(conSecreto({ reqid, payload: JSON.stringify({ tipo: 'recurso-nuevo', alumnos }) }))
   return { res, enviados: enviados.slice() }
 }
 /* ------------------------------ Protocolo ------------------------------ */
 
-const r1 = M.responder({ parameter: { reqid: 'r42', payload: JSON.stringify({ tipo: 'ping' }) } })
+const r1 = M.responder(conSecreto({ reqid: 'r42', payload: JSON.stringify({ tipo: 'ping' }) }))
 const t1 = textoDe(r1)
 check('con reqid llama a __appsCorreoRespuesta', t1.includes('window.__appsCorreoRespuesta('), t1)
 check('con reqid incluye el reqid', t1.includes('"r42"'), t1)
 check('con reqid usa MimeType JAVASCRIPT', r1.getMimeType() === 'JS', r1.getMimeType())
 check('el texto es JavaScript válido', (() => { try { new Function(t1); return true } catch { return false } })(), t1)
 
-const r2 = M.responder({ parameter: { payload: JSON.stringify({ tipo: 'ping' }) } })
+const r2 = M.responder(conSecreto({ payload: JSON.stringify({ tipo: 'ping' }) }))
 check('sin reqid devuelve JSON', textoDe(r2).trim().startsWith('{') && JSON.parse(textoDe(r2)).ok === true, textoDe(r2))
 
 /* ------------------------- Diagnóstico del ping ------------------------ */
@@ -82,7 +92,7 @@ check('el ping informa el remitente configurado', 'remitenteEnElScript' in info,
 
 /* ---------------------------- Destinatarios ---------------------------- */
 
-const r3 = M.responder({ parameter: { reqid: 'r7', payload: JSON.stringify({ tipo: 'recurso-nuevo', alumnos: [] }) } })
+const r3 = M.responder(conSecreto({ reqid: 'r7', payload: JSON.stringify({ tipo: 'recurso-nuevo', alumnos: [] }) }))
 check('sin destinatarios devuelve ok:false', textoDe(r3).includes('"ok":false'), textoDe(r3))
 
 const payload = JSON.stringify({
@@ -91,17 +101,37 @@ const payload = JSON.stringify({
   recurso: { titulo: 'Material 1', descripcion: 'Descripción' },
   alumnos: [{ email: 'A@X.com' }, { email: 'a@x.com' }, { email: 'b@x.com' }],
 })
-const r4 = M.responder({ parameter: { reqid: 'r9', payload } })
+const r4 = M.responder(conSecreto({ reqid: 'r9', payload }))
 check('envía sin repetir destinatarios', enviados.length === 2, JSON.stringify(enviados))
 check('deduplica ignorando mayúsculas', enviados[0] && enviados[0].para === 'a@x.com')
 check('confirma con la cantidad real', textoDe(r4).includes('"enviados":2'), textoDe(r4))
 check('el HTML trae el botón al material', M.cuerpoHtml(JSON.parse(payload)).includes('Ir al material'))
 check('el HTML escapa el asunto', M.cuerpoHtml({ tipo: 'x', cuerpoHtml: '<b>a</b>' }).includes('<b>a</b>'))
 
-const r5 = M.responder({ parameter: { reqid: 'r11', payload: '{roto' } })
+const r5 = M.responder(conSecreto({ reqid: 'r11', payload: '{roto' }))
 check('payload corrupto devuelve error controlado', textoDe(r5).includes('"ok":false'), textoDe(r5))
 const r6 = M.responder({})
 check('llamada vacía no revienta', textoDe(r6).length > 0)
+
+/* ---------------------------- Secreto (F6-3) --------------------------- */
+
+// Sin secreto no se manda nada, ni siquiera el ping: era el agujero B1.
+const rs1 = M.responder({ parameter: { payload: JSON.stringify({ tipo: 'ping' }) } })
+check('sin secreto se niega, incluso el ping',
+  textoDe(rs1).includes('"ok":false') && textoDe(rs1).includes('Secreto'), textoDe(rs1))
+
+const rs2 = M.responder({ parameter: { secreto: 'equivocado', payload: JSON.stringify({ tipo: 'ping' }) } })
+check('con secreto equivocado se niega', textoDe(rs2).includes('"ok":false'), textoDe(rs2))
+
+propSecreto = null
+const rs3 = M.responder(conSecreto({ payload: JSON.stringify({ tipo: 'ping' }) }))
+check('sin la propiedad configurada se niega todo',
+  textoDe(rs3).includes('"ok":false') && textoDe(rs3).includes('CORREO_SECRETO'), textoDe(rs3))
+propSecreto = SECRETO_PRUEBA
+
+const rs4 = enviar(M, [{ email: 'secreto@x.com' }])
+check('con el secreto correcto el envío sigue funcionando',
+  rs4.enviados.length === 1 && textoDe(rs4.res).includes('"ok":true'), textoDe(rs4.res))
 
 /* ------------------------------ Remitente ------------------------------ */
 

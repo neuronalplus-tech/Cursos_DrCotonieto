@@ -3,7 +3,13 @@
  *  NOTIFICADOR POR CORREO — Google Apps Script  (Dr. Ernesto Cotonieto)
  * ============================================================================
  *
- *  CÓMO USARLO
+ *  CÓMO USARLO (en este orden; el paso 0 es nuevo en v5)
+ *  0. Propiedades de script (Configuración del proyecto →
+ *     Propiedades de script) → añade CORREO_SECRETO con un valor
+ *     largo y aleatorio (nada de palabras). Ese MISMO valor se
+ *     guarda como secreto CORREO_SECRETO de la función de
+ *     Supabase `correo-enviar`. Sin esa propiedad, este script no
+ *     manda NADA —es a propósito: era el agujero B1.
  *  1. script.google.com → abre ESTE proyecto → sustituye todo Codigo.gs por
  *     el contenido de este archivo (Ctrl+A, Ctrl+V en el editor).
  *  2. Para actualizar la URL que ya usa la web:
@@ -11,8 +17,12 @@
  *       → Implementar. No crees otra implementación: cambia la URL.
  *     En una instalación inicial, crea una implementación de tipo Aplicación web:
  *       - Ejecutar como:           Yo (tu cuenta)
- *       - Quién tiene acceso:      Cualquier persona
- *  3. Copia la URL /exec activa a src/config.js → APPS_SCRIPT_URL.
+ *       - Quién tiene acceso:      Cualquier persona (el secreto es la
+ *         llave real: la URL a secas ya no manda nada)
+ *  3. La web ya NO llama aquí directamente (F6-3): llama a la
+ *     Edge Function `correo-enviar`, que reenvía con el secreto.
+ *     La URL /exec solo la necesita esa función, desde su secreto
+ *     CORREO_URL (el respaldo ya escrito es el de src/config.js).
  *
  *  CÓMO DEVUELVE EL RESULTADO A LA WEB (leído con un deployment real)
  *  Desde el navegador no hay CORS, así que la web inyecta esto como <script>
@@ -30,7 +40,7 @@
  * ============================================================================
  */
 
-const VERSION = '2026-10-03.v4-fallback-remitente';
+const VERSION = '2026-10-13.v5-secreto';
 
 const CONFIG = {
   // VACÍO A PROPÓSITO, y no es descuido.
@@ -58,8 +68,31 @@ function doGet(e) {
   return responder(e);
 }
 
+/**
+ * F6-3: el secreto vive en Propiedades de script, nunca en el
+ * código (Configuración del proyecto → Propiedades de script →
+ * CORREO_SECRETO). Si la propiedad no existe, se niega TODO,
+ * incluido el ping: es a propósito. Mejor no enviar nada que
+ * seguir siendo el relay abierto de siempre.
+ */
+function secretoValido(e) {
+  var esperado = PropertiesService.getScriptProperties().getProperty('CORREO_SECRETO');
+  if (!esperado) return false;
+  var dado = (e && e.parameter && e.parameter.secreto) || '';
+  return dado === esperado;
+}
+
 function responder(e) {
   var reqid = (e && e.parameter && e.parameter.reqid) || '';
+  if (!secretoValido(e)) {
+    return responderCon(reqid, {
+      ok: false,
+      error: 'Secreto ausente o incorrecto (F6-3): no se envió nada. ' +
+             'Falta la propiedad de script CORREO_SECRETO o no coincide ' +
+             'con el secreto CORREO_SECRETO de la función correo-enviar ' +
+             'en Supabase.'
+    });
+  }
   try {
     var crudo = (e && e.parameter && e.parameter.payload) || '{}';
     var datos = JSON.parse(crudo);

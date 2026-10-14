@@ -111,3 +111,42 @@
   instancia y memoria: se reinicia en cada despliegue y el tope
   efectivo puede ser mayor (nunca menor) si Supabase reparte la
   carga.
+
+### 2026-10-13 — E05 F6-3 Relay de correo autenticado (cierra B1)
+- **Qué:** el hallazgo B1 decía que cualquiera con la URL del Apps
+  Script podía mandar correo desde la cuenta del doctor. Ahora el
+  navegador no llama al Apps Script: llama a la nueva
+  `supabase/functions/correo-enviar/index.ts`, que exige sesión +
+  fila en `admins` o `facilitadores`, lista cerrada de tipos de
+  correo, frenos F6-2 (512 KB de cuerpo, 30/min por IP, 20/min por
+  gestor) y una entrada en `auditoria` (tabla `correo-enviar`,
+  operación `CORREO`/`INTENTO`; el `ping` y lo público no se
+  anotan). El único caso sin sesión es `solicitud-materiales`
+  (formulario del taller), que la función rearma sola: solo correo
+  válido y título del curso, nada más se reenvía. El Apps Script
+  (`apps-script/Notificador.gs` → `2026-10-13.v5-secreto`) exige
+  además el secreto compartido `CORREO_SECRETO` en cada petición
+  (propiedad de script; si falta, se niega todo —es a propósito—).
+  `src/lib/correo.js` reescrito: se retiró el JSONP (la URL en el
+  bundle era el agujero) y `enviarCorreo` ahora hace fetch a la
+  función con la misma forma de resultado de siempre; se retiró el
+  export `LINK_APPS_SCRIPT`. `src/config.js` documenta que
+  `APPS_SCRIPT_URL` ya es solo referencia. `supabase/test-correo.mjs`
+  ampliado (mock de `PropertiesService` + 4 pruebas de secreto).
+  `docs/RECUPERACION_CONTRASENA.md` actualizado (tres despliegues,
+  ping con `&secreto=`).
+- **Revertir:** `git revert` del commit. A mano: borrar la función
+  `correo-enviar`, volver `correo.js` al JSONP (commit anterior),
+  y en el .gs quitar `secretoValido` y su llamada y volver VERSION
+  a `2026-10-03.v4-fallback-remitente`.
+- **Estado:** ⚠️ FALTAN PASOS DEL DUEÑO, en este orden (si se dan
+  al revés, el correo se niega a salir hasta que cuadren, a
+  propósito): 1) generar un secreto largo; 2) Supabase → Edge
+  Functions → Secrets → `CORREO_SECRETO` (opcional `CORREO_URL`);
+  3) Apps Script → Propiedades de script → `CORREO_SECRETO` con el
+  MISMO valor; 4) desplegar la función `correo-enviar`; 5) subir
+  este commit (Cloudflare publica la web); 6) pegar el
+  `Notificador.gs` v5 y publicar Nueva versión. Prueba final: ping
+  con `&secreto=`, un aviso de recuperación real y la solicitud
+  pública de materiales del taller.
+

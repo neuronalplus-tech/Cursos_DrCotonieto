@@ -23,6 +23,10 @@ export const ENLACE_ENTREGABLES = 'https://1drv.ms/f/c/a43668d1cdc6e346/IgCxnJ6u
 // no hace falta crear uno nuevo (crearlo es lo que genera URLs nuevas).
 // Si algún día cambias "Quién tiene acceso", entonces sí debes crear uno nuevo
 // y pasarme la URL.
+// NOTA (F6-3): la web ya NO llama a esta URL. El envío pasa por la Edge
+// Function `correo-enviar`, que guarda esta misma URL en su secreto
+// CORREO_URL (con respaldo escrito) y la llama con el secreto compartido.
+// Aquí queda solo como referencia para abrir el editor del script.
 export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwPLMNkKPnU0xRVgtqk55vCMLP-n2BOPNCwC4-Jr37x005RgdTfdGKJCAK0K8yDjNY_fw/exec'
 
 export const MARCA = {

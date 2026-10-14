@@ -1,20 +1,29 @@
 /* ============================================================
-   ENVÍO DE CORREO (relay con Google Apps Script)
+   ENVÍO DE CORREO (relay con Google Apps Script · F6-3)
+   ------------------------------------------------------------
+   DESDE F6-3 EL NAVEGADOR YA NO LLAMA AL APPS SCRIPT
+   Antes este módulo inyectaba un <script> (JSONP) contra la URL
+   del Apps Script: la URL vive en el bundle, así que cualquiera
+   en internet con esa URL podía mandar correo desde la cuenta
+   del doctor (hallazgo B1 del diagnóstico). Ningún secreto
+   puesto aquí serviría: el navegador es una caja abierta.
 
-   POR QUÉ EXISTE ESTE MÓDULO
-   Antes se usaba `fetch(url, { mode: 'no-cors' })`. Con "no-cors" el
-   navegador descarta la respuesta como opaca: NO hay forma de saber si el
-   script se ejecutó, si falló o si la URL está mal. El códigottpónicamente
-   mostrar "✓ enviado" siempre. Ese mensaje verde NO probaba nada.
+   Ahora la llamada va a la Edge Function `correo-enviar`, que
+   comprueba sesión y permiso (admins o facilitadores), aplica
+   sus frenos y reenvía al Apps Script con el SECRETO
+   compartido —que solo viven en Supabase y en Apps Script—. El
+   único caso sin sesión es `solicitud-materiales`, el
+   formulario público del taller, y la función rearma ese
+   payload sola: nadie puede colar asuntos ni cuerpos.
 
-   AQUÍ SE USA JSONP
-   Se inyecta un <script> con ?callback=..., que es la única forma de leer
-   la respuesta de Apps Script desde el navegador sin CORS. Si el script
-   devuelve un valor, lo recibimos de verdad y podemos confirmar o mostrar
-   el error exacto de Google.
+   LA FORMA DE SEGUIR SIN CAMBIAR A NADIE
+   `enviarCorreo(payload)` devuelve la misma promesa de siempre:
+   { ok, motivo?, data?, sinConfirmacion? }. Todos los botones
+   que ya la usan siguen funcionando igual, y los errores de
+   verdad (script viejo, secreto mal configurado, tope 429)
+   llegan escritos en `motivo`.
    ============================================================ */
 
-import { APPS_SCRIPT_URL } from '../config'
 import { supabase } from './supabase'
 
 const TIMEOUT_MS = 20000
@@ -59,127 +68,84 @@ export async function notificarInscritos(cursoId, { tipo, curso, modulo, recurso
 }
 
 /**
- * Envía un payload al Apps Script y ESPERA CONFIRMACIÓN REAL.
+ * Envía un payload a la Edge Function `correo-enviar` y espera la
+ * confirmación REAL del Apps Script (que la función retransmite tal
+ * cual). Aquí no hay lógica de permiso ni de secreto: la que manda
+ * es la del servidor, y este módulo solo transporta y traduce.
  *
- * CÓMO SE LEE LA RESPUESTA
- * Con fetch + CORS es imposible (Google no manda cabeceras CORS) y con
- * 'no-cors' la respuesta llega opaca. La única vía es inyectar un <script>.
- *
- * NO usamos el parámetro `callback` de Google porque, comprobado contra un
- * deployment real, NO envuelve la salida: la respuesta llegó tal cual. Si
- * dependiéramos de él, el callback nunca se llamaría y cada envío acabaría
- * en timeout aunque el correo sí hubiera salido.
- *
- * En vez de eso, el script recibe un `reqid` y devuelve él mismo el JavaScript
- * `window.__appsCorreoRespuesta("<reqid>", {...})`. Es determinista: no depende
- * de que Google haga nada especial.
+ * SIN SESIÓN solo puede pasar `solicitud-materiales`; la función
+ * lo asegura. Por eso se manda la llave pública como Authorization
+ * cuando no hay sesión: el gateway de las funciones exige un JWT,
+ * y el anónimo lo es.
  *
  * @param {object} payload  lo que espera el script (tipo, asunto, alumnos, …)
  * @returns {Promise<{ok:boolean, motivo?:string, data?:any, sinConfirmacion?:boolean}>}
  */
-export function enviarCorreo(payload) {
-  return new Promise((resolve) => {
-    if (!APPS_SCRIPT_URL) {
-      resolve({ ok: false, motivo: 'No hay URL de Apps Script configurada (APPS_SCRIPT_URL).' })
-      return
+export async function enviarCorreo(payload) {
+  try {
+    const { data: sesion } = await supabase.auth.getSession()
+    const token = sesion?.session?.access_token
+
+    const corte = new AbortController()
+    const reloj = setTimeout(() => corte.abort(), TIMEOUT_MS)
+    let res
+    try {
+      res = await fetch(`${supabase.supabaseUrl}/functions/v1/correo-enviar`, {
+        method: 'POST',
+        signal: corte.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabase.supabaseKey,
+          Authorization: `Bearer ${token || supabase.supabaseKey}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    } finally {
+      clearTimeout(reloj)
     }
 
-    const reqid = 'r' + Date.now() + Math.floor(Math.random() * 1e6)
+    let datos = null
+    try { datos = await res.json() } catch { datos = null }
 
-    /* Un solo manejador global: el script sabe a qué petición contestar.
-
-       OJO CON EL ORDEN. Este manejador NO debe borrar la petición antes
-       de llamarla. `finalizar` usa esa misma entrada como señal de "esto
-       sigue vivo": si ya no está, se va sin resolver. Borrar aquí hacía
-       que la respuesta BUENA del script no resolviera nunca la promesa
-       —ni la resolvía el timeout, que también pasa por `finalizar`—, y
-       el botón de la interfaz se quedaba en "…" para siempre. Quien
-       borra es `finalizar`, y solo él. */
-    if (!window.__appsCorreoRespuesta) {
-      window.__appsCorreoRespuesta = function (idRecibido, datos) {
-        const pendiente = pendientes[idRecibido]
-        if (!pendiente) return
-        pendiente(datos)
+    if (!res.ok) {
+      // Error de la función (401/403/413/429/500…): el motivo ya
+      // viene escrito para la persona, no hace falta traducirlo.
+      return {
+        ok: false,
+        data: datos || undefined,
+        motivo: (datos && (datos.error || datos.motivo)) ||
+                `El servidor de correo contestó ${res.status}.`,
       }
     }
 
-    const finalizar = (resultado) => {
-      const fn = pendientes[reqid]
-      if (!fn) return
-      delete pendientes[reqid]
-      clearTimeout(timer)
-      if (script && script.parentNode) script.parentNode.removeChild(script)
-      window.removeEventListener('error', alEscucharError)
-      resolve(resultado)
+    const esError = !datos || datos.ok === false || !!datos.error
+    return {
+      ok: !esError,
+      data: datos || undefined,
+      motivo: esError
+        ? (datos && (datos.error || datos.motivo)) || 'El script devolvió un error.'
+        : undefined,
     }
-
-    pendientes[reqid] = function (datos) {
-      const esError = !datos || datos.ok === false || !!datos.error
-      finalizar({
-        ok: !esError,
-        data: datos,
-        motivo: esError ? (datos && (datos.error || datos.mensaje) || 'El script devolvió un error.') : undefined,
-      })
-    }
-
-    const script = document.createElement('script')
-    script.src = APPS_SCRIPT_URL +
-      '?reqid=' + encodeURIComponent(reqid) +
-      '&payload=' + encodeURIComponent(JSON.stringify(payload))
-
-    // Fallo de red: script inexistente, sin permisos, 404…
-    script.onerror = () => finalizar({
+  } catch (e) {
+    const abortado = e && e.name === 'AbortError'
+    return {
       ok: false,
-      motivo: 'No se pudo cargar el script. Revisa que siga desplegado y con acceso ' +
-              '"Cualquier persona".',
-    })
-
-    /**
-     * CASO QUE ANTES COLGABA: si el deployment es el viejo, responde JSON plano.
-     * Al cargarlo como <script> eso es un error de SINTACTIS, y para scripts
-     * clásicos `script.onerror` NO se dispara (solo ante fallos de red). Antes
-     * solo nos cubría el timeout, dejando el botón en "Enviando..." 20 s.
-     * Este listener global sí recibe ese error, con el nombre del fichero.
-     */
-    function alEscucharError(evento) {
-      const deNuestroScript =
-        (evento && evento.target === script) ||
-        (evento && typeof evento.filename === 'string' && evento.filename.indexOf(APPS_SCRIPT_URL) === 0)
-      if (!deNuestroScript) return
-      finalizar({
-        ok: false,
-        versionDesactualizada: true,
-        motivo: 'El script respondió con un formato que el navegador no puede ejecutar. ' +
-                'Es la versión anterior del Apps Script: hay que pegar el Notificador.gs nuevo, ' +
-                'guardar y actualizar la implementación.',
-      })
+      sinConfirmacion: abortado,
+      motivo: abortado
+        ? `El servidor de correo no confirmó en ${TIMEOUT_MS / 1000} s. ` +
+          'Puede que sí se haya enviado; revisa Gmail antes de reintentar.'
+        : 'No se pudo contactar el servidor de correo: ' + ((e && e.message) || e),
     }
-    window.addEventListener('error', alEscucharError)
-
-    const timer = setTimeout(() => finalizar({
-      ok: false,
-      sinConfirmacion: true,
-      motivo: 'El script no confirmó en ' + (TIMEOUT_MS / 1000) + ' s. ' +
-              'Puede que sí se haya enviado, o que la versión desplegada sea la antigua.',
-    }), TIMEOUT_MS)
-
-    document.body.appendChild(script)
-  })
+  }
 }
 
-/** Peticiones en vuelo, indexadas por reqid. */
-const pendientes = {}
-
-/** Link para abrir el Apps Script en una pestaña y ver su respuesta real. */
-export const LINK_APPS_SCRIPT = APPS_SCRIPT_URL
-
 /** Convierte un resultado de enviarCorreo() en un mensaje para la interfaz. */
-export function mensajeResultado(res,{exitoSiConfirmado = '✓ Enviado.' } = {}) {
+export function mensajeResultado(res, { exitoSiConfirmado = '✓ Enviado.' } = {}) {
   if (!res) return 'Sin respuesta.'
   if (res.ok) return exitoSiConfirmado + (res.data ? '' : ' (sin detalle)')
   if (res.sinConfirmacion) {
-    return '⚠️ ' + res.motivo +
-      ' Abre el script en una pestaña para ver el error real de Google.'
+    return '⚠️ ' + res.motivo
   }
   return '✗ No se envió: ' + (res.motivo || 'error desconocido')
 }
+
