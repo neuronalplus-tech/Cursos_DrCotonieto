@@ -55,8 +55,12 @@ export function resumirNps(respuestas) {
 }
 
 /* Un CSS con url(), @import o javascript: es una exfiltración o
-   un XSS esperando a ocurrir, aunque venga del admin del cliente. */
-const CSS_PELIGROSO = /url\s*\(|@import|javascript\s*:|vbscript\s*:|expression\s*\(|-moz-binding|behaviou?r\s*:/i
+   un XSS esperando a ocurrir, aunque venga del admin del cliente.
+   Además: la barra invertida se descarta entera porque un escape CSS
+   (`u\72l(` es `url(`) se salta cualquier lista de palabras; las
+   comillas e `image-set`/`src()` porque cargan recursos remotos sin
+   escribir `url`; y los comentarios porque esconden lo de en medio. */
+const CSS_PELIGROSO = /url\s*\(|@import|javascript\s*:|vbscript\s*:|expression\s*\(|-moz-binding|behaviou?r\s*:|image-set|src\s*\(|\\|['"`]|\/\*/i
 
 /** Deja solo CSS declarativo simple; descarta lo peligroso. */
 export function sanearCss(css) {
@@ -67,8 +71,9 @@ export function sanearCss(css) {
     const selector = partes[0].trim()
     // Solo selectores simples (clases, ids, etiquetas): sin `..`,
     // sin `>` que escape, sin `*`, sin `@import`, sin `[attr]`,
-    // sin comillas ni `;` (que meterían otra instrucción).
-    if (!selector || /[@>*:;[\]{}'"`]/.test(selector)) return ''
+    // sin comillas ni `;` (que meterían otra instrucción), sin escapes
+    // `\` ni comentarios `/*`.
+    if (!selector || /[@>*:;[\]{}'"`\\]|\/\*/.test(selector)) return ''
     const decls = partes.slice(1).join('{').split(';')
       .map((d) => d.trim()).filter(Boolean)
       .filter((d) => !CSS_PELIGROSO.test(d))

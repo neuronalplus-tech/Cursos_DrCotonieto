@@ -31,6 +31,10 @@ import ModuloView from '../src/components/ModuloView'
 import CarruselCursos from '../src/components/CarruselCursos'
 import TallerRecursos from '../src/components/TallerRecursos'
 import MensajesInbox, { MensajesPage } from '../src/components/MensajesInbox'
+import AdminForo from '../src/components/AdminForo'
+import AdminTareas from '../src/components/AdminTareas'
+import AdminGeneraciones from '../src/components/AdminGeneraciones'
+import AdminCursos from '../src/components/AdminCursos'
 
 // Datos falsos: solo necesitan la forma, nunca se llega a consultarlos
 // porque los efectos no se ejecutan al renderizar en servidor.
@@ -70,6 +74,12 @@ const vistas = [
   ['TallerRecursos',              pagina('/t/1',     h(TallerRecursos, { curso, user, esAdmin: true, onActualizado: () => {} }))],
   ['MensajesPage',                pagina('/mensajes', h(MensajesPage, { user, esAdmin: true }))],
   ['MensajesInbox',               pagina('/mensajes', h(MensajesInbox, { user, esAdmin: true }))],
+  // Pestañas del panel: un useCallback leído en las dependencias de un
+  // efecto ANTES de declararse tumbó AdminForo sin que nada avisara.
+  ['AdminForo',                   pagina('/admin',   h(AdminForo, { user: admin }))],
+  ['AdminTareas',                 pagina('/admin',   h(AdminTareas, { cursoId: 1 }))],
+  ['AdminGeneraciones',           pagina('/admin',   h(AdminGeneraciones, { cursoId: 1 }))],
+  ['AdminCursos',                 pagina('/admin',   h(AdminCursos, {}))],
 ]
 
 let ok = 0

@@ -149,3 +149,36 @@
   con `&secreto=`, un aviso de recuperación real y la solicitud
   pública de materiales del taller.
 
+### 2026-10-14 — E06 Auditoría tras el Diagnóstico 2 (rama fix-diagnostico-2-blockantes)
+- **Qué:** revisión de todo lo hecho desde el traspaso del 13-oct. Arreglos:
+  1. `src/components/AdminForo.jsx`: el commit `9c8f817` puso `recargar`
+     (useCallback) en las dependencias de un efecto **antes** de
+     declararla → ReferenceError al renderizar: la pestaña Foro del panel
+     quedaba caída. Se movió la declaración arriba del efecto.
+  2. `scripts/smoke-render.jsx` + `.github/workflows/deploy.yml`: el smoke
+     ahora renderiza AdminForo/AdminTareas/AdminGeneraciones/AdminCursos
+     (con el código de `9c8f817` falla, con el arreglo pasa) y **bloquea
+     el deploy** en CI.
+  3. `supabase/functions/crear-usuarios/index.ts` — cierra **B2 y A3**: un
+     admin de cliente ya no puede pisar la contraseña de una cuenta que ya
+     existía si es admin/facilitador o tiene cursos de otra organización
+     (se inscribe, pero la contraseña no se toca y el mensaje lo dice), ni
+     inscribir en cursos que no son de sus organizaciones (403).
+  4. Las tres edge functions: `ilike('email', …)` escapa `_` y `%`
+     (`patronExacto`); antes un correo con `_` podía coincidir con otro.
+  5. `correo-enviar` + `TallerRecursos.jsx`: la puerta pública
+     `solicitud-materiales` toma el título del curso de la base por id
+     (antes el anónimo escribía el asunto del correo que salía del Gmail
+     del doctor).
+  6. `src/lib/encuestas.js` `sanearCss`: descarta escapes `\`, comillas,
+     `image-set`, `src()` y comentarios (`u\72l(` y `image-set("…")`
+     pasaban el filtro). 4 pruebas nuevas en `test-encuestas.mjs` (25/25).
+  7. `Admin.jsx` (historial de comunicados): reconoce `PGRST205` como
+     «falta la tabla»; antes, sin el SQL, quedaba «Cargando historial…»
+     para siempre. `TableroOrg.jsx` y `EncuestaNps.jsx`: reconocen
+     `PGRST202` como «falta la función».
+- **Revertir:** `git revert` del commit de esta entrada.
+- **Estado:** sin SQL nuevo. ⚠️ Hay que **volver a desplegar** las edge
+  functions `crear-usuarios`, `correo-enviar` y `whatsapp-enviar` en
+  Supabase para que los arreglos 3-5 tengan efecto (el front solo no basta).
+

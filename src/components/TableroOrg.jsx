@@ -90,7 +90,7 @@ export default function TableroOrg() {
         setRetencion(r || [])
         setRetencionFalta(false)
       } else if (
-        eR.code === '42883' || /no existe|does not exist|not exist/i.test(eR.message || '')
+        eR.code === '42883' || eR.code === 'PGRST202' || /no existe|does not exist|not exist/i.test(eR.message || '')
       ) {
         setRetencion(null)
         setRetencionFalta(true)
@@ -106,7 +106,7 @@ export default function TableroOrg() {
         setNps(n || [])
         setNpsFalta(false)
       } else if (
-        eN.code === '42883' || /no existe|does not exist|not exist/i.test(eN.message || '')
+        eN.code === '42883' || eN.code === 'PGRST202' || /no existe|does not exist|not exist/i.test(eN.message || '')
       ) {
         setNps([])
         setNpsFalta(true)

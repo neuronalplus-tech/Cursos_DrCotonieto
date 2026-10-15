@@ -66,6 +66,15 @@ check('url() se descarta', !sanearCss('.a { background: url(evil) }').includes('
 check('@import se descarta', !sanearCss('@import "x"; .a { color: red }').includes('@import'))
 check('selector global se descarta', sanearCss('* { color: red }') === '')
 check('pseudo-clase se descarta', sanearCss('a:hover { color: red }') === '')
+// Escape CSS: `u\72l(` es `url(` para el navegador.
+check('url() con escape se descarta',
+  sanearCss('.a { background: u\\72l(https://x.example/a) }') === '')
+check('image-set se descarta',
+  sanearCss('.a { background-image: image-set("https://x.example/a" 1x) }') === '')
+check('comentario se descarta',
+  sanearCss('.a { background: ur/**/l(https://x.example/a) }') === '')
+check('regla legítima sigue pasando',
+  sanearCss('.titulo { color: #123456; font-weight: 700 }') === '.titulo { color: #123456; font-weight: 700 }')
 
 console.log('\n' + '─'.repeat(56))
 console.log(`  ${ok} pruebas OK / ${fallos.length} fallos`)

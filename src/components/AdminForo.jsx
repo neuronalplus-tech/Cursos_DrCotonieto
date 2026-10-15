@@ -64,6 +64,22 @@ export default function AdminForo({ user }) {
     })()
   }, [])
 
+  // `recargar` va ANTES del efecto que la lista en sus dependencias: el
+  // array de dependencias se evalúa al renderizar, y una `const` leída
+  // antes de declararse lanza ReferenceError y tumba toda la pestaña.
+  const recargar = useCallback(async (id = cursoId) => {
+    if (!id) return
+    // El id se manda como número a propósito: curso_id es un entero y el
+    // <select> da texto. Enviar "1" obliga a Postgres a coercir y hacia que
+    // las consultas no coincidan con la columna.
+    const { data } = await supabase
+      .from('foro_hilos').select('*')
+      .eq('curso_id', Number(id))
+      .order('fijado', { ascending: false })
+      .order('actualizado_en', { ascending: false })
+    setHilos(data || [])
+  }, [cursoId])
+
   useEffect(() => {
     if (!cursoId) return
     setCargando(true)
@@ -140,19 +156,6 @@ export default function AdminForo({ user }) {
     setFormAbierto(false)
     setMsg({ tipo: 'ok', texto: editando ? 'Tema actualizado.' : 'Tema publicado. Ya lo ven los inscritos.' })
   }
-
-  const recargar = useCallback(async (id = cursoId) => {
-    if (!id) return
-    // El id se manda como número a propósito: curso_id es un entero y el
-    // <select> da texto. Enviar "1" obliga a Postgres a coercir y hacia que
-    // las consultas no coincidan con la columna.
-    const { data } = await supabase
-      .from('foro_hilos').select('*')
-      .eq('curso_id', Number(id))
-      .order('fijado', { ascending: false })
-      .order('actualizado_en', { ascending: false })
-    setHilos(data || [])
-  }, [cursoId])
 
   const alternar = async (h, campo) => {
     const { error } = await supabase

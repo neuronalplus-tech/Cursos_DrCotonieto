@@ -391,10 +391,16 @@ function Admin({ user }) {
       .then(({ data, error }) => {
         if (!vivo) return
         if (error) {
-          if (error.code === '42P01' || /no existe|does not exist/i.test(error.message || '')) {
+          // PostgREST contesta PGRST205 («Could not find the table») cuando
+          // la tabla no existe; 42P01 es el código de Postgres directo.
+          if (error.code === 'PGRST205' || error.code === '42P01' ||
+              /no existe|does not exist|could not find the table/i.test(error.message || '')) {
             setHistorialFalta(true)
             return
           }
+          // Cualquier otro fallo: lista vacía, no «Cargando…» para siempre.
+          console.error('No se pudo cargar el historial de comunicados:', error.message)
+          setHistorialCom([])
           return
         }
         setHistorialCom(data || [])
