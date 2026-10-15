@@ -68,6 +68,9 @@ const esCorreo = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
 /** Texto plano cortado: nadie manda kilómetros de basura por parámetro. */
 const limpiarTexto = (s: unknown, max: number) =>
   String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+/** Para `ilike` como igualdad sin mayúsculas: `_` y `%` son comodines
+    y un correo con `_` (válido) coincidiría con otros que no son él. */
+const patronExacto = (s: string) => s.replace(/[\\%_]/g, (c) => '\\' + c)
 
 /* --- F6-3 · frenos, tipos y bitácora ------------------------
    · TOPE DE CUERPO. Un comunicado real (HTML con firma) ronda
@@ -230,9 +233,22 @@ Deno.serve(async (req: Request) => {
       if (!esCorreo(email)) {
         return responder({ error: 'El correo no es válido.' }, 400)
       }
+      // El título NO se toma de la petición: el Apps Script lo pone en
+      // el asunto («Aviso de …»), y así cualquiera podía mandar desde
+      // el Gmail del doctor un asunto escrito por él a quien quisiera.
+      // Se busca el curso por id y se usa su título real.
+      const cursoId = Number(cuerpo?.curso?.id)
+      if (!Number.isInteger(cursoId) || cursoId <= 0) {
+        return responder({ error: 'Falta el curso.' }, 400)
+      }
+      const { data: cursoReal } = await admin
+        .from('cursos').select('titulo').eq('id', cursoId).maybeSingle()
+      if (!cursoReal?.titulo) {
+        return responder({ error: 'Ese curso no existe.' }, 404)
+      }
       payloadEnviar = {
         tipo,
-        curso: { titulo: limpiarTexto(cuerpo?.curso?.titulo, 200) },
+        curso: { titulo: limpiarTexto(cursoReal.titulo, 200) },
         email,
       }
     } else {
@@ -249,8 +265,8 @@ Deno.serve(async (req: Request) => {
       // El correo es cosa de gestión: admins o facilitadores. El
       // alumnado no envía correos desde el panel, y hoy no debe.
       const [{ data: filasAdmin, error: eA }, { data: filasFac, error: eF }] = await Promise.all([
-        admin.from('admins').select('email').ilike('email', correoGestor).limit(1),
-        admin.from('facilitadores').select('email').ilike('email', correoGestor).limit(1),
+        admin.from('admins').select('email').ilike('email', patronExacto(correoGestor)).limit(1),
+        admin.from('facilitadores').select('email').ilike('email', patronExacto(correoGestor)).limit(1),
       ])
       if (eA || eF) {
         return await salir({

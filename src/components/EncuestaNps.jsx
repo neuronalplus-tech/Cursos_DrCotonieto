@@ -31,7 +31,7 @@ export default function EncuestaNps({ user, cursoId }) {
         .rpc('encuesta_del_curso', { p_curso: Number(cursoId) })
       if (!vivo) return
       if (eE) {
-        if (eE.code === '42883' || /does not exist|no existe/i.test(eE.message || '')) setFalta(true)
+        if (eE.code === '42883' || eE.code === 'PGRST202' || /does not exist|no existe/i.test(eE.message || '')) setFalta(true)
         return
       }
       const fila = Array.isArray(e) ? e[0] : e

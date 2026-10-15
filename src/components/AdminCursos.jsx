@@ -14,7 +14,7 @@
    lo cursó. "Archivar" lo saca del catálogo y conserva todo.
    ============================================================ */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
 import { tienePonderacion } from '../lib/calificacion'
@@ -57,7 +57,7 @@ export default function AdminCursos() {
   const [catNueva, setCatNueva] = useState('')
   const [catEditando, setCatEditando] = useState(null)
 
-  const recargar = async () => {
+  const recargar = useCallback(async () => {
     setCargando(true)
     // Sin filtrar por `activo`: aquí se gestionan también los archivados.
     let q = supabase.from('cursos').select('*').order('orden').order('titulo')
@@ -70,9 +70,9 @@ export default function AdminCursos() {
       .select('*').order('orden').order('nombre')
     setCategorias(cats || [])
     setCargando(false)
-  }
+  }, [organizacion])
 
-  useEffect(() => { recargar() }, [organizacion])
+  useEffect(() => { recargar() }, [organizacion, recargar])
 
   const abrirNuevo = () => {
     const siguiente = cursos.length ? Math.max(...cursos.map(c => c.orden || 0)) + 10 : 100

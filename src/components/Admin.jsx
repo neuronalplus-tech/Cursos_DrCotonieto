@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useRef } from 'react'
+import { Fragment, useEffect, useState, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { rutaAcceso } from '../config'
@@ -339,7 +339,7 @@ function Admin({ user }) {
      acción masiva) repetía la consulta SIN el filtro, así que tras
      cualquiera de esas acciones el panel empezaba a mostrar las
      inscripciones de los demás clientes. Centralizarlo cierra esa fuga. */
-  const recargarInscripciones = async () => {
+  const recargarInscripciones = useCallback(async () => {
     const { data: misCursos } = organizacion?.id
       ? await supabase.from('cursos').select('id').eq('organizacion_id', organizacion.id)
       : { data: null }
@@ -348,16 +348,12 @@ function Admin({ user }) {
       .select('*').order('inscrito_el', { ascending: false })
     if (error) { setError(error.message); return }
     setFilas(idsCurso ? (data || []).filter(f => idsCurso.has(f.curso_id)) : (data || []))
-  }
+  }, [organizacion])
 
   useEffect(() => {
     if (!user) { navigate(rutaAcceso('/admin')); return }
-    ;(async () => {
-      await recargarInscripciones()
-      setCargando(false)
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, navigate, organizacion])
+    recargarInscripciones().then(() => setCargando(false))
+  }, [user, navigate, organizacion, recargarInscripciones])
 
   useEffect(() => {
     if (!esAdmin || !organizacion?.id) return
@@ -395,10 +391,16 @@ function Admin({ user }) {
       .then(({ data, error }) => {
         if (!vivo) return
         if (error) {
-          if (error.code === '42P01' || /no existe|does not exist/i.test(error.message || '')) {
+          // PostgREST contesta PGRST205 («Could not find the table») cuando
+          // la tabla no existe; 42P01 es el código de Postgres directo.
+          if (error.code === 'PGRST205' || error.code === '42P01' ||
+              /no existe|does not exist|could not find the table/i.test(error.message || '')) {
             setHistorialFalta(true)
             return
           }
+          // Cualquier otro fallo: lista vacía, no «Cargando…» para siempre.
+          console.error('No se pudo cargar el historial de comunicados:', error.message)
+          setHistorialCom([])
           return
         }
         setHistorialCom(data || [])

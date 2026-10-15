@@ -255,7 +255,8 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
     try {
       await supabase.from('leads_talleres').insert({ curso_id: curso.id, email })
       // El correo es "best effort": si falla, el lead ya quedó guardado.
-      enviarCorreo({ tipo: 'solicitud-materiales', curso: { titulo: curso.titulo }, email }).catch(() => {})
+      // El id es lo que cuenta: la función busca el título real en la base.
+      enviarCorreo({ tipo: 'solicitud-materiales', curso: { id: curso.id, titulo: curso.titulo }, email }).catch(() => {})
       setDesbloqueado(true)
     } catch (e) {
       setMsgLead('Error: ' + e.message)

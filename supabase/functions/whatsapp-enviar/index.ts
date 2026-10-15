@@ -59,6 +59,10 @@ const responder = (cuerpo: unknown, status = 200) =>
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
 
+/** Para `ilike` como igualdad sin mayúsculas: `_` y `%` son comodines
+    y un correo con `_` (válido) coincidiría con otros que no son él. */
+const patronExacto = (s: string) => s.replace(/[\\%_]/g, (c) => '\\' + c)
+
 type Destino = { numero: string; nombre?: string; texto?: string; variables?: string[] }
 type Resultado = { numero: string; ok: boolean; motivo?: string }
 
@@ -230,7 +234,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: filasAdmin, error: eA } = await admin
-      .from('admins').select('email').ilike('email', correoAdmin)
+      .from('admins').select('email').ilike('email', patronExacto(correoAdmin))
     if (eA) return await salir({ cuerpo: { error: 'No pude comprobar tu permiso: ' + eA.message }, status: 500, operacion: 'INTENTO' })
     if (!filasAdmin || filasAdmin.length === 0) {
       return await salir({ cuerpo: { error: `${correoAdmin} no puede enviar comunicados.` }, status: 403, operacion: 'INTENTO' })

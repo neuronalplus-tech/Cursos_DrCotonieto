@@ -19,7 +19,10 @@
       persona pueda tener varias —una sin organización, que es el
       administrador de la plataforma, y una por cada cliente que
       administre—. Desde ese cambio, el alta fallaba. Aquí basta
-      con tener al menos una fila, del tipo que sea.
+      con tener al menos una fila para ENTRAR; pero un admin de
+      cliente solo inscribe en cursos de sus organizaciones y no
+      puede pisar la contraseña de una cuenta ajena o de gestión
+      (hallazgos A3 y B2 del diagnóstico 2).
 
    2. CONFIRMA EL CORREO AL CREAR (`email_confirm: true`). Si la
       cuenta nace sin confirmar y el proyecto exige confirmación,
@@ -67,6 +70,9 @@ const responder = (cuerpo: unknown, status = 200) =>
 
 const limpiarCorreo = (s: unknown) => String(s ?? '').trim().toLowerCase()
 const esCorreo = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+/** Para `ilike` como igualdad sin mayúsculas: `_` y `%` son comodines
+    y un correo con `_` (válido) coincidiría con otros que no son él. */
+const patronExacto = (s: string) => s.replace(/[\\%_]/g, (c) => '\\' + c)
 
 /* --- F6-2 · frenos y bitácora --------------------------------
    Tres defensas que no dependen de que nadie se acuerde:
@@ -246,7 +252,7 @@ Deno.serve(async (req: Request) => {
 
     // Varias filas son normales y no son un error. No usar .single().
     const { data: filasAdmin, error: eA } = await admin
-      .from('admins').select('email, organizacion_id').ilike('email', correoAdmin)
+      .from('admins').select('email, organizacion_id').ilike('email', patronExacto(correoAdmin))
 
     if (eA) return await salir({ cuerpo: { error: 'No pude comprobar tu permiso: ' + eA.message }, status: 500, operacion: 'INTENTO' })
     if (!filasAdmin || filasAdmin.length === 0) {
@@ -256,6 +262,17 @@ Deno.serve(async (req: Request) => {
         operacion: 'INTENTO',
       })
     }
+    // Fila sin organización = administrador de la plataforma. Un admin
+    // de cliente solo actúa sobre SUS organizaciones (B2 y A3).
+    const esPlataforma = filasAdmin.some(
+      (f: { organizacion_id: number | null }) => f.organizacion_id === null,
+    )
+    const misOrgs = new Set(
+      filasAdmin
+        .map((f: { organizacion_id: number | null }) => f.organizacion_id)
+        .filter((o: number | null) => o !== null)
+        .map(Number),
+    )
 
     /* --- 2. Qué se pide --- */
     // Segunda redada del tope de cuerpo (F6-2): la cabecera pudo
@@ -284,12 +301,9 @@ Deno.serve(async (req: Request) => {
       // el responsable de cualquier cliente podría pedir el enlace de tu
       // cuenta y quedarse con el panel entero.
       if (email !== correoAdmin) {
-        const esPlataforma = filasAdmin.some(
-          (f: { organizacion_id: number | null }) => f.organizacion_id === null,
-        )
         if (!esPlataforma) {
           const { data: objetivoAdmin, error: eO } = await admin
-            .from('admins').select('email').ilike('email', email).limit(1)
+            .from('admins').select('email').ilike('email', patronExacto(email)).limit(1)
           if (eO) return await salir({ cuerpo: { error: 'No pude comprobar la cuenta destino: ' + eO.message }, status: 500, operacion: 'INTENTO' })
           if (objetivoAdmin && objetivoAdmin.length > 0) {
             return await salir({
@@ -333,6 +347,55 @@ Deno.serve(async (req: Request) => {
     if (lista.length > 200) return await salir({ cuerpo: { error: 'Máximo 200 correos por llamada.' }, status: 400, operacion: 'INTENTO' })
     if (password.length < 6) {
       return await salir({ cuerpo: { error: 'La contraseña debe tener al menos 6 caracteres.' }, status: 400, operacion: 'INTENTO' })
+    }
+
+    // A3: la inscripción va con la clave de servicio, que se salta el
+    // RLS. Sin esto, un admin de cliente inscribía en cursos de OTRA
+    // organización con solo poner sus ids en la petición.
+    if (cursoIds.length && !esPlataforma) {
+      const { data: cursosPedidos, error: eCur } = await admin
+        .from('cursos').select('id, organizacion_id').in('id', cursoIds)
+      if (eCur) {
+        return await salir({ cuerpo: { error: 'No pude comprobar los cursos: ' + eCur.message }, status: 500, operacion: 'INTENTO' })
+      }
+      const propios = new Set(
+        (cursosPedidos || [])
+          .filter((c: { organizacion_id: number | null }) =>
+            c.organizacion_id !== null && misOrgs.has(Number(c.organizacion_id)))
+          .map((c: { id: number }) => Number(c.id)),
+      )
+      const ajenos = cursoIds.filter((c) => !propios.has(Number(c)))
+      if (ajenos.length) {
+        return await salir({
+          cuerpo: { error: `No administras estos cursos: ${ajenos.join(', ')}. No se dio de alta a nadie.` },
+          status: 403,
+          operacion: 'INTENTO',
+        })
+      }
+    }
+
+    /** B2: ¿puede quien llama PISAR la contraseña de esta cuenta que ya
+        existía? El de plataforma, siempre. Un admin de cliente, solo si
+        la cuenta no gestiona nada (ni admin ni facilitador) y todos sus
+        cursos son de sus organizaciones. Antes bastaba con «dar de alta»
+        el correo del administrador para quedarse con su cuenta. */
+    const puedeCambiarClave = async (id: string, email: string) => {
+      if (esPlataforma) return true
+      const patron = patronExacto(email)
+      const [{ data: esAdm, error: e1 }, { data: esFac, error: e2 }, { data: suyos, error: e3 }] = await Promise.all([
+        admin.from('admins').select('email').ilike('email', patron).limit(1),
+        admin.from('facilitadores').select('email').ilike('email', patron).limit(1),
+        admin.from('acceso').select('curso_id').eq('usuario_id', id),
+      ])
+      if (e1 || e2 || e3) return false   // ante la duda, no se toca
+      if (esAdm?.length || esFac?.length) return false
+      const ids = [...new Set((suyos || []).map((r: { curso_id: number }) => Number(r.curso_id)))]
+      if (!ids.length) return true
+      const { data: orgsDeSusCursos, error: e4 } = await admin
+        .from('cursos').select('organizacion_id').in('id', ids)
+      if (e4) return false
+      return (orgsDeSusCursos || []).every((c: { organizacion_id: number | null }) =>
+        c.organizacion_id !== null && misOrgs.has(Number(c.organizacion_id)))
     }
 
     /* --- 3. Alta, una por una --- */
@@ -384,9 +447,16 @@ Deno.serve(async (req: Request) => {
       }
 
       // Si ya existía, se le pone la contraseña nueva: es lo que
-      // espera quien acaba de escribirla en el panel.
+      // espera quien acaba de escribirla en el panel. Salvo que la
+      // cuenta no sea suya de gestionar (B2): entonces se inscribe
+      // igual, pero su contraseña no se toca.
+      let claveIntacta = false
       if (status === 'existente') {
-        await admin.auth.admin.updateUserById(id, { password, email_confirm: true })
+        if (await puedeCambiarClave(id, email)) {
+          await admin.auth.admin.updateUserById(id, { password, email_confirm: true })
+        } else {
+          claveIntacta = true
+        }
       }
 
       /* --- 4. Inscripciones: solo las que falten --- */
@@ -421,7 +491,9 @@ Deno.serve(async (req: Request) => {
         email, id, status,
         mensaje: status === 'creado'
           ? 'Cuenta creada e inscrita.'
-          : 'Ya tenía cuenta; se actualizó su contraseña y se le dio acceso.',
+          : claveIntacta
+            ? 'Ya tenía cuenta (de otra organización o con permisos de gestión): se le dio acceso, pero su contraseña NO se cambió. Que entre con la suya o use «¿Olvidaste tu contraseña?».'
+            : 'Ya tenía cuenta; se actualizó su contraseña y se le dio acceso.',
       })
     }
 
