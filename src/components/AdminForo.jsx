@@ -8,7 +8,7 @@
    · ve el detalle de cada tema
    ============================================================ */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { sanear, resumen, aTextoPlano, esTextoPlano } from '../lib/foro'
 import { ModalPortal } from './ui'
@@ -67,11 +67,8 @@ export default function AdminForo({ user }) {
   useEffect(() => {
     if (!cursoId) return
     setCargando(true)
-    ;(async () => {
-      await recargar()
-      setCargando(false)
-    })()
-  }, [cursoId])
+    recargar(cursoId).then(() => setCargando(false))
+  }, [cursoId, recargar])
 
   const abrirNuevo = () => {
     setEditando(null)
@@ -144,7 +141,7 @@ export default function AdminForo({ user }) {
     setMsg({ tipo: 'ok', texto: editando ? 'Tema actualizado.' : 'Tema publicado. Ya lo ven los inscritos.' })
   }
 
-  const recargar = async (id = cursoId) => {
+  const recargar = useCallback(async (id = cursoId) => {
     if (!id) return
     // El id se manda como número a propósito: curso_id es un entero y el
     // <select> da texto. Enviar "1" obliga a Postgres a coercir y hacia que
@@ -155,7 +152,7 @@ export default function AdminForo({ user }) {
       .order('fijado', { ascending: false })
       .order('actualizado_en', { ascending: false })
     setHilos(data || [])
-  }
+  }, [cursoId])
 
   const alternar = async (h, campo) => {
     const { error } = await supabase

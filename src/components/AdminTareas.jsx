@@ -10,7 +10,7 @@
    cursos que tenga asignados.
    ============================================================ */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Prorrogas from './Prorrogas'
 import CalificarTarea from './CalificarTarea'
@@ -123,7 +123,7 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
     return () => { vivo = false }
   }, [cursoId, moduloId])
 
-  const recargar = async () => {
+  const recargar = useCallback(async () => {
     setCargando(true)
     const { data, error } = await supabase
       .from('tareas').select('*').eq(columna, valor).order('creado_en')
@@ -145,9 +145,11 @@ export default function AdminTareas({ cursoId = null, moduloId = null }) {
       setRecuento({})
     }
     setCargando(false)
-  }
+  }, [columna, valor])
 
-  useEffect(() => { if (valor) recargar() }, [valor])
+  useEffect(() => {
+    if (valor) recargar(valor)
+  }, [valor, recargar])
 
   const abrirNueva = () => {
     setForm(VACIA)

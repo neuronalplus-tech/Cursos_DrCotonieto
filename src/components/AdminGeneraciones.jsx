@@ -10,7 +10,7 @@
    lo cursaste; la ruta, por dónde. Se combinan.
    ============================================================ */
 
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
 import { MODALIDADES, llevaAsistencia } from '../lib/asistencia'
@@ -46,7 +46,7 @@ export default function AdminGeneraciones({ cursoId }) {
     return () => { vivo = false }
   }, [organizacion?.id])
 
-  const recargar = async () => {
+  const recargar = useCallback(async () => {
     setCargando(true)
     const { data, error } = await supabase
       .from('generaciones').select('*')
@@ -65,9 +65,11 @@ export default function AdminGeneraciones({ cursoId }) {
     }
     setConteo(c)
     setCargando(false)
-  }
+  }, [cursoId])
 
-  useEffect(() => { if (cursoId) recargar() }, [cursoId])
+  useEffect(() => {
+    if (cursoId) recargar(cursoId)
+  }, [cursoId, recargar])
 
   const campo = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
