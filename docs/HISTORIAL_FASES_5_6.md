@@ -48,7 +48,7 @@
   Sin cron en el plan gratuito: programar = anotar; el envío lo dispara
   quien programó desde el historial.
 
-### 2026-10-13 — E03 F5-3 Encuestas NPS + marca blanca CSS (listo, faltan correr 2 SQL)
+### 2026-10-13 — E03 F5-3 Encuestas NPS + marca blanca CSS (verificado por el dueño)
 - **Qué:** `supabase/ENCUESTAS_1_NPS.sql` (tablas `encuestas` y
   `respuestas_encuesta` con índice único por alumno+encuesta, RLS,
   RPC `encuesta_del_curso` que crea la encuesta sola con `on conflict`,
@@ -72,9 +72,8 @@
   `drop function if exists public.nps_organizacion(bigint);`
   `alter table public.organizaciones drop column if exists css_extra;`
   + `git revert` del front/lib + quitar filas 47 y 48 de ESTADO.sql.
-- **Estado:** ⚠️ FALTA CORRER `ENCUESTAS_1_NPS.sql` y `MARCA_1_CSS.sql`
-  en Supabase. Sin esas dos, la encuesta no aparece y el tablero
-  avisa; el resto del curso funciona igual.
+- **Estado:** ✅ ESTADO.sql filas 47 y 48 «ya están» (verificado 13-oct por el dueño).
+   Sin esas dos, la encuesta no aparece y el tablero avisa; el resto del curso funciona igual.
 
 ### 2026-10-13 — E04 F6-2 Frenos y bitácora en las edge functions (sin SQL nuevo)
 - **Qué:** en `supabase/functions/crear-usuarios/index.ts` y
