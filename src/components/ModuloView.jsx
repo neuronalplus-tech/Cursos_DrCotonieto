@@ -6,7 +6,7 @@ import {
   emiteConstancia, analizarUrl, esCursoProblemasContemporaneos,
   moduloAbiertoPorFecha,
 } from '../lib/helpers'
-import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, MARCA } from '../config'
+import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, MARCA, ENLACE_DIAPOSITIVAS_PRESENTAR_CASO } from '../config'
 import { TextoEditable, ImagenEditable, BotonEditable } from './Editable'
 import { agruparPorCategoria } from '../lib/estructura'
 import { usePermisos } from '../lib/permisos'
@@ -232,9 +232,19 @@ function ModuloView({ user }) {
   const vistos = recursosVisibles.filter(r => progresoRecursos[r.id]).length
   const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(modulo)
   const mostrarConstancia = emiteConstancia(curso) && constanciaDisponible
-  const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
-  const mostrarEntregables = curso && esCursoProblemasContemporaneos(curso)
-  const mostrarJuegoS4 = mostrarEntregables && /sesi[oó]n\s*4/i.test(modulo.titulo || '')
+  // BLOQUES ANTIGUOS, EN TRANSICIÓN. Diapositivas, entregables y el juego
+  // de la sesión 4 eran bloques escritos para un curso concreto. Ahora
+  // son materiales normales (secciones Plantillas, Entregables y Juegos;
+  // ESTRUCTURA_1_CATEGORIAS.sql los crea una vez). Cada bloque viejo solo
+  // se pinta mientras su módulo NO tenga ya el material equivalente: así
+  // no se duplica nada y, sin el SQL, todo se ve como antes.
+  const yaTiene = (prueba) => recursos.some(prueba)
+  const esProblemas = !!curso && esCursoProblemasContemporaneos(curso)
+  const mostrarDiapositivas = (modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica')
+    && !yaTiene(r => r.url === ENLACE_DIAPOSITIVAS_PRESENTAR_CASO)
+  const mostrarEntregables = esProblemas && !yaTiene(r => r.categoria_material === 'entregable')
+  const mostrarJuegoS4 = esProblemas && /sesi[oó]n\s*4/i.test(modulo.titulo || '')
+    && !yaTiene(r => r.url === '/juegos/juego-s4.html')
   // Como en la página del curso: el cambio vale para todos los cursos o
   // solo para el de este módulo.
   const deCurso = curso ? {

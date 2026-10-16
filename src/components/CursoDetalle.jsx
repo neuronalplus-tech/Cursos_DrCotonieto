@@ -5,7 +5,7 @@ import { cursoEspecial } from '../lib/helpers'
 import { rutaAcceso, DETALLES_DUELO } from '../config'
 import { usePermisos } from '../lib/permisos'
 import { useOrganizacion } from '../lib/organizacion'
-import { useContenido, resolver } from '../lib/contenido'
+import { useContenido, resolver, prefijoDetalles, tieneDetalles } from '../lib/contenido'
 import { Breadcrumb, BandaRedes } from './ui'
 import { TextoEditable, ListaEditable, BotonEditable } from './Editable'
 
@@ -21,7 +21,7 @@ function CursoDetalle({ user }) {
   const [loading, setLoading] = useState(true)
   // Se suscribe a las ediciones: el nombre editado de cada ruta entra en
   // el mensaje de WhatsApp ({ruta}) y en la etiqueta de su lista.
-  useContenido(useOrganizacion().organizacion?.id)
+  const capas = useContenido(useOrganizacion().organizacion?.id)
 
   useEffect(() => {
     async function load() {
@@ -50,12 +50,48 @@ function CursoDetalle({ user }) {
 
   const especial = cursoEspecial(curso)
   if (!especial || especial.detallesKey !== 'duelo') {
+    // PÁGINA DE DETALLES DE CUALQUIER CURSO. Sus textos llevan el id del
+    // curso en la clave (contenido.js, prefijoDetalles): editar los de un
+    // curso no toca los de otro. Las secciones son una lista que se
+    // añade, quita y reordena con el lápiz; vacía, el curso no enseña
+    // «Ver detalles» (tieneDetalles).
+    const P = prefijoDetalles(curso, especial)
+    const datos = { titulo: curso.titulo }
     return (
       <section className="contenedor">
         <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo, to: `/curso/${id}` }, { label: 'Detalles' }]} />
-        <h1>{curso.titulo}</h1>
-        <p className="curso-desc">{curso.descripcion}</p>
-        <button className="button secondary" onClick={() => navigate(`/curso/${id}`)}>← Volver al curso</button>
+        <header className="detalle-header">
+          <TextoEditable as="h1" clave={`${P}.titulo`} defecto={curso.titulo} />
+          <TextoEditable as="p" className="detalle-sub" clave={`${P}.subtitulo`} defecto={curso.descripcion || ''} />
+        </header>
+        {capas.puedeEditar && !tieneDetalles(curso, especial) && (
+          <p className="aviso-info">
+            Esta página aún no tiene secciones, así que el curso no muestra «Ver detalles».
+            {capas.editando ? ' Usa el lápiz de «Secciones» para añadir la primera.' : ' Activa «✏️ Editar página» (abajo a la izquierda) para añadirlas.'}
+          </p>
+        )}
+        <ListaEditable clave={`${P}.secciones`} defecto={[]} etiqueta="Secciones de la página de detalles"
+          campos={[{ k: 'titulo', etiqueta: 'Título (p. ej. «A quién va dirigido»)' }, { k: 'texto', etiqueta: 'Texto' }]}>
+          {(items) => (
+            <div className="detalle-secciones">
+              {items.map((s, i) => (
+                <article key={i} className="ruta-info">
+                  {s.titulo && <h2>{s.titulo}</h2>}
+                  {String(s.texto || '').split('\n').filter(Boolean).map((p, j) => <p key={j}>{p}</p>)}
+                </article>
+              ))}
+            </div>
+          )}
+        </ListaEditable>
+        <div className="detalle-cta">
+          <BotonEditable clave={`${P}.informacion`} clase="button grande" datos={datos}
+            defecto={{
+              texto: 'Quiero información e inscripción', estilo: 'whatsapp',
+              mensaje: 'Hola, me interesa el curso "{titulo}". ¿Me compartes más información?',
+            }} />
+          <BotonEditable clave="detalles.volver" clase="button" defecto={{ texto: '← Volver al curso', estilo: 'secondary' }}
+            onClick={() => navigate(`/curso/${id}`)} />
+        </div>
         <BandaRedes />
       </section>
     )

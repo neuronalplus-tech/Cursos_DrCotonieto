@@ -7,6 +7,8 @@ import { usePermisos } from '../lib/permisos'
 import PortadaCurso, { motivoDe } from './PortadaCurso'
 import { esContenedorTalleres, cursoEspecial } from '../lib/helpers'
 import { TextoEditable, BotonEditable } from './Editable'
+import { useOrganizacion } from '../lib/organizacion'
+import { useContenido, tieneDetalles as tieneDetallesCurso } from '../lib/contenido'
 
 /* C4: CursoCard vive en el bundle inicial (Home). El modal trae
    TallerRecursos → ExamenModulo, así que se carga solo al editar. */
@@ -41,7 +43,12 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
   const esContenedor = esContenedorTalleres(curso)
   const mostrarCustom = !gratis && !prox && !esContenedor
   const especial = cursoEspecial(curso)
-  const tieneDetalles = !!especial
+  // Cualquier curso puede tener página de detalles (contenido.js). En modo
+  // edición el botón sale también sin ella, para poder crearla.
+  const { organizacion } = useOrganizacion()
+  const capas = useContenido(organizacion?.id)
+  const conDetalles = tieneDetallesCurso(curso, especial)
+  const tieneDetalles = conDetalles || capas.editando
 
   // Lo que comparten casi todos los editables de la tarjeta.
   const deCurso = {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { analizarUrl } from '../lib/helpers'
-import { CATEGORIAS_MATERIAL, categoriaDe, claseFormato } from '../lib/estructura'
+import { CATEGORIAS_MATERIAL, categoriaDe, categoriaPorClave, claseFormato } from '../lib/estructura'
 import { BUCKET_TALLERES, ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, ICONO_TIPO, NOMBRE_TIPO } from '../config'
 import { ModalPortal, Breadcrumb, VideoPlayer, EmbedFrame, EditorBotonesExtra } from './ui'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
@@ -244,7 +244,12 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
         </select>
 
         <label>Sección de la página</label>
-        <select value={form.categoria} onChange={e => set('categoria', e.target.value)}>
+        <select value={form.categoria} onChange={e => {
+          const c = e.target.value
+          // Sesión, juego y entregable siempre son un enlace (videollamada,
+          // página del juego, carpeta compartida): se ajusta el tipo solo.
+          setForm(f => ({ ...f, categoria: c, tipo: categoriaPorClave(c)?.soloEnlace ? 'enlace' : f.tipo }))
+        }}>
           <option value="">
             La de su formato ({CATEGORIAS_MATERIAL.find(c => c.clave === categoriaDe({ tipo: form.tipo }))?.nombre})
           </option>
@@ -270,7 +275,12 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
               <p className="nota">Pega el link tal cual (YouTube o Google Drive). Se convierte a reproductor automáticamente.</p>
             )}
             {form.tipo === 'enlace' && (
-              <p className="nota">Si es de YouTube, Google Drive o OneDrive, se mostrará dentro de la plataforma además del botón para abrirlo aparte.</p>
+              <>
+                <p className="nota">Si es de YouTube, Google Drive o OneDrive, se mostrará dentro de la plataforma además del botón para abrirlo aparte.</p>
+                <label>Texto del botón (opcional)</label>
+                <input type="text" value={form.contenido} onChange={e => set('contenido', e.target.value)}
+                       placeholder={categoriaPorClave(form.categoria || categoriaDe({ tipo: 'enlace' }))?.accion || 'Abrir enlace →'} />
+              </>
             )}
           </>
         )}
@@ -735,8 +745,13 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gesti
               </button>
             )}
             {videoSinUrl && <button className="button secondary" disabled>🎬 Grabación en proceso</button>}
+            {/* El botón dice lo que hace su sección («Subir mi entrega»,
+                «Abrir el juego»…) salvo que el recurso traiga texto propio
+                (columna `contenido`, «Texto del botón» en el editor). */}
             {recurso.tipo === 'enlace' && (
-              <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">Abrir enlace →</a>
+              <a className="button primary" href={recurso.url} target="_blank" rel="noopener noreferrer">
+                {recurso.contenido?.trim() || categoriaPorClave(categoriaDe(recurso))?.accion || 'Abrir enlace →'}
+              </a>
             )}
             {recurso.tipo === 'pdf' && (
               <button className="button secondary" onClick={abrirNuevaPestana} disabled={ocupado}>
@@ -752,6 +767,9 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gesti
               <button className="button texto" onClick={() => onMarcarVisto(recurso.id)}>Marcar como visto</button>
             )}
           </div>
+          {recurso.tipo === 'enlace' && categoriaPorClave(categoriaDe(recurso))?.nota && (
+            <p className="nota" style={{ margin: '6px 0 0' }}>{categoriaPorClave(categoriaDe(recurso)).nota}</p>
+          )}
         </>
       )}
 

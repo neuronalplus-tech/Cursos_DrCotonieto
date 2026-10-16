@@ -61,7 +61,7 @@ export const elementosDeSeccion = (seccion, ctx) =>
  * `lleno` true/false. Una vacía NO se muestra al alumno.
  * `datos`: { curso, modulos, recursos, temasForo, tareas }
  */
-export function llenadoPagina({ curso, modulos = [], recursos = [], temasForo = 0, tareas = 0 }) {
+export function llenadoPagina({ curso, modulos = [], recursos = [], temasForo = 0, tareas = 0, tieneDetalles = false }) {
   const botonesRuta = Object.values(curso?.rutas_botones || {}).some((l) => (l || []).some((b) => b.activo !== false))
   const lleno = {
     encabezado: !!(curso?.titulo),
@@ -70,6 +70,7 @@ export function llenadoPagina({ curso, modulos = [], recursos = [], temasForo = 
     botones: botonesRuta,
     tareas: tareas > 0,
     foro: temasForo > 0,
+    detalles: !!tieneDetalles,
   }
   const curso_ = ANATOMIA.curso.map((s) => ({ ...s, lleno: !!lleno[s.clave] }))
   // Para el módulo: qué categorías tienen al menos un recurso en algún módulo.

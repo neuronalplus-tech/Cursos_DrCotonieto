@@ -4048,3 +4048,4 @@ a { color: var(--primary); }
   .gestion-mapa { position: static; }
   .gestion-materiales { padding-left: 14px; }
 }
+.detalle-secciones { display: grid; gap: 16px; margin: 8px 0 24px; }

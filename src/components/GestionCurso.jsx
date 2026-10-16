@@ -18,7 +18,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { esTallerIndividual, esCursoProblemasContemporaneos } from '../lib/helpers'
+import { esTallerIndividual, esCursoProblemasContemporaneos, cursoEspecial } from '../lib/helpers'
+import { useContenido, tieneDetalles } from '../lib/contenido'
 import {
   ESTADOS, estadoCurso, estadoModulo, estadoRecurso, agruparPorCategoria, claseFormato, FORMATOS, PERFILES,
 } from '../lib/estructura'
@@ -39,6 +40,9 @@ const ModalEditarTaller = lazy(() => import('./TallerRecursos').then((m) => ({ d
 export default function GestionCurso({ user }) {
   const { id } = useParams()
   const g = useGestion(user)
+  // Para saber si el curso tiene página de detalles (sus textos viven
+  // en contenido_sitio).
+  useContenido(g.orgId)
   const [curso, setCurso] = useState(null)
   const [modulos, setModulos] = useState([])
   const [recursos, setRecursos] = useState([])
@@ -80,7 +84,8 @@ export default function GestionCurso({ user }) {
   // Misma regla que CursoView: solo el taller individual usa la página de taller.
   const taller = esTallerIndividual(curso)
   const alternar = (clave) => setAbiertas((s) => { const n = new Set(s); n.has(clave) ? n.delete(clave) : n.add(clave); return n })
-  const pagina = llenadoPagina({ curso, modulos, recursos, temasForo, tareas })
+  const conDetalles = tieneDetalles(curso, cursoEspecial(curso))
+  const pagina = llenadoPagina({ curso, modulos, recursos, temasForo, tareas, tieneDetalles: conDetalles })
   const quien = g.perfilComo?.nombre
 
   const resumenDe = {
@@ -121,6 +126,12 @@ export default function GestionCurso({ user }) {
         </div>
         <div className="gestion-acciones">
           <Link className="button secondary" to={`/curso/${curso.id}`}>Ver la página ↗</Link>
+          {/* La página de detalles la edita quien administra, con el lápiz ✏️. */}
+          {g.esAdminOrg && (
+            <Link className="button secondary" to={`/curso/${curso.id}/detalles`}>
+              {conDetalles ? 'Página de detalles ↗' : '➕ Crear página de detalles'}
+            </Link>
+          )}
         </div>
       </div>
 

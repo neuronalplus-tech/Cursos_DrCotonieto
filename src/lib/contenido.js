@@ -217,3 +217,21 @@ export function useContenido(orgId) {
     tieneCapa,
   }
 }
+
+/* ------------------------------------------------------------
+   PÁGINA DE DETALLES DE UN CURSO
+   Antes solo existía para el curso de duelo (DETALLES_DUELO). Ahora
+   cualquier curso puede tenerla: sus textos viven aquí, con el id
+   del curso en la clave, y la edita solo quien administra (política
+   de contenido_sitio). El de duelo conserva sus claves de siempre
+   («detalles.*») para no perder lo que ya se hubiera editado.
+   ------------------------------------------------------------ */
+export const prefijoDetalles = (curso, especial) =>
+  (especial?.detallesKey === 'duelo' ? 'detalles' : `detalles.${curso?.id}`)
+
+/** ¿Tiene este curso página de detalles? Duelo, siempre; los demás, si tienen secciones. */
+export function tieneDetalles(curso, especial) {
+  if (especial?.detallesKey) return true
+  const v = resolver(`${prefijoDetalles(curso, especial)}.secciones`, { items: [] })
+  return Array.isArray(v.items) && v.items.length > 0 && !v.eliminado && v.visible !== false
+}

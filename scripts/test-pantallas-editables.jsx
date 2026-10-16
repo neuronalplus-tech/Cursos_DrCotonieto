@@ -68,6 +68,19 @@ const MODULOS = [
   { id: 1, curso_id: 1, titulo: 'Modulo 1', descripcion: 'Contenido.', activo: true, grupo: 'Acompañamiento', disponible: true, orden: 1 },
   { id: 2, curso_id: 1, titulo: 'Modulo 2', descripcion: 'Contenido 2.', activo: true, grupo: 'Clínica', disponible: true, orden: 2 },
 ]
+// «Problemas contemporáneos»: el curso que tenía bloques escritos a mano.
+// Sesión 4 ya está migrada (entregable y juego como materiales); la
+// sesión 1 todavía no (debe seguir enseñando el bloque viejo).
+const PROBLEMAS = { id: 20, titulo: 'Problemas contemporáneos de salud', descripcion: 'X', activo: true, gratuito: false, orden: 20, linea: 'Salud' }
+const MODULOS_PROBLEMAS = [
+  { id: 21, curso_id: 20, titulo: 'Sesión 4: cierre', descripcion: '', activo: true, grupo: null, disponible: true, orden: 4, botones_extra: [] },
+  { id: 22, curso_id: 20, titulo: 'Sesión 1: inicio', descripcion: '', activo: true, grupo: null, disponible: true, orden: 1, botones_extra: [] },
+]
+const RECURSOS_MIGRADOS = [
+  { id: 30, modulo_id: 21, tipo: 'enlace', categoria_material: 'entregable', titulo: 'Entregables / productos', descripcion: 'Súbelo aquí.', url: 'https://1drv.ms/f/x', contenido: '📤 Subir mi entregable a OneDrive', orden: 900 },
+  { id: 31, modulo_id: 21, tipo: 'enlace', categoria_material: 'juego', titulo: 'Juego de la sesión 4', url: '/juegos/juego-s4.html', contenido: '', orden: 950 },
+]
+
 const CAPAS = [
   { id: 1, organizacion_id: null, clave: 'curso-pagina.ruta.Clínica.titulo@curso:1', valor: { texto: 'Ruta Clínica Avanzada' } },
   { id: 2, organizacion_id: null, clave: 'curso-pagina.foro.texto', valor: { texto: 'Texto del foro editado' } },
@@ -76,6 +89,8 @@ const CAPAS = [
   { id: 5, organizacion_id: null, clave: 'detalles.Clínica.nombre', valor: { texto: 'Ruta Clínica Pro' } },
   { id: 6, organizacion_id: null, clave: 'encabezado.menu.calendario', valor: { texto: 'Agenda' } },
   { id: 7, organizacion_id: null, clave: 'curso-pagina.aviso-sin-sesion', valor: { colorTexto: '#ff0000' } },
+  // Página de detalles de un curso cualquiera (no el de duelo).
+  { id: 8, organizacion_id: null, clave: 'detalles.1.secciones', valor: { items: [{ titulo: 'A quién va dirigido', texto: 'Psicólogos clínicos.\nY estudiantes.' }] } },
 ]
 
 async function main() {
@@ -93,8 +108,8 @@ async function main() {
 
   globalThis.__ESCENARIO__ = 'completo'
   globalThis.__TABLAS__ = {
-    cursos: [CURSO, ESPECIAL],
-    modulos: [...MODULOS, { id: 9, curso_id: 1, titulo: 'Sin ruta', descripcion: '', activo: true, grupo: null, disponible: true, orden: 9 }],
+    cursos: [CURSO, ESPECIAL, PROBLEMAS],
+    modulos: [...MODULOS_PROBLEMAS, ...MODULOS, { id: 9, curso_id: 1, titulo: 'Sin ruta', descripcion: '', activo: true, grupo: null, disponible: true, orden: 9 }],
     // El alumno es de la ruta del módulo 1; si no, el módulo es «privado».
     acceso: [{ usuario_id: 'u1', curso_id: 1, grupo: 'Acompañamiento' }],
     contenido_sitio: CAPAS,
@@ -103,6 +118,7 @@ async function main() {
       { id: 1, modulo_id: 1, titulo: 'Presentacion', descripcion: 'PDF.', tipo: 'pdf', archivo: 'caso.pdf', orden: 1, url: null },
       { id: 2, modulo_id: 1, titulo: 'Video', descripcion: 'Video.', tipo: 'video', archivo: 'v.mp4', orden: 2, url: null },
       { id: 3, modulo_id: 1, titulo: 'Enlace cerrado', descripcion: '', tipo: 'enlace', url: 'https://x.mx', orden: 3, disponible: false },
+      ...RECURSOS_MIGRADOS,
     ],
     organizaciones: [],
   }
@@ -290,6 +306,44 @@ async function main() {
     await p.quitar()
   }
 
+  console.log('\n7b. Bloques que antes eran especiales')
+  {
+    const jefe = { id: 'jefe', email: 'jefe@b.mx' }
+    let p = await montar('/modulo/21', '/modulo/:id', h(ModuloView, { user: jefe }))
+    let c = p.caja
+    const secs = [...c.querySelectorAll('.material-seccion-titulo')].map(textoDe)
+    comprobar('Migrado: secciones «Juegos» y «Entregables», en ese orden', secs.length === 2 &&
+      secs[0].includes('Juegos e interactivos') && secs[1].includes('Entregables'), secs.join(' | '))
+    comprobar('Migrado: ya no sale el bloque viejo de entregables', !c.querySelector('.entregables-bloque'))
+    comprobar('Migrado: el juego sale una sola vez', [...c.querySelectorAll('a')].filter((a) => a.getAttribute('href') === '/juegos/juego-s4.html').length === 1)
+    const juego = [...c.querySelectorAll('a')].find((a) => a.getAttribute('href') === '/juegos/juego-s4.html')
+    comprobar('El botón dice lo que hace su sección («Abrir el juego»)', juego?.textContent.includes('Abrir el juego'), juego?.textContent)
+    comprobar('El texto propio del recurso gana', [...c.querySelectorAll('a')].some((a) => a.textContent.includes('Subir mi entregable a OneDrive')))
+    comprobar('La nota de la sección acompaña al botón', c.textContent.includes('Sube tu archivo con el nombre indicado'))
+    await p.quitar()
+
+    p = await montar('/modulo/22', '/modulo/:id', h(ModuloView, { user: jefe }))
+    c = p.caja
+    comprobar('Sin migrar: el bloque viejo de entregables sigue', !!c.querySelector('.entregables-bloque'))
+    comprobar('Sin migrar: fuera de la sesión 4 no hay juego', !c.textContent.toLowerCase().includes('juego de la sesión 4'))
+    await p.quitar()
+
+    const CursoCard = (await import('../src/components/CursoCard.jsx')).default
+    p = await montar('/', '/', h(CursoCard, { curso: CURSO, user: null, tieneAcceso: false }))
+    comprobar('Un curso cualquiera con secciones de detalles enseña «Ver detalles»', p.caja.textContent.includes('Ver detalles'))
+    await p.quitar()
+    p = await montar('/', '/', h(CursoCard, { curso: PROBLEMAS, user: null, tieneAcceso: false }))
+    comprobar('Sin secciones de detalles, no hay «Ver detalles»', !p.caja.textContent.includes('Ver detalles'))
+    await p.quitar()
+    p = await montar('/curso/1/detalles', '/curso/:id/detalles', h(CursoDetalle, { user: null }))
+    c = p.caja
+    comprobar('Detalles genéricos: título del curso y sus secciones',
+      c.querySelector('h1')?.textContent.includes('Duelo y perdida') && c.textContent.includes('A quién va dirigido'))
+    comprobar('Un párrafo por línea', [...c.querySelectorAll('.detalle-secciones p')].length === 2)
+    comprobar('Botón de información con el nombre del curso', [...c.querySelectorAll('a[href^="https://wa.me/"]')].some((a) => waDe(a).includes('"Duelo y perdida: curso completo"')))
+    await p.quitar()
+  }
+
   console.log('\n8. Centro de gestión')
   {
     const CentroGestion = (await import('../src/components/CentroGestion.jsx')).default
@@ -299,7 +353,7 @@ async function main() {
     let p = await montar('/gestion', '/gestion', h(CentroGestion, { user: jefe }))
     await act(async () => { await asentar(80) })
     const tarjetas = p.caja.querySelectorAll('.gestion-tarjeta')
-    comprobar('Una tarjeta por curso', tarjetas.length === 2, String(tarjetas.length))
+    comprobar('Una tarjeta por curso', tarjetas.length === 3, String(tarjetas.length))
     const t1 = [...tarjetas].find((t) => t.textContent.includes('curso completo'))
     comprobar('La tarjeta cuenta módulos y materiales', t1?.textContent.includes('3 módulos') && t1?.textContent.includes('3 materiales'), t1?.textContent)
     comprobar('«Ver como» con los cuatro perfiles', p.caja.querySelectorAll('.vercomo .linea-pill').length === 5)

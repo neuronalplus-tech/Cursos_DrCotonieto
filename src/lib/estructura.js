@@ -154,13 +154,28 @@ export function mismoPermiso(permiso) {
    ESTRUCTURA_1_CATEGORIAS.sql) toma la de su formato: nada cambia
    de sitio hasta que alguien elija otra.
    ------------------------------------------------------------ */
+//
+// SECCIONES QUE ANTES ERAN CASOS ESPECIALES
+// Sesiones en vivo, juegos y entregables vivían como bloques escritos
+// para UN curso (por su título). Ahora son categorías como las demás:
+// cualquier módulo puede tenerlas y, si no las usa, no aparecen.
+// `accion` es el texto del botón de un enlace en esa sección (cada
+// recurso puede cambiarlo); `nota`, la ayuda bajo el botón.
 export const CATEGORIAS_MATERIAL = [
-  { clave: 'lectura', nombre: 'Materiales de lectura', icono: '📖' },
-  { clave: 'grabacion', nombre: 'Grabaciones y videos', icono: '🎬' },
-  { clave: 'actividad', nombre: 'Actividades', icono: '✍️' },
-  { clave: 'descargable', nombre: 'Plantillas y descargables', icono: '📥' },
-  { clave: 'enlace', nombre: 'Enlaces de interés', icono: '🔗' },
+  { clave: 'sesion', nombre: 'Sesiones en vivo', icono: '📡', accion: 'Entrar a la sesión ↗',
+    nota: 'Se abre la videollamada en una pestaña nueva.', soloEnlace: true },
+  { clave: 'lectura', nombre: 'Materiales de lectura', icono: '📖', accion: 'Abrir la lectura ↗' },
+  { clave: 'grabacion', nombre: 'Grabaciones y videos', icono: '🎬', accion: 'Ver la grabación ↗' },
+  { clave: 'actividad', nombre: 'Actividades', icono: '✍️', accion: 'Ir a la actividad ↗' },
+  { clave: 'juego', nombre: 'Juegos e interactivos', icono: '🎮', accion: 'Abrir el juego ↗',
+    nota: 'Se abre en una pestaña nueva.', soloEnlace: true },
+  { clave: 'descargable', nombre: 'Plantillas y descargables', icono: '📥', accion: 'Abrir la plantilla ↗' },
+  { clave: 'entregable', nombre: 'Entregables', icono: '📤', accion: 'Subir mi entrega ↗',
+    nota: 'Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo con el nombre indicado.', soloEnlace: true },
+  { clave: 'enlace', nombre: 'Enlaces de interés', icono: '🔗', accion: 'Abrir enlace →' },
 ]
+
+export const categoriaPorClave = (clave) => CATEGORIAS_MATERIAL.find((c) => c.clave === clave)
 
 const CATEGORIA_POR_FORMATO = {
   pdf: 'lectura', video: 'grabacion', autoevaluacion: 'actividad', word: 'descargable', enlace: 'enlace',
@@ -209,6 +224,7 @@ export const ANATOMIA = {
     { clave: 'botones', nombre: 'Botones de ruta', contiene: 'Enlaces extra de cada ruta', seccion: 'botones' },
     { clave: 'tareas', nombre: 'Tareas', contiene: 'Entregas del curso', seccion: 'tareas' },
     { clave: 'foro', nombre: 'Foro', contiene: 'Solo si hay al menos un tema publicado', seccion: 'foro' },
+    { clave: 'detalles', nombre: 'Página de detalles', contiene: 'Temario ampliado; solo si tiene contenido', seccion: null },
   ],
   modulo: [
     { clave: 'encabezado', nombre: 'Encabezado', contiene: 'Título, descripción y avance', seccion: 'modulos' },

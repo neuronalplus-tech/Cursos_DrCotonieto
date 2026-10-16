@@ -111,11 +111,15 @@ mismo) y `test:pantallas` (68, interacción real en jsdom).
 1. **Correr SQL** (dueño): `CONTENIDO_1_EDITABLE.sql` (lápiz ✏️) y
    `ESTRUCTURA_1_CATEGORIAS.sql` (elegir categoría por recurso). Para los
    roles: `ROLES_5 → 6 → 7` si no están (`ESTADO.sql` filas 29-31).
-2. **Retirar los casos especiales por título.** Diapositivas, Entregables y
-   el juego de la sesión 4 pasan a ser recursos normales (categoría
-   «Plantillas» o «Actividades») creados una vez desde el Centro; la página de
-   detalles del duelo, a contenido editable del curso. Requiere migrar sus
-   enlaces actuales: se hace curso por curso, sin borrar nada.
+2. ~~Retirar los casos especiales por título.~~ **Hecho:** «Sesiones en
+   vivo», «Juegos e interactivos» y «Entregables» son categorías como las
+   demás; cualquier módulo las puede tener. `ESTRUCTURA_1_CATEGORIAS.sql`
+   convierte las diapositivas, los entregables y el juego de la sesión 4 en
+   materiales normales (solo inserta). Mientras no se corra, se siguen viendo
+   los bloques viejos. Cualquier curso puede tener su **página de detalles**
+   (textos con el id del curso en la clave; la edita quien administra).
+   Cuando el SQL esté corrido en producción, se pueden borrar del código
+   `DiapositivasPresentarCaso`, `Entregables` y el bloque del juego.
 3. **Unificar los avisos de estado** de `CursoView`/`ModuloView` con
    `ESTADOS` (hoy el Centro ya lo usa; las páginas aún tienen sus textos).
 4. **Textos de página por rol.** Hoy solo quien administra la organización

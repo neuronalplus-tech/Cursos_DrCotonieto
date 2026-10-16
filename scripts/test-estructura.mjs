@@ -55,6 +55,16 @@ check('Dentro de la sección respeta el orden recibido', grupos[0].recursos.map(
 check('El módulo tiene una sección por categoría en su anatomía',
   CATEGORIAS_MATERIAL.every((c) => ANATOMIA.modulo.some((s) => s.clave === `material.${c.clave}`)))
 
+const sqlCat = readFileSync(new URL('../supabase/ESTRUCTURA_1_CATEGORIAS.sql', import.meta.url), 'utf8')
+const enCheck = [...(sqlCat.match(/categoria_material in\s*\(([\s\S]*?)\)\)/) || ['', ''])[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1])
+check('Las categorías del código = las que admite la base (ESTRUCTURA_1)',
+  igualesConjunto(enCheck, CATEGORIAS_MATERIAL.map((c) => c.clave)), `base: ${enCheck}`)
+check('Sesión, juego y entregable existen y son solo enlace',
+  ['sesion', 'juego', 'entregable'].every((k) => CATEGORIAS_MATERIAL.find((c) => c.clave === k)?.soloEnlace))
+check('Toda categoría dice qué hace su botón', CATEGORIAS_MATERIAL.every((c) => c.accion))
+check('Un entregable migrado conserva su sección', categoriaDe({ tipo: 'enlace', categoria_material: 'entregable' }) === 'entregable')
+check('Las sesiones en vivo van primero en el módulo', CATEGORIAS_MATERIAL[0].clave === 'sesion')
+
 console.log('\n=== QUIÉN EDITA QUÉ ===')
 const sec = (clave) => seccionesPermitidas(contextoSimulado(clave, []))
 check('Administración global: todas las tarjetas', sec('plataforma').size === SECCIONES_CURSO.length)
