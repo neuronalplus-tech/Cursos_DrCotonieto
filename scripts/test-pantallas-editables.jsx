@@ -425,6 +425,48 @@ async function main() {
     await p.quitar()
   }
 
+  console.log('\n10. Alta de usuario en el panel')
+  {
+    const Admin = (await import('../src/components/Admin.jsx')).default
+    const { limpiarEscritas, escrituras } = await import('./fake-supabase.js')
+    const jefe = { id: 'jefe', email: 'jefe@b.mx' }
+    const elegir = async (pp, name, valor) => {
+      const r = document.querySelector(`input[name="${name}"][value="${valor}"]`)
+      if (!r) throw new Error(`no hay opción ${name}=${valor}`)
+      await pp.pulsar(r)
+    }
+    const escribirEn = async (input, valor) => {
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, valor)
+        input.dispatchEvent(new window.Event('input', { bubbles: true }))
+      })
+    }
+    const p = await montar('/admin', '/admin', h(Admin, { user: jefe }))
+    await act(async () => { await asentar(80) })
+    const abrir = [...p.caja.querySelectorAll('button')].find((b) => b.textContent.includes('Crear nuevo usuario'))
+    comprobar('El panel ofrece «Crear nuevo usuario»', !!abrir)
+    await p.pulsar(abrir)
+    await act(async () => { await asentar(40) })
+    comprobar('Hay opción «Ya tiene cuenta»', !!document.querySelector('input[name="acceso-individual"][value="existente"]'))
+    comprobar('Con «Yo le asigno una contraseña», el campo sale también para facilitador', await (async () => {
+      await elegir(p, 'rol-alta-individual', 'facilitador')
+      await elegir(p, 'acceso-individual', 'clave')
+      return [...p.caja.querySelectorAll('label')].some((l) => l.textContent === 'Contraseña temporal')
+    })())
+
+    limpiarEscritas()
+    await escribirEn(p.caja.querySelector('.nuevo-usuario-form input[type="email"]'), 'Nueva@Docente.mx')
+    await elegir(p, 'acceso-individual', 'existente')
+    await p.pulsar(p.caja.querySelector('.cursos-checkboxes input[type="checkbox"]'))
+    await p.pulsar([...p.caja.querySelectorAll('button')].find((b) => b.textContent.includes('Crear usuario y asignar')))
+    await act(async () => { await asentar(60) })
+    const ins = escrituras().find((e) => e.tabla === 'facilitadores' && e.operacion === 'insert')
+    comprobar('Facilitador: inserta (ya no upsert con ON CONFLICT)', !!ins && !escrituras().some((e) => e.tabla === 'facilitadores' && e.operacion === 'upsert'))
+    comprobar('… con el correo en minúsculas', ins?.datos?.[0]?.email === 'nueva@docente.mx', JSON.stringify(ins?.datos))
+    comprobar('Mensaje de éxito', /queda como facilitador/.test(p.caja.textContent), p.caja.querySelector('.nuevo-usuario-form .aviso-error, .nuevo-usuario-form .aviso-ok')?.textContent)
+    await p.quitar()
+  }
+
   comprobar('Sin promesas rechazadas', rechazos.length === 0, rechazos.join(' | '))
   console.log(`\n${ok} comprobaciones bien · ${fallos.length} fallos`)
   process.exit(fallos.length ? 1 : 0)

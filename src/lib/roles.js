@@ -100,3 +100,21 @@ export function ambitoDe(asignacion, sedes, categorias) {
   }
   return partes.length ? partes.join(' · ') : 'Toda la organización'
 }
+
+/**
+ * Asignaciones de facilitador que todavía no existen. Se compara el
+ * correo en minúsculas porque así es el índice único de la tabla
+ * (lower(email), curso_id); también quita repetidos de la propia lista.
+ */
+export function filasFacilitadorNuevas(filas, existentes) {
+  const clave = (f) => `${String(f.email || '').trim().toLowerCase()}|${Number(f.curso_id)}`
+  const ya = new Set((existentes || []).map(clave))
+  const out = []
+  for (const f of filas || []) {
+    const k = clave(f)
+    if (ya.has(k)) continue
+    ya.add(k)
+    out.push({ ...f, email: String(f.email).trim().toLowerCase() })
+  }
+  return out
+}

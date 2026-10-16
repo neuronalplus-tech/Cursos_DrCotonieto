@@ -10,6 +10,7 @@ import {
   PERFILES, PERMISOS_BASE, ELEMENTOS, CATEGORIAS_MATERIAL, categoriaDe, agruparPorCategoria,
   permite, permisosDePerfil, estadoCurso, estadoModulo, ANATOMIA,
 } from '../src/lib/estructura'
+import { filasFacilitadorNuevas } from '../src/lib/roles'
 import {
   SECCIONES_CURSO, elementosDeSeccion, contextoReal, contextoSimulado, seccionesPermitidas, llenadoPagina, contarPorCurso,
 } from '../src/lib/gestion'
@@ -85,6 +86,13 @@ check('Un rol cambiado en la base manda sobre el de nacimiento',
 check('Quien facilita un curso gestiona como Docente',
   seccionesPermitidas(contextoReal({ esFacilitador: true })).has('modulos'))
 check('Sin rol ni curso no abre nada', seccionesPermitidas(contextoReal({})).size === 0)
+
+console.log('\n=== ALTA DE FACILITADORES ===')
+const nuevasF = filasFacilitadorNuevas(
+  [{ email: 'Ana@X.mx ', curso_id: 1 }, { email: 'ana@x.mx', curso_id: 1 }, { email: 'ana@x.mx', curso_id: 2 }, { email: 'beto@x.mx', curso_id: 1 }],
+  [{ email: 'ANA@x.mx', curso_id: 2 }])
+check('Solo inserta lo que falta, sin repetir y con el correo en minúsculas',
+  JSON.stringify(nuevasF) === JSON.stringify([{ email: 'ana@x.mx', curso_id: 1 }, { email: 'beto@x.mx', curso_id: 1 }]), JSON.stringify(nuevasF))
 
 console.log('\n=== ESTADOS Y PÁGINA ===')
 check('Curso archivado', estadoCurso({ activo: false, proximamente: true }) === 'archivado')

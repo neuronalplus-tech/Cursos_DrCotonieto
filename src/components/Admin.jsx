@@ -20,6 +20,8 @@ import { parsePadron, cruzarGeneraciones, PLANTILLA_PADRON } from '../lib/padron
 import { sanearDocumento } from '../lib/foro'
 import { etiquetaDestino, filaHistorial, programadosVencidos } from '../lib/comunicados'
 import { usePermisos, useMisPermisos, useModulos } from '../lib/permisos'
+import { filasFacilitadorNuevas } from '../lib/roles'
+import { cargarRolesBD } from '../lib/gestion'
 import { seccionVisible } from '../lib/modulos'
 import { useOrganizacion } from '../lib/organizacion'
 import TallerRecursos, { ModalEditarTaller } from './TallerRecursos'
@@ -221,6 +223,9 @@ function Admin({ user }) {
   const [cursosLista, setCursosLista] = useState([])
   const [cursosSeleccionados, setCursosSeleccionados] = useState([])
   const [rolNuevo, setRolNuevo] = useState('alumno')
+  // Roles de la organización (Dirección, Coordinación, Docente…) para el
+  // alta: antes el formulario solo ofrecía alumno y facilitador.
+  const [rolesOrg, setRolesOrg] = useState([])
   const [modoAcceso, setModoAcceso] = useState('clave')
   const [creando, setCreando] = useState(false)
   const [msg, setMsg] = useState('')
@@ -363,11 +368,14 @@ function Admin({ user }) {
   }, [user, navigate, organizacion])
 
   useEffect(() => {
-    if (!esAdmin || !organizacion?.id) return
-    supabase.from('cursos').select('id, titulo, gratuito')
-      .eq('activo', true).eq('organizacion_id', organizacion.id).order('orden')
-      .then(({ data }) => setCursosLista(data || []))
-  }, [esAdmin, organizacion])
+    if (!esAdmin || !orgCargada) return
+    // Sin organización (sitio principal) se listan todos, como en el
+    // resto del panel; antes la lista quedaba vacía y no se podía dar de
+    // alta a nadie desde ahí.
+    let q = supabase.from('cursos').select('id, titulo, gratuito').eq('activo', true)
+    if (organizacion?.id) q = q.eq('organizacion_id', organizacion.id)
+    q.order('orden').then(({ data }) => setCursosLista(data || []))
+  }, [esAdmin, organizacion, orgCargada])
 
   // Carga las tandas solo cuando se elige ese destino en Comunicados.
   // La RPC es security definer y solo contesta a admins.
@@ -595,11 +603,33 @@ function Admin({ user }) {
       }
     }
     if (!filas.length) return { asignadas: 0, error: null }
-    const { error } = await supabase
-      .from('facilitadores')
-      .upsert(filas, { onConflict: 'email,curso_id', ignoreDuplicates: true })
-    return { asignadas: error ? 0 : filas.length, error }
+    /* Antes era un upsert con onConflict 'email,curso_id', y la base lo
+       rechazaba («no unique or exclusion constraint matching the ON
+       CONFLICT specification»): el índice único es sobre lower(email),
+       curso_id —una expresión— y ON CONFLICT por columnas no lo
+       reconoce. Así que se pregunta qué hay y se inserta solo lo que
+       falta. */
+    const { data: ya, error: eYa } = await supabase.from('facilitadores')
+      .select('email, curso_id')
+      .in('email', [...new Set(filas.map(f => f.email))])
+      .in('curso_id', [...new Set(filas.map(f => f.curso_id))])
+    if (eYa) return { asignadas: 0, error: eYa }
+    const nuevas = filasFacilitadorNuevas(filas, ya)
+    if (!nuevas.length) return { asignadas: 0, yaEstaban: filas.length, error: null }
+    const { error } = await supabase.from('facilitadores').insert(nuevas)
+    return { asignadas: error ? 0 : nuevas.length, yaEstaban: filas.length - nuevas.length, error }
   }
+
+  useEffect(() => {
+    if (!formAbierto) return
+    let vivo = true
+    // Sin organización (sitio principal) o sin ROLES_5, la lista queda
+    // vacía y el alta funciona como siempre.
+    cargarRolesBD(organizacion?.id).then(r => {
+      if (vivo) setRolesOrg((r.roles || []).filter(x => x.activo !== false))
+    })
+    return () => { vivo = false }
+  }, [formAbierto, organizacion?.id])
 
   const crearUsuario = async () => {
     setMsg('')
@@ -616,21 +646,70 @@ function Admin({ user }) {
        convierte el alta en una cuenta inaccesible. */
     const correoLimpio = nuevoEmail.trim().toLowerCase()
     const claveLimpia = nuevoPass.trim()
-    const soloFacilitador = rolNuevo === 'facilitador'
-    if (!correoLimpio) { setMsg('Error: el correo es obligatorio'); return }
+    // Qué se le da: alumno / facilitador / ambos (por curso), o un rol
+    // de la organización («rol:12»: Dirección, Coordinación, Docente…).
+    const rolOrg = rolNuevo.startsWith('rol:') ? rolesOrg.find(r => `rol:${r.id}` === rolNuevo) : null
+    const esAlumno = rolNuevo === 'alumno' || rolNuevo === 'ambos'
+    const esFacilitador = rolNuevo === 'facilitador' || rolNuevo === 'ambos'
+    // Cómo entra: contraseña que pones tú, invitación para que la elija,
+    // o ya tiene cuenta (solo se asigna; su contraseña no se toca).
+    const yaTieneCuenta = modoAcceso === 'existente'
     const porInvitacion = modoAcceso === 'invitacion'
-    if (!soloFacilitador && !porInvitacion && !claveLimpia) { setMsg('Error: correo y contraseña son obligatorios'); return }
-    if (!soloFacilitador && !porInvitacion && claveLimpia.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
-    if (cursosSeleccionados.length === 0) { setMsg('Error: selecciona al menos un curso'); return }
+    if (!correoLimpio || !correoLimpio.includes('@')) { setMsg('Error: escribe un correo válido'); return }
+    if (!yaTieneCuenta && !porInvitacion && claveLimpia.length < 6) { setMsg('Error: la contraseña debe tener al menos 6 caracteres'); return }
+    if (!rolOrg && cursosSeleccionados.length === 0) { setMsg('Error: selecciona al menos un curso'); return }
 
     setCreando(true)
 
-    if (soloFacilitador) {
-      const { asignadas, error } = await asignarFacilitadores([nuevoEmail], cursosSeleccionados)
-      setMsg(error
-        ? 'Error al asignar: ' + error.message
-        : `✅ ${nuevoEmail} queda como facilitador de ${asignadas} curso(s)`)
-      if (!error) { setNuevoEmail(''); setCursosSeleccionados([]) }
+    // Asignar un rol de la organización o de facilitador (no crea cuenta).
+    const asignarRoles = async () => {
+      const hecho = []
+      if (esFacilitador) {
+        const r = await asignarFacilitadores([correoLimpio], cursosSeleccionados)
+        if (r.error) throw new Error('No se pudo asignar como facilitador: ' + r.error.message)
+        hecho.push(`facilitador de ${cursosSeleccionados.length} curso(s)`)
+      }
+      if (rolOrg) {
+        const { error } = await supabase.from('asignaciones_rol')
+          .insert({ rol_id: rolOrg.id, email: correoLimpio, asignado_por: user?.email || null })
+        // 23505 = ya tenía ese rol: no es un error para quien lo pide.
+        if (error && error.code !== '23505') {
+          throw new Error(/infinite recursion/i.test(error.message)
+            ? 'Falta correr supabase/ROLES_8_SIN_RECURSION.sql en Supabase (la tabla de roles no deja escribir).'
+            : 'No se pudo asignar el rol: ' + error.message)
+        }
+        hecho.push(`${rolOrg.nombre} de la organización${error ? ' (ya lo tenía)' : ''}`)
+      }
+      return hecho
+    }
+
+    /* YA TIENE CUENTA: no pasa por la función de alta, que le
+       reescribiría la contraseña. Se busca su cuenta por correo (la
+       misma lista de «Gestión de usuarios») y se inscribe a lo que falte. */
+    if (yaTieneCuenta) {
+      try {
+        const hecho = []
+        if (esAlumno) {
+          const { data: us, error: eU } = await supabase.rpc('listar_usuarios_con_accesos')
+          if (eU) throw new Error('No pude buscar la cuenta: ' + eU.message)
+          const u = (us || []).find(x => String(x.email || '').toLowerCase() === correoLimpio)
+          if (!u) throw new Error('No encuentro una cuenta con ese correo. Elige «Yo le asigno una contraseña» o «Que la elija» para crearla.')
+          const { data: ya } = await supabase.from('acceso').select('curso_id')
+            .eq('usuario_id', u.usuario_id).in('curso_id', cursosSeleccionados)
+          const tiene = new Set((ya || []).map(a => Number(a.curso_id)))
+          const faltan = cursosSeleccionados.filter(c => !tiene.has(Number(c)))
+          if (faltan.length) {
+            const { error: eI } = await supabase.from('acceso')
+              .insert(faltan.map(c => ({ usuario_id: u.usuario_id, curso_id: c, grupo: null })))
+            if (eI) throw new Error('No se pudo inscribir: ' + eI.message)
+          }
+          hecho.push(`alumno de ${cursosSeleccionados.length} curso(s)`)
+        }
+        hecho.push(...await asignarRoles())
+        setMsg(`✅ ${correoLimpio} queda como ${hecho.join(' y ')}. Entra con su cuenta y contraseña de siempre.`)
+        setNuevoEmail(''); setCursosSeleccionados([])
+        if (esAlumno) { await recargarInscripciones(); setUsuarios([]) }
+      } catch (e) { setMsg('Error: ' + e.message) }
       setCreando(false)
       return
     }
@@ -654,8 +733,12 @@ function Admin({ user }) {
         },
         body: JSON.stringify({
           emails: [correoLimpio],
+          // Si ya tiene cuenta y solo se le inscribe, la función le
+          // reescribiría la contraseña: no se manda ninguna (ver abajo).
           password: porInvitacion ? claveDeUnSoloUso() : claveLimpia,
-          curso_ids: cursosSeleccionados
+          // Solo el alumno se inscribe; facilitador y roles no ocupan
+          // un lugar de alumno (ni cuentan para el tope del plan).
+          curso_ids: esAlumno ? cursosSeleccionados : []
         })
       })
 
@@ -674,9 +757,12 @@ function Admin({ user }) {
             ? ` (pero no se pudo enviar la invitación: ${fallos[0]})`
             : '. Le llegó un correo para que elija su contraseña'
         }
-        if (rolNuevo === 'ambos') {
-          const r = await asignarFacilitadores([correoLimpio], cursosSeleccionados)
-          extra = r.error ? ` (pero falló el rol de facilitador: ${r.error.message})` : ' y queda como facilitador'
+        // Facilitador y/o rol de la organización, ya con la cuenta creada.
+        try {
+          const hecho = await asignarRoles()
+          if (hecho.length) extra += ` · queda como ${hecho.join(' y ')}`
+        } catch (e) {
+          extra += ` (cuenta creada, pero ${e.message})`
         }
         // Si no vuelve un id, la cuenta NO existe por mucho que la
         // respuesta sea 200. Decir "creado" sin comprobarlo es lo que
@@ -689,8 +775,9 @@ function Admin({ user }) {
           return
         }
         const yaEstaba = r0.status === 'existente' ? ' (ya tenía cuenta; se actualizó su contraseña)' : ''
-        setMsg(`✅ ${r0.email} ${r0.status === 'existente' ? 'tiene acceso a' : 'creado y asignado a'} ` +
-          `${cursosSeleccionados.length} curso(s)${yaEstaba}` + extra)
+        setMsg(`✅ ${r0.email} ` + (esAlumno
+          ? `${r0.status === 'existente' ? 'tiene acceso a' : 'creado y asignado a'} ${cursosSeleccionados.length} curso(s)`
+          : (r0.status === 'existente' ? 'ya tenía cuenta' : 'creado')) + yaEstaba + extra)
         setNuevoEmail('')
         setNuevoPass('')
         setCursosSeleccionados([])
@@ -1950,12 +2037,16 @@ function Admin({ user }) {
                 <h3>Nuevo usuario</h3>
                 <label>Correo electrónico</label>
                 <input type="email" value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)} placeholder="alumno@ejemplo.com" />
-                <label>Rol en los cursos seleccionados</label>
+                <label>Qué será</label>
                 <div className="rol-opciones">
                   {[
                     ['alumno', '🎓 Alumno', 'Accede al contenido del curso.'],
                     ['facilitador', '🛠️ Facilitador', 'Gestiona el curso: foro, módulos, recursos y exámenes.'],
                     ['ambos', '🎓🛠️ Ambos', 'Gestiona el curso y además lo cursa como alumno.'],
+                    // Los roles de la organización (ROLES_5): valen para toda
+                    // ella; su ámbito (sede o categoría) se ajusta en Roles.
+                    ...rolesOrg.map(r => [`rol:${r.id}`, `🔑 ${r.nombre}`,
+                      `${r.descripcion || 'Rol de la organización'} Vale para toda la organización.`]),
                   ].map(([valor, etiqueta, ayuda]) => (
                     <label key={valor} className={`rol-opcion${rolNuevo === valor ? ' activa' : ''}`}>
                       <input type="radio" name="rol-alta-individual" value={valor}
@@ -1966,12 +2057,18 @@ function Admin({ user }) {
                     </label>
                   ))}
                 </div>
-                {/* Asignar solo el rol no crea cuenta, así que no pide contraseña. */}
-                <label>Cómo entrará la primera vez</label>
+                {rolesOrg.length === 0 && (
+                  <p className="nota">
+                    ¿No ves Dirección, Coordinación o Docente? Créalos en{' '}
+                    <Link to="/gestion?ver=permisos">Centro de gestión → Permisos por perfil</Link>.
+                  </p>
+                )}
+                <label>Cómo entrará</label>
                 <div className="rol-opciones">
                   {[
                     ['clave', '🔑 Yo le asigno una contraseña', 'Se la compartes tú. Podrá cambiarla desde Mi perfil.'],
-                    ['invitacion', '✉️ Que la elija él', 'Le llega un correo para crear su propia contraseña. Tú no manejas ninguna.'],
+                    ['invitacion', '✉️ Que la elija', 'Le llega un correo para crear su propia contraseña. Tú no manejas ninguna.'],
+                    ['existente', '👤 Ya tiene cuenta', 'Solo se le asigna esto. Su contraseña no se toca.'],
                   ].map(([v, etiqueta, ayuda]) => (
                     <label key={v} className={`rol-opcion${modoAcceso === v ? ' activa' : ''}`}>
                       <input type="radio" name="acceso-individual" value={v}
@@ -1982,21 +2079,25 @@ function Admin({ user }) {
                     </label>
                   ))}
                 </div>
-                {rolNuevo !== 'facilitador' && modoAcceso === 'clave' && (
+                {modoAcceso === 'clave' && (
                   <>
                     <label>Contraseña temporal</label>
                     <input type="text" value={nuevoPass} onChange={e => setNuevoPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
                   </>
                 )}
-                <label>Cursos a los que tendrá acceso</label>
-                <div className="cursos-checkboxes">
-                  {cursosLista.map(c => (
-                    <label key={c.id} className="curso-checkbox">
-                      <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
-                      <span>{c.titulo}</span>
-                    </label>
-                  ))}
-                </div>
+                {!rolNuevo.startsWith('rol:') && (
+                  <>
+                    <label>{rolNuevo === 'facilitador' ? 'Cursos que gestionará' : 'Cursos a los que tendrá acceso'}</label>
+                    <div className="cursos-checkboxes">
+                      {cursosLista.map(c => (
+                        <label key={c.id} className="curso-checkbox">
+                          <input type="checkbox" checked={cursosSeleccionados.includes(c.id)} onChange={() => toggleCurso(c.id)} />
+                          <span>{c.titulo}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
                 <button type="button" className="button whatsapp" onClick={crearUsuario} disabled={creando}>
                   {creando ? 'Creando...' : 'Crear usuario y asignar cursos'}
                 </button>
