@@ -71,7 +71,9 @@ ESCENARIOS.sinMensajes = { ...ESCENARIOS.completo, mensajes: [] }
 ESCENARIOS.sinForo = { ...ESCENARIOS.completo, foro_hilos: [], foro_respuestas: [] }
 
 function tablas() {
-  return ESCENARIOS[globalThis.__ESCENARIO__] || ESCENARIOS.completo
+  // __TABLAS__ deja a una prueba añadir o sustituir tablas sueltas
+  // (p. ej. `contenido_sitio`) sin inventar un escenario entero.
+  return { ...(ESCENARIOS[globalThis.__ESCENARIO__] || ESCENARIOS.completo), ...(globalThis.__TABLAS__ || {}) }
 }
 
 /**

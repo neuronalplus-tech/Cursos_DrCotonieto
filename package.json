@@ -14,7 +14,8 @@
     "smoke:datos": "vite build --config vite.smoke.config.js --logLevel error && node .smoke-datos/smoke-datos.js",
     "test:foro-ui": "vite build --config vite.foro.config.js --logLevel error && node .smoke-foro-ui/test-foro-ui.js",
     "lint": "eslint .",
-    "test:contenido": "vite build --ssr scripts/test-contenido.mjs --outDir .smoke-contenido --logLevel error && node .smoke-contenido/test-contenido.js"
+    "test:contenido": "vite build --ssr scripts/test-contenido.mjs --outDir .smoke-contenido --logLevel error && node .smoke-contenido/test-contenido.js",
+    "test:pantallas": "vite build --config vite.pantallas.config.js --logLevel error && node .smoke-pantallas/test-pantallas-editables.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",

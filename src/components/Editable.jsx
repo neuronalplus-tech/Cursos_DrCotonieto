@@ -60,10 +60,31 @@ function sinVacios(o) {
   return r
 }
 
+/** `**así**` se pinta en negritas (solo donde el elemento lo permite). */
+function conNegritas(texto) {
+  const partes = String(texto).split(/\*\*(.+?)\*\*/g)
+  return partes.length === 1 ? texto
+    : partes.map((p, i) => (i % 2 ? <strong key={i}>{p}</strong> : p))
+}
+
+/** Explica qué marcadores ({titulo}, {ruta}…) entiende este elemento. */
+function NotaMarcadores({ datos, negritas }) {
+  const claves = Object.keys(datos || {})
+  if (!claves.length && !negritas) return null
+  return (
+    <p className="nota">
+      {claves.length > 0 && <>Marcadores: {claves.map((k, i) => (
+        <span key={k}>{i > 0 && ', '}<code>{`{${k}}`}</code> → «{datos[k]}»</span>
+      ))}. </>}
+      {negritas && <>Escribe <code>**así**</code> para poner negritas.</>}
+    </p>
+  )
+}
+
 /* ------------------------------------------------------------
    EL DIÁLOGO ÚNICO
    ------------------------------------------------------------ */
-function EditorCapa({ tipo, clave, ambito, etiquetaAmbito, defecto, actual, fuente, campos, onClose }) {
+function EditorCapa({ tipo, clave, ambito, etiquetaAmbito, defecto, actual, fuente, campos, datos, negritas, onClose }) {
   const { orgId, falta, errorCarga } = useCapa()
   const [alcance, setAlcance] = useState(ambito ? 'general' : 'unico')
   const [v, setV] = useState(() => ({ ...actual }))
@@ -174,6 +195,7 @@ function EditorCapa({ tipo, clave, ambito, etiquetaAmbito, defecto, actual, fuen
               {tipo === 'texto' && (v.texto || '').length > 60
                 ? <textarea id="ec-texto" className="modal-textarea" rows={4} value={v.texto || ''} onChange={(e) => campo('texto', e.target.value)} />
                 : <input id="ec-texto" className="input" value={v.texto || ''} onChange={(e) => campo('texto', e.target.value)} />}
+              {tipo === 'texto' && <NotaMarcadores datos={datos} negritas={negritas} />}
             </>
           )}
 
@@ -202,7 +224,8 @@ function EditorCapa({ tipo, clave, ambito, etiquetaAmbito, defecto, actual, fuen
                   <label htmlFor="ec-mensaje">Mensaje de WhatsApp (si no hay enlace)</label>
                   <textarea id="ec-mensaje" className="modal-textarea" rows={3} value={v.mensaje || ''}
                     onChange={(e) => campo('mensaje', e.target.value)} />
-                  <p className="nota">Escribe <code>{'{titulo}'}</code> y se cambia por el nombre del curso. Si pones un enlace arriba, gana el enlace.</p>
+                  <NotaMarcadores datos={datos} />
+                  <p className="nota">Si pones un enlace arriba, gana el enlace.</p>
                   <label htmlFor="ec-numero">Número de WhatsApp (vacío = el de siempre)</label>
                   <input id="ec-numero" className="input" inputMode="tel" value={v.whatsapp || ''}
                     onChange={(e) => campo('whatsapp', e.target.value)} placeholder="5215512345678" />
@@ -296,17 +319,21 @@ const marcaEdicion = (v) =>
   `editable${v.eliminado ? ' editable-eliminado' : v.visible === false ? ' editable-oculto' : ''}`
 
 /* ------------------------------------------------------------ */
-export function TextoEditable({ clave, defecto = '', as: Etiqueta = 'span', className, ambito, datos, comillas }) {
+export function TextoEditable({
+  clave, defecto = '', as: Etiqueta = 'span', className, ambito, etiquetaAmbito, datos, comillas, negritas, style,
+}) {
   const { ctx, v, mostrar, abierto, setAbierto } = useElemento(clave, { texto: defecto }, ambito)
   if (!mostrar) return null
   const texto = rellenar(v.texto, datos)
-  const estilo = v.colorTexto ? { color: v.colorTexto } : undefined
+  const estilo = v.colorTexto ? { ...style, color: v.colorTexto } : style
+  const visible = comillas ? `"${texto}"` : texto
   return (
-    <Etiqueta className={[className, ctx.editando && marcaEdicion(v)].filter(Boolean).join(' ')} style={estilo}>
-      {comillas ? `"${texto}"` : texto}
-      {ctx.editando && <Lapiz etiqueta={texto || clave} onClick={() => setAbierto(true)} />}
+    <Etiqueta className={[className, ctx.editando && marcaEdicion(v)].filter(Boolean).join(' ') || undefined} style={estilo}>
+      {negritas ? conNegritas(visible) : visible}
+      {ctx.editando && <Lapiz etiqueta={texto.replace(/\*\*/g, '') || clave} onClick={() => setAbierto(true)} />}
       {abierto && (
-        <EditorCapa tipo="texto" clave={clave} ambito={ambito} defecto={{ texto: defecto }}
+        <EditorCapa tipo="texto" clave={clave} ambito={ambito} etiquetaAmbito={etiquetaAmbito}
+          defecto={{ texto: defecto }} datos={datos} negritas={negritas}
           actual={v} onClose={() => setAbierto(false)} />
       )}
     </Etiqueta>
@@ -373,7 +400,7 @@ export function ListaEditable({ clave, defecto = [], campos, children, etiqueta 
 export function BotonEditable({
   clave, defecto, ambito, etiquetaAmbito, datos, clase = 'button', onClick, to,
   abierto: desplegado, fuente, extra, disabled, ariaExpanded, nuevaPestana = true,
-  pintar, lapizDentro, ariaLabel, siempreVisible, textoDeshabilitado,
+  pintar, lapizDentro, ariaLabel, siempreVisible, textoDeshabilitado, role,
 }) {
   const base = fuente
     ? { ...defecto, texto: fuente.texto ?? defecto.texto, url: fuente.url ?? defecto.url,
@@ -395,7 +422,7 @@ export function BotonEditable({
   // `lapizDentro` mete el lápiz en el propio botón (los flotantes).
   const texto = <>{pintar ? pintar(textoPlano) : textoPlano}{lapizDentro && lapiz}</>
   const href = enlaceDe(v, datos)
-  const aria = ariaLabel ? { 'aria-label': ariaLabel } : {}
+  const aria = { ...(ariaLabel ? { 'aria-label': ariaLabel } : {}), ...(role ? { role } : {}) }
   const clases = [clase, v.estilo].filter(Boolean).join(' ')
   const estilo = (v.fondo || v.colorTexto)
     ? { ...(v.fondo ? { background: v.fondo, borderColor: v.fondo } : {}), ...(v.colorTexto ? { color: v.colorTexto } : {}) }
@@ -404,7 +431,10 @@ export function BotonEditable({
   // El enlace editado gana sobre la acción del código, salvo que el
   // código diga que el botón está deshabilitado (p. ej. «cerrado»).
   const enlaceEditado = (fuente ? v.url !== fuente.url : v.url !== defecto.url) || v.mensaje !== defecto.mensaje
-  const comoEnlace = () => (href.startsWith('/')
+  // «/curso/3» es una ruta de la app (Link); «/juegos/x.html» es un
+  // archivo estático y el router no lo conoce: va como enlace normal.
+  const rutaInterna = href?.startsWith('/') && !/\.\w+($|[?#])/.test(href)
+  const comoEnlace = () => (rutaInterna
     ? <Link to={href} className={clases} style={estilo} {...aria}>{texto}</Link>
     : <a className={clases} style={estilo} href={href} {...aria}
         {...(nuevaPestana ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{texto}</a>)
@@ -418,7 +448,7 @@ export function BotonEditable({
 
   const editor = abierto && (
     <EditorCapa tipo="boton" clave={clave} ambito={ambito} etiquetaAmbito={etiquetaAmbito}
-      defecto={base} actual={v} fuente={fuente} onClose={() => setAbierto(false)} />
+      defecto={base} actual={v} fuente={fuente} datos={datos} onClose={() => setAbierto(false)} />
   )
   if (!ctx.editando && !extra) return el
   if (lapizDentro) return <>{el}{extra}{editor}</>

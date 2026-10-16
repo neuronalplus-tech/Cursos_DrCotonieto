@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { LOGO_BLANCO } from '../config'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
+import { TextoEditable, ImagenEditable, BotonEditable } from './Editable'
 
 /* ============================================================
    BARRA SUPERIOR
@@ -84,11 +85,19 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   useEffect(() => {
     if (!cuentaAbierta) return
     const fuera = (e) => {
+      // El diálogo de edición vive en un portal (fuera de la caja): si
+      // cerrara el menú, desmontaría el botón que se está editando.
+      if (e.target.closest?.('.modal-overlay')) return
       if (cajaCuenta.current && !cajaCuenta.current.contains(e.target)) setCuentaAbierta(false)
     }
     document.addEventListener('mousedown', fuera)
     return () => document.removeEventListener('mousedown', fuera)
   }, [cuentaAbierta])
+
+  // Los eventos del diálogo de edición (un portal) suben por React hasta
+  // aquí: sin este filtro, escribir o pulsar en él llevaba al inicio.
+  const desdeElLogo = (e) =>
+    e.currentTarget.contains(e.target) && !e.target.closest?.('.editable-lapiz')
 
   const iniciales = (texto) => {
     const p = String(texto || '?').trim().split(/\s+/)
@@ -98,24 +107,32 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   return (
     <header className="app-header">
       <div className="header-content">
-        <div className="logo-area" onClick={() => navigate('/')} role="button" tabIndex={0}
+        <div className="logo-area" role="button" tabIndex={0}
              aria-label="Ir al inicio"
+             onClick={(e) => { if (desdeElLogo(e)) navigate('/') }}
              onKeyDown={(e) => {
                // Un role="button" debe responder a Enter Y a Espacio; antes
                // solo a Enter, así que con Espacio la página solo hacía scroll.
+               if (e.target !== e.currentTarget) return
                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/') }
              }}>
-          <img src={marcaLogo} alt={marcaNombre} className="logo-header" />
-          <span className="brand-name">{marcaNombre}</span>
+          {/* Logo y nombre salen de la organización; el lápiz los
+              sobreescribe solo en la cabecera de ESTA organización. */}
+          <ImagenEditable clave="encabezado.logo" defecto={marcaLogo} alt={marcaNombre} className="logo-header" />
+          <TextoEditable className="brand-name" clave="encabezado.nombre" defecto={marcaNombre} />
         </div>
 
         <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
 
         <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
-          {location.pathname !== '/' && <button className="nav-link" onClick={() => ir('/')}>Inicio</button>}
+          {location.pathname !== '/' && (
+            <BotonEditable clave="encabezado.inicio" clase="nav-link"
+              defecto={{ texto: 'Inicio' }} onClick={() => ir('/')} />
+          )}
 
           {!user && (
-            <button className="button secundario-claro" onClick={() => ir('/acceso')}>Iniciar sesión</button>
+            <BotonEditable clave="encabezado.iniciar-sesion" clase="button secundario-claro"
+              defecto={{ texto: 'Iniciar sesión' }} onClick={() => ir('/acceso')} />
           )}
 
           {user && (
@@ -145,7 +162,7 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
                   <div className="header-menu" role="menu">
                     {misCursos.length > 0 && (
                       <>
-                        <p className="header-menu-titulo">Mis cursos</p>
+                        <TextoEditable as="p" className="header-menu-titulo" clave="encabezado.menu.mis-cursos-titulo" defecto="Mis cursos" />
                         {misCursos.map(c => (
                           <button key={c.id} role="menuitem" className="header-menu-curso"
                                   onClick={() => ir(`/curso/${c.id}`)}>
@@ -155,26 +172,24 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
                         <hr />
                       </>
                     )}
-                    <button role="menuitem" onClick={() => ir('/mis-cursos')}>Mis cursos</button>
-                    <button role="menuitem" onClick={() => ir('/perfil')}>Mi perfil</button>
-                    <button role="menuitem" onClick={() => ir('/mis-calificaciones')}>
-                      Mis calificaciones
-                    </button>
-                    <button role="menuitem" onClick={() => ir('/calendario')}>
-                      Calendario
-                    </button>
-                    <button role="menuitem" onClick={() => ir('/mensajes')}>
-                      Mensajes{sinLeer > 0 ? ` (${sinLeer})` : ''}
-                    </button>
+                    <BotonEditable clave="encabezado.menu.mis-cursos" clase="" role="menuitem"
+                      defecto={{ texto: 'Mis cursos' }} onClick={() => ir('/mis-cursos')} />
+                    <BotonEditable clave="encabezado.menu.perfil" clase="" role="menuitem"
+                      defecto={{ texto: 'Mi perfil' }} onClick={() => ir('/perfil')} />
+                    <BotonEditable clave="encabezado.menu.calificaciones" clase="" role="menuitem"
+                      defecto={{ texto: 'Mis calificaciones' }} onClick={() => ir('/mis-calificaciones')} />
+                    <BotonEditable clave="encabezado.menu.calendario" clase="" role="menuitem"
+                      defecto={{ texto: 'Calendario' }} onClick={() => ir('/calendario')} />
+                    <BotonEditable clave="encabezado.menu.mensajes" clase="" role="menuitem"
+                      defecto={{ texto: 'Mensajes' }} onClick={() => ir('/mensajes')}
+                      pintar={(t) => `${t}${sinLeer > 0 ? ` (${sinLeer})` : ''}`} />
                     {esAdmin && (
-                      <button role="menuitem" className="destacado" onClick={() => ir('/admin')}>
-                        Panel de administración
-                      </button>
+                      <BotonEditable clave="encabezado.menu.panel" clase="destacado" role="menuitem"
+                        defecto={{ texto: 'Panel de administración' }} onClick={() => ir('/admin')} />
                     )}
                     <hr />
-                    <button role="menuitem" onClick={() => { setCuentaAbierta(false); onLogout() }}>
-                      Salir
-                    </button>
+                    <BotonEditable clave="encabezado.menu.salir" clase="" role="menuitem"
+                      defecto={{ texto: 'Salir' }} onClick={() => { setCuentaAbierta(false); onLogout() }} />
                   </div>
                 )}
               </div>

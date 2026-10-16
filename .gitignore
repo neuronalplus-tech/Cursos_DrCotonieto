@@ -30,3 +30,4 @@ lista-dot.txt
 *.pgpass
 credenciales*
 conexion*.txt
+.smoke-pantallas/

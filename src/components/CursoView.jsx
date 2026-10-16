@@ -5,7 +5,10 @@ import {
   esContenedorTalleres, esTallerIndividual,
   cursoEspecial, moduloAbiertoPorFecha,
 } from '../lib/helpers'
-import { rutaAcceso, wa } from '../config'
+import { rutaAcceso } from '../config'
+import { TextoEditable, BotonEditable } from './Editable'
+import { useOrganizacion } from '../lib/organizacion'
+import { useContenido, resolver } from '../lib/contenido'
 import { usePermisos } from '../lib/permisos'
 import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
@@ -28,6 +31,9 @@ function CursoView({ user }) {
   // El id viene de la URL, asi que el permiso esta resuelto desde el
   // primer render, sin esperar a que cargue el curso.
   const gestiona = usePermisos(user).puedeGestionar(id)
+  // Se suscribe a las ediciones: el nombre editado de una ruta entra en
+  // los mensajes de WhatsApp ({ruta}).
+  useContenido(useOrganizacion().organizacion?.id)
   const [examenesAbierto, setExamenesAbierto] = useState(false)
   const [progresoAbierto, setProgresoAbierto] = useState(false)
   const [tareasAbierto, setTareasAbierto] = useState(false)
@@ -137,6 +143,13 @@ function CursoView({ user }) {
   if (error) return <div className="contenedor"><p className="aviso-error">Error al cargar el curso: {error}</p></div>
   if (!curso) return <div className="contenedor"><p className="aviso-error">Curso no encontrado.</p></div>
 
+  // Igual que en CursoCard: «en todos los cursos» o «solo en este».
+  const deCurso = {
+    ambito: `curso:${curso.id}`,
+    etiquetaAmbito: { general: 'todos los cursos', unico: `solo «${curso.titulo}»` },
+    datos: { titulo: curso.titulo },
+  }
+
   if (estado === 'talleres') {
     return (
       <section className="contenedor">
@@ -150,9 +163,11 @@ function CursoView({ user }) {
             {curso.info_curso.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
           </div>
         )}
-        <h2 className="titulo-seccion">Talleres disponibles</h2>
+        <TextoEditable as="h2" className="titulo-seccion" clave="curso-pagina.talleres.titulo" {...deCurso}
+          defecto="Talleres disponibles" />
         {talleres.length === 0
-          ? <p className="sutil">Todavía no hay talleres publicados en esta sección.</p>
+          ? <TextoEditable as="p" className="sutil" clave="curso-pagina.talleres.vacio" {...deCurso}
+              defecto="Todavía no hay talleres publicados en esta sección." />
           : <div className="course-grid">
               {talleres.map(t => <CursoCard key={t.id} curso={t} user={user} tieneAcceso={false} />)}
             </div>}
@@ -169,11 +184,16 @@ function CursoView({ user }) {
         <p>{curso.descripcion}</p>
         <div className="bloque-cerrado">
           <p className="bloque-icono">🗓️</p>
-          <p>Este curso está en preparación. Déjame tu interés por WhatsApp y te aviso en cuanto abra su inscripción.</p>
+          <TextoEditable as="p" clave="curso-pagina.proximo.texto" {...deCurso}
+            defecto="Este curso está en preparación. Déjame tu interés por WhatsApp y te aviso en cuanto abra su inscripción." />
           <div className="bloque-botones">
-            <a className="button whatsapp" target="_blank" rel="noopener noreferrer"
-               href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me avisas cuándo abre?`)}>Me interesa · avísame</a>
-            <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
+            <BotonEditable clave="curso-pagina.proximo.me-interesa" clase="button" {...deCurso}
+              defecto={{
+                texto: 'Me interesa · avísame', estilo: 'whatsapp',
+                mensaje: 'Hola, me interesa el curso "{titulo}". ¿Me avisas cuándo abre?',
+              }} />
+            <BotonEditable clave="curso-pagina.volver-inicio" clase="button" {...deCurso}
+              defecto={{ texto: 'Volver al inicio', estilo: 'secondary' }} onClick={() => navigate('/')} />
           </div>
         </div>
         <BandaRedes />
@@ -377,10 +397,15 @@ function CursoView({ user }) {
         <div>
           <h3>
             {m.titulo}
-            {bloqueadoPorLogin && <span className="etiqueta-grupo">🔒 Requiere acceso</span>}
-            {bloqueadoPorRuta && <span className="etiqueta-grupo">🔒 Otra ruta</span>}
-            {bloqueadoPorDisponibilidad && <span className="etiqueta-grupo">🔒 Próximamente</span>}
-            {bloqueadoPorPrerrequisito && <span className="etiqueta-grupo">🔒 Completa primero «{tituloRequerido(m)}»</span>}
+            {/* Solo salen en tarjetas bloqueadas, que no son enlace: el
+                lápiz no queda dentro de un <a>. */}
+            {bloqueadoPorLogin && <TextoEditable className="etiqueta-grupo" clave="curso-pagina.modulo.requiere-acceso" defecto="🔒 Requiere acceso" />}
+            {bloqueadoPorRuta && <TextoEditable className="etiqueta-grupo" clave="curso-pagina.modulo.otra-ruta" defecto="🔒 Otra ruta" />}
+            {bloqueadoPorDisponibilidad && <TextoEditable className="etiqueta-grupo" clave="curso-pagina.modulo.proximamente" defecto="🔒 Próximamente" />}
+            {bloqueadoPorPrerrequisito && (
+              <TextoEditable className="etiqueta-grupo" clave="curso-pagina.modulo.prerrequisito"
+                datos={{ modulo: tituloRequerido(m) }} defecto="🔒 Completa primero «{modulo}»" />
+            )}
             {gestiona && m.disponible === false && <span className="etiqueta-grupo">🔒 Oculto para alumnos</span>}
             {gestiona && m.grupo && <span className="etiqueta-grupo">{m.grupo}</span>}
           </h3>
@@ -426,8 +451,10 @@ function CursoView({ user }) {
         <h1>{curso.titulo}</h1>
         {especial && (
           <p className="curso-disponible">
-            <span className="curso-disponible-label">Disponible a partir del</span>
-            <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+            {/* Mismas claves que la tarjeta: la fecha es una sola. */}
+            <TextoEditable className="curso-disponible-label" clave="curso.disponible.etiqueta" defecto="Disponible a partir del" />
+            <TextoEditable className="curso-disponible-fecha" clave="curso.disponible.fecha"
+              ambito={deCurso.ambito} defecto={especial.disponibleDesde} />
           </p>
         )}
         <p className="curso-desc">{curso.descripcion}</p>
@@ -440,11 +467,13 @@ function CursoView({ user }) {
 
       {esTallerIndividual(curso) && (
         <div className="taller-institucion-cta">
-          <p>¿Quieres que imparta este taller en vivo para tu institución?</p>
-          <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
-             href={wa(`Hola, me interesa que impartas el taller "${curso.titulo}" en vivo para mi institución. Entiendo que tiene una cuota de recuperación, ¿me compartes más información?`)}>
-            💬 Quiero este taller para mi institución
-          </a>
+          <TextoEditable as="p" clave="curso-pagina.taller-institucion.texto" {...deCurso}
+            defecto="¿Quieres que imparta este taller en vivo para tu institución?" />
+          <BotonEditable clave="curso-pagina.taller-institucion.boton" clase="button ancho" {...deCurso}
+            defecto={{
+              texto: '💬 Quiero este taller para mi institución', estilo: 'whatsapp',
+              mensaje: 'Hola, me interesa que impartas el taller "{titulo}" en vivo para mi institución. Entiendo que tiene una cuota de recuperación, ¿me compartes más información?',
+            }} />
         </div>
       )}
 
@@ -461,14 +490,14 @@ function CursoView({ user }) {
       )}
 
       {!user && (
-        <div className="admin-banner" style={{ background: '#EEF2F4', borderLeftColor: '#1B3A4B', color: '#1B3A4B' }}>
-          Estás viendo la estructura del curso. Para acceder a los materiales, <strong>inicia sesión</strong> con tus datos o escríbeme para inscribirte.
-        </div>
+        <TextoEditable as="div" className="admin-banner" clave="curso-pagina.aviso-sin-sesion" {...deCurso} negritas
+          style={{ background: '#EEF2F4', borderLeftColor: '#1B3A4B', color: '#1B3A4B' }}
+          defecto="Estás viendo la estructura del curso. Para acceder a los materiales, **inicia sesión** con tus datos o escríbeme para inscribirte." />
       )}
 
       {user && (
         <div className="progreso-container">
-          <div className="progreso-label"><span>Tu avance</span><span>{progreso}%</span></div>
+          <div className="progreso-label"><TextoEditable clave="curso-pagina.tu-avance" defecto="Tu avance" /><span>{progreso}%</span></div>
           <div className="progreso-bar"><div className="progreso-lleno" style={{ width: `${progreso}%` }} /></div>
         </div>
       )}
@@ -483,7 +512,8 @@ function CursoView({ user }) {
       ) : (
       <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-        <h2 className="titulo-seccion">Contenido del curso</h2>
+        <TextoEditable as="h2" className="titulo-seccion" clave="curso-pagina.contenido.titulo" {...deCurso}
+          defecto="Contenido del curso" />
         {gestiona && (
           <button type="button" className="button secondary" onClick={() => setNuevoModuloAbierto(true)}>
             ➕ Nuevo módulo
@@ -496,18 +526,22 @@ function CursoView({ user }) {
           const modsRuta = modulos.filter(m => m.grupo === g).sort((a, b) => (a.orden || 0) - (b.orden || 0))
           const tieneAcceso = tieneAccesoAlGrupo(g)
           const primerModulo = modsRuta.find(m => !esModuloBloqueado(m))
+          // {ruta} en los mensajes: el nombre tal como se ve, editado o no.
+          const nombreRuta = resolver(`curso-pagina.ruta.${g}.titulo`, { texto: rutaLabel(g) }, deCurso.ambito).texto
+          const deRuta = { ...deCurso, datos: { titulo: curso.titulo, ruta: nombreRuta } }
 
           return (
             <section key={g} className="ruta-section">
               <header className="ruta-section-header">
-                <h2 className="titulo-seccion">{rutaLabel(g)}</h2>
-                <p className="ruta-section-sub">{rutaDescripcion(g)}</p>
-                {!tieneAcceso && (
-                  <p className="ruta-section-lock">
-                    {!user
-                      ? '🔒 Esta ruta requiere inscripción. Inicia sesión si ya tienes acceso, o solicita información para inscribirte.'
-                      : '🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión con la cuenta correcta.'}
-                  </p>
+                <TextoEditable as="h2" className="titulo-seccion" clave={`curso-pagina.ruta.${g}.titulo`} {...deCurso}
+                  defecto={rutaLabel(g)} />
+                <TextoEditable as="p" className="ruta-section-sub" clave={`curso-pagina.ruta.${g}.descripcion`} {...deCurso}
+                  defecto={rutaDescripcion(g)} />
+                {!tieneAcceso && (!user
+                  ? <TextoEditable as="p" className="ruta-section-lock" clave="curso-pagina.ruta.candado-sin-sesion" {...deRuta}
+                      defecto="🔒 Esta ruta requiere inscripción. Inicia sesión si ya tienes acceso, o solicita información para inscribirte." />
+                  : <TextoEditable as="p" className="ruta-section-lock" clave="curso-pagina.ruta.candado-sin-acceso" {...deRuta}
+                      defecto="🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión con la cuenta correcta." />
                 )}
                 {(curso.rutas_botones?.[g] || []).length > 0 && (
                   <div className="ruta-botones-extra">
@@ -531,26 +565,32 @@ function CursoView({ user }) {
 
               <div className="modulo-grid">
                 {modsRuta.map((m, i) => renderModulo(m, i, modsRuta))}
-                {modsRuta.length === 0 && <p className="sutil">Esta ruta aún no tiene módulos publicados.</p>}
+                {modsRuta.length === 0 && (
+                  <TextoEditable as="p" className="sutil" clave="curso-pagina.ruta.vacia" {...deRuta}
+                    defecto="Esta ruta aún no tiene módulos publicados." />
+                )}
               </div>
 
               <div className="ruta-cta">
-                <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
-                   href={wa(`Hola, me interesa la ${rutaLabel(g)} del curso "${curso.titulo}". ¿Me compartes información e inscripción?`)}>
-                  💬 Solicitar información
-                </a>
-                <button className="button secondary ancho" onClick={() => {
-                  if (gestiona || tieneAcceso) {
-                    if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
-                    else alert('Esta ruta aún no tiene módulos abiertos.')
-                  } else if (!user) {
-                    navigate(rutaAcceso(`/curso/${id}`))
-                  } else {
-                    alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
-                  }
-                }}>
-                  {gestiona || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
-                </button>
+                <BotonEditable clave="curso-pagina.ruta.informacion" clase="button ancho" {...deRuta}
+                  defecto={{
+                    texto: '💬 Solicitar información', estilo: 'whatsapp',
+                    mensaje: 'Hola, me interesa la {ruta} del curso "{titulo}". ¿Me compartes información e inscripción?',
+                  }} />
+                <BotonEditable key={gestiona || tieneAcceso ? 'ir' : 'inscrito'}
+                  clave={gestiona || tieneAcceso ? 'curso-pagina.ruta.ir' : 'curso-pagina.ruta.ya-inscrito'}
+                  clase="button ancho" {...deRuta}
+                  defecto={{ texto: gestiona || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito', estilo: 'secondary' }}
+                  onClick={() => {
+                    if (gestiona || tieneAcceso) {
+                      if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
+                      else alert('Esta ruta aún no tiene módulos abiertos.')
+                    } else if (!user) {
+                      navigate(rutaAcceso(`/curso/${id}`))
+                    } else {
+                      alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
+                    }
+                  }} />
               </div>
             </section>
           )
@@ -558,13 +598,17 @@ function CursoView({ user }) {
       ) : (
         <div className="modulo-grid">
           {modulos.map((m, i) => renderModulo(m, i, modulos))}
-          {modulos.length === 0 && <p className="sutil">Este curso aún no tiene módulos publicados.</p>}
+          {modulos.length === 0 && (
+            <TextoEditable as="p" className="sutil" clave="curso-pagina.sin-modulos" {...deCurso}
+              defecto="Este curso aún no tiene módulos publicados." />
+          )}
         </div>
       )}
 
       {modsSinGrupo.length > 0 && grupos.length > 0 && (
         <section className="ruta-section">
-          <h2 className="titulo-seccion">Otros módulos</h2>
+          <TextoEditable as="h2" className="titulo-seccion" clave="curso-pagina.otros-modulos" {...deCurso}
+            defecto="Otros módulos" />
           <div className="modulo-grid">{modsSinGrupo.map((m, i) => renderModulo(m, i, modsSinGrupo))}</div>
         </section>
       )}
@@ -577,12 +621,13 @@ function CursoView({ user }) {
       {(gestiona || (user && tieneAcceso)) && (
         <section className="foro-acceso">
           <div>
-            <h2 className="titulo-seccion" style={{ marginBottom: 4 }}>Foro del curso</h2>
-            <p className="nota" style={{ margin: 0 }}>
-              Dudas, comentarios y conversación con el resto del grupo.
-            </p>
+            <TextoEditable as="h2" className="titulo-seccion" style={{ marginBottom: 4 }}
+              clave="curso-pagina.foro.titulo" {...deCurso} defecto="Foro del curso" />
+            <TextoEditable as="p" className="nota" style={{ margin: 0 }}
+              clave="curso-pagina.foro.texto" {...deCurso} defecto="Dudas, comentarios y conversación con el resto del grupo." />
           </div>
-          <Link to={`/foro/${curso.id}`} className="button secondary">💬 Entrar al foro</Link>
+          <BotonEditable clave="curso-pagina.foro.boton" clase="button" {...deCurso}
+            defecto={{ texto: '💬 Entrar al foro', estilo: 'secondary' }} to={`/foro/${curso.id}`} />
         </section>
       )}
 

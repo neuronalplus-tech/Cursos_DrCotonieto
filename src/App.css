@@ -3854,6 +3854,12 @@ a { color: var(--primary); }
 .editable-lapiz:hover { background: var(--bg-card); }
 .editable-lapiz:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .card-boton-admin > .editable-lapiz { align-self: center; margin-left: 0; }
+/* En la cabecera el envoltorio no debe estirarse a lo ancho de la barra,
+   y el lápiz no hereda el «botón de fila» del menú de cuenta. */
+.header-actions > .card-boton-admin { width: auto; align-items: center; }
+.header-menu .card-boton-admin { align-items: center; gap: 4px; }
+.header-menu .card-boton-admin > button:not(.editable-lapiz) { flex: 1; }
+.header-menu .editable-lapiz { width: 28px; padding: 0; border: 1px solid var(--accent); background: var(--blanco); }
 .editable-lista-barra {
   display: flex; align-items: center; gap: 8px; margin: 8px 0;
   font-size: 14px; color: var(--primary);

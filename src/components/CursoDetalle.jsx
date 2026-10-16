@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { cursoEspecial } from '../lib/helpers'
-import { rutaAcceso, wa, DETALLES_DUELO } from '../config'
+import { rutaAcceso, DETALLES_DUELO } from '../config'
 import { usePermisos } from '../lib/permisos'
+import { useOrganizacion } from '../lib/organizacion'
+import { useContenido, resolver } from '../lib/contenido'
 import { Breadcrumb, BandaRedes } from './ui'
+import { TextoEditable, ListaEditable, BotonEditable } from './Editable'
 
 function CursoDetalle({ user }) {
   const { id } = useParams()
@@ -16,6 +19,9 @@ function CursoDetalle({ user }) {
   const [modulos, setModulos] = useState([])
   const [miGrupo, setMiGrupo] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Se suscribe a las ediciones: el nombre editado de cada ruta entra en
+  // el mensaje de WhatsApp ({ruta}) y en la etiqueta de su lista.
+  useContenido(useOrganizacion().organizacion?.id)
 
   useEffect(() => {
     async function load() {
@@ -64,68 +70,80 @@ function CursoDetalle({ user }) {
     return miGrupo === g
   }
 
-  const RutaCol = ({ ruta }) => {
+  // Una función y no un componente: un componente definido aquí dentro
+  // se volvería a montar en cada render y cerraría el diálogo de edición.
+  const renderRuta = (ruta) => {
     const tieneAcceso = tieneAccesoAlGrupo(ruta.grupo)
     const modsRuta = modulos.filter(m => m.grupo === ruta.grupo).sort((a, b) => (a.orden || 0) - (b.orden || 0))
     const primerModulo = modsRuta.find(m => gestiona || (m.disponible !== false && tieneAcceso))
+    // Claves por ruta («detalles.Clínica.nombre»): cada columna se edita aparte.
+    const k = (campo) => `detalles.${ruta.grupo}.${campo}`
+    const nombre = resolver(k('nombre'), { texto: ruta.nombre }).texto
+    const datos = { titulo: curso.titulo, ruta: nombre }
 
     return (
-      <article className="ruta-col">
+      <article key={ruta.grupo} className="ruta-col">
         <header className="ruta-header">
-          <h2>{ruta.nombre}</h2>
-          <p className="ruta-dirigida">{ruta.dirigida}</p>
+          <TextoEditable as="h2" clave={k('nombre')} defecto={ruta.nombre} />
+          <TextoEditable as="p" className="ruta-dirigida" clave={k('dirigida')} defecto={ruta.dirigida} />
         </header>
 
         <div className="ruta-para-ti">
-          <p className="ruta-para-ti-titulo">Esta ruta es para ti si…</p>
-          <p>{ruta.paraTiSi}</p>
-          <p className="ruta-publicos">{ruta.publicos}</p>
-          <p className="ruta-nota">{ruta.notaFinal}</p>
+          <TextoEditable as="p" className="ruta-para-ti-titulo" clave="detalles.para-ti-titulo" defecto="Esta ruta es para ti si…" />
+          <TextoEditable as="p" clave={k('para-ti')} defecto={ruta.paraTiSi} />
+          <TextoEditable as="p" className="ruta-publicos" clave={k('publicos')} defecto={ruta.publicos} />
+          <TextoEditable as="p" className="ruta-nota" clave={k('nota')} defecto={ruta.notaFinal} />
         </div>
 
-        <h3 className="ruta-subtitulo">Los cuatro módulos</h3>
-        <ol className="ruta-modulos">
-          {ruta.modulos.map(m => (
-            <li key={m.num}>
-              <div className="ruta-mod-num">Módulo {m.num}</div>
-              <h4>{m.titulo}</h4>
-              <p>{m.descripcion}</p>
-            </li>
-          ))}
-        </ol>
+        <TextoEditable as="h3" className="ruta-subtitulo" clave={k('modulos-titulo')} defecto="Los cuatro módulos" />
+        <ListaEditable clave={k('modulos')} defecto={ruta.modulos} etiqueta={`Módulos de la ${nombre}`}
+          campos={[{ k: 'num', etiqueta: 'Número' }, { k: 'titulo', etiqueta: 'Título' }, { k: 'descripcion', etiqueta: 'Descripción' }]}>
+          {(items) => (
+            <ol className="ruta-modulos">
+              {items.map((m, i) => (
+                <li key={i}>
+                  <div className="ruta-mod-num">Módulo {m.num}</div>
+                  <h4>{m.titulo}</h4>
+                  <p>{m.descripcion}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </ListaEditable>
 
         <div className="ruta-info">
-          <h4>Metodología</h4>
-          <p>{ruta.metodologia}</p>
-          <h4>Materiales</h4>
-          <p>{ruta.materiales}</p>
+          <TextoEditable as="h4" clave="detalles.metodologia-titulo" defecto="Metodología" />
+          <TextoEditable as="p" clave={k('metodologia')} defecto={ruta.metodologia} />
+          <TextoEditable as="h4" clave="detalles.materiales-titulo" defecto="Materiales" />
+          <TextoEditable as="p" clave={k('materiales')} defecto={ruta.materiales} />
         </div>
 
-        {!tieneAcceso && (
-          <p className="ruta-section-lock" style={{ marginTop: 18 }}>
-            {!user
-              ? '🔒 Esta ruta requiere inscripción. Solicita información o inicia sesión si ya tienes acceso.'
-              : '🔒 Aún no tienes acceso a esta ruta. Solicita información o usa la cuenta correcta.'}
-          </p>
+        {!tieneAcceso && (!user
+          ? <TextoEditable as="p" className="ruta-section-lock" style={{ marginTop: 18 }} clave="detalles.candado-sin-sesion"
+              defecto="🔒 Esta ruta requiere inscripción. Solicita información o inicia sesión si ya tienes acceso." />
+          : <TextoEditable as="p" className="ruta-section-lock" style={{ marginTop: 18 }} clave="detalles.candado-sin-acceso"
+              defecto="🔒 Aún no tienes acceso a esta ruta. Solicita información o usa la cuenta correcta." />
         )}
 
         <div className="ruta-cta">
-          <a className="button whatsapp ancho" target="_blank" rel="noopener noreferrer"
-             href={wa(`Hola, me interesa la ${ruta.nombre} del curso "${curso.titulo}". ¿Me compartes información e inscripción?`)}>
-            💬 Solicitar información
-          </a>
-          <button className="button secondary ancho" onClick={() => {
-            if (gestiona || tieneAcceso) {
-              if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
-              else navigate(`/curso/${id}`)
-            } else if (!user) {
-              navigate(rutaAcceso(`/curso/${id}/detalles`))
-            } else {
-              alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
-            }
-          }}>
-            {gestiona || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito'}
-          </button>
+          <BotonEditable clave={k('informacion')} clase="button ancho" datos={datos}
+            defecto={{
+              texto: '💬 Solicitar información', estilo: 'whatsapp',
+              mensaje: 'Hola, me interesa la {ruta} del curso "{titulo}". ¿Me compartes información e inscripción?',
+            }} />
+          <BotonEditable key={gestiona || tieneAcceso ? 'ir' : 'inscrito'}
+            clave={gestiona || tieneAcceso ? 'detalles.ir' : 'detalles.ya-inscrito'} clase="button ancho"
+            defecto={{ texto: gestiona || tieneAcceso ? 'Ir al contenido →' : 'Ya estoy inscrito', estilo: 'secondary' }}
+            onClick={() => {
+              if (gestiona || tieneAcceso) {
+                if (primerModulo) navigate(`/modulo/${primerModulo.id}`)
+                else navigate(`/curso/${id}`)
+              } else if (!user) {
+                navigate(rutaAcceso(`/curso/${id}/detalles`))
+              } else {
+                alert('Tu cuenta aún no tiene acceso a esta ruta. Escríbeme por WhatsApp y lo vemos.')
+              }
+            }} />
         </div>
       </article>
     )
@@ -136,31 +154,35 @@ function CursoDetalle({ user }) {
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: curso.titulo, to: `/curso/${id}` }, { label: 'Detalles' }]} />
 
       <header className="detalle-header">
-        <h1>{DETALLES_DUELO.intro}</h1>
-        <p className="detalle-sub">{DETALLES_DUELO.subtitulo}</p>
+        <TextoEditable as="h1" clave="detalles.titulo" defecto={DETALLES_DUELO.intro} />
+        <TextoEditable as="p" className="detalle-sub" clave="detalles.subtitulo" defecto={DETALLES_DUELO.subtitulo} />
         <p className="curso-disponible">
-          <span className="curso-disponible-label">Disponible a partir del</span>
-          <span className="curso-disponible-fecha">{especial.disponibleDesde}</span>
+          {/* Mismas claves que la tarjeta y la página del curso. */}
+          <TextoEditable className="curso-disponible-label" clave="curso.disponible.etiqueta" defecto="Disponible a partir del" />
+          <TextoEditable className="curso-disponible-fecha" clave="curso.disponible.fecha"
+            ambito={`curso:${curso.id}`} defecto={especial.disponibleDesde} />
         </p>
       </header>
 
       {!user && (
-        <div className="admin-banner" style={{ background: '#EEF2F4', borderLeftColor: '#1B3A4B', color: '#1B3A4B', marginBottom: 28 }}>
-          Estás viendo los detalles de las dos rutas. Para acceder a los materiales, <strong>inicia sesión</strong> con tus datos o escríbeme para inscribirte en la ruta que te corresponde.
-        </div>
+        <TextoEditable as="div" className="admin-banner" clave="detalles.aviso-sin-sesion" negritas
+          style={{ background: '#EEF2F4', borderLeftColor: '#1B3A4B', color: '#1B3A4B', marginBottom: 28 }}
+          defecto="Estás viendo los detalles de las dos rutas. Para acceder a los materiales, **inicia sesión** con tus datos o escríbeme para inscribirte en la ruta que te corresponde." />
       )}
 
       <div className="rutas-grid">
-        <RutaCol ruta={acompanamiento} />
-        <RutaCol ruta={clinica} />
+        {renderRuta(acompanamiento)}
+        {renderRuta(clinica)}
       </div>
 
       <div className="detalle-cta">
-        <a className="button whatsapp grande" target="_blank" rel="noopener noreferrer"
-           href={wa(`Hola, me interesa el curso "${curso.titulo}". ¿Me compartes más información?`)}>
-          Quiero información e inscripción
-        </a>
-        <button className="button secondary" onClick={() => navigate(`/curso/${id}`)}>← Volver al curso</button>
+        <BotonEditable clave="detalles.informacion" clase="button grande" datos={{ titulo: curso.titulo }}
+          defecto={{
+            texto: 'Quiero información e inscripción', estilo: 'whatsapp',
+            mensaje: 'Hola, me interesa el curso "{titulo}". ¿Me compartes más información?',
+          }} />
+        <BotonEditable clave="detalles.volver" clase="button" defecto={{ texto: '← Volver al curso', estilo: 'secondary' }}
+          onClick={() => navigate(`/curso/${id}`)} />
       </div>
 
       <BandaRedes />

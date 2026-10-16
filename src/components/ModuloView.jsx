@@ -6,7 +6,8 @@ import {
   emiteConstancia, analizarUrl, esCursoProblemasContemporaneos,
   moduloAbiertoPorFecha,
 } from '../lib/helpers'
-import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, wa } from '../config'
+import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, MARCA } from '../config'
+import { TextoEditable, ImagenEditable, BotonEditable } from './Editable'
 import { usePermisos } from '../lib/permisos'
 import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
@@ -206,8 +207,12 @@ function ModuloView({ user }) {
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Módulo' }]} />
       <p className="aviso-error">{error}</p>
       <div className="bloque-botones" style={{ justifyContent: 'flex-start' }}>
-        {!user && <button className="button primary" onClick={() => navigate(rutaAcceso(`/modulo/${id}`))}>Iniciar sesión</button>}
-        <button className="button secondary" onClick={() => navigate('/')}>Volver al inicio</button>
+        {!user && (
+          <BotonEditable clave="modulo.error.iniciar-sesion" clase="button" defecto={{ texto: 'Iniciar sesión', estilo: 'primary' }}
+            onClick={() => navigate(rutaAcceso(`/modulo/${id}`))} />
+        )}
+        <BotonEditable clave="modulo.error.volver-inicio" clase="button" defecto={{ texto: 'Volver al inicio', estilo: 'secondary' }}
+          onClick={() => navigate('/')} />
       </div>
       <BandaRedes />
     </div>
@@ -223,6 +228,13 @@ function ModuloView({ user }) {
   const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
   const mostrarEntregables = curso && esCursoProblemasContemporaneos(curso)
   const mostrarJuegoS4 = mostrarEntregables && /sesi[oó]n\s*4/i.test(modulo.titulo || '')
+  // Como en la página del curso: el cambio vale para todos los cursos o
+  // solo para el de este módulo.
+  const deCurso = curso ? {
+    ambito: `curso:${curso.id}`,
+    etiquetaAmbito: { general: 'todos los cursos', unico: `solo «${curso.titulo}»` },
+    datos: { titulo: curso.titulo, modulo: modulo.titulo },
+  } : { datos: { modulo: modulo.titulo } }
 
   return (
     <div className="contenedor">
@@ -247,7 +259,7 @@ function ModuloView({ user }) {
       <div className="modulo-layout">
         <aside className="modulo-sidebar">
           <div className="side-bloque">
-            <h4>Módulos del curso</h4>
+            <TextoEditable as="h4" clave="modulo.lateral.modulos" defecto="Módulos del curso" />
             <ul className="side-lista">
               {modulosCurso.map((m, i) => (
                 <li key={m.id}>
@@ -260,7 +272,7 @@ function ModuloView({ user }) {
           </div>
           {recursos.length > 0 && (
             <div className="side-bloque">
-              <h4>En este módulo</h4>
+              <TextoEditable as="h4" clave="modulo.lateral.recursos" defecto="En este módulo" />
               <ul className="side-lista compacta">
                 {recursos.map((r) => (
                   <li key={r.id}>
@@ -275,19 +287,26 @@ function ModuloView({ user }) {
             </div>
           )}
           <div className="side-bloque contacto-bloque">
-            <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="contacto-foto" />
-            <h4 className="contacto-titulo">¿Dudas con el material?</h4>
-            <p className="contacto-nombre">Dr. Ernesto Cotonieto</p>
-            <p className="contacto-credencial">Cédula profesional 10521804</p>
-            <a className="button whatsapp ancho" href={wa('Hola, tengo una duda sobre el material del aula.')}
-               target="_blank" rel="noopener noreferrer">💬 Escríbeme</a>
-            <a className="button secondary ancho" href={`mailto:${CONTACTO_EMAIL}`}>✉️ Por correo</a>
+            {/* Foto y nombre: las mismas claves que el perfil de la portada. */}
+            <ImagenEditable clave="perfil.foto" defecto={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="contacto-foto" />
+            <TextoEditable as="h4" className="contacto-titulo" clave="modulo.contacto.titulo" {...deCurso}
+              defecto="¿Dudas con el material?" />
+            <TextoEditable as="p" className="contacto-nombre" clave="perfil.nombre" defecto={MARCA.nombre} />
+            <TextoEditable as="p" className="contacto-credencial" clave="modulo.contacto.credencial"
+              defecto="Cédula profesional 10521804" />
+            <BotonEditable clave="modulo.contacto.whatsapp" clase="button ancho" {...deCurso}
+              defecto={{ texto: '💬 Escríbeme', estilo: 'whatsapp', mensaje: 'Hola, tengo una duda sobre el material del aula.' }} />
+            <BotonEditable clave="modulo.contacto.correo" clase="button ancho" nuevaPestana={false}
+              defecto={{ texto: '✉️ Por correo', estilo: 'secondary', url: `mailto:${CONTACTO_EMAIL}` }} />
           </div>
           <div className="side-bloque atajos">
-            <h4>Atajos</h4>
-            <Link to="/" className="side-atajo">🏠 Inicio</Link>
-            {curso && <Link to={`/curso/${curso.id}`} className="side-atajo">📚 Todo el curso</Link>}
-            {user && <Link to="/perfil" className="side-atajo">👤 Mi perfil</Link>}
+            <TextoEditable as="h4" clave="modulo.atajos.titulo" defecto="Atajos" />
+            <BotonEditable clave="modulo.atajos.inicio" clase="side-atajo" defecto={{ texto: '🏠 Inicio' }} to="/" />
+            {curso && (
+              <BotonEditable clave="modulo.atajos.curso" clase="side-atajo" defecto={{ texto: '📚 Todo el curso' }}
+                to={`/curso/${curso.id}`} />
+            )}
+            {user && <BotonEditable clave="modulo.atajos.perfil" clase="side-atajo" defecto={{ texto: '👤 Mi perfil' }} to="/perfil" />}
           </div>
         </aside>
 
@@ -301,13 +320,13 @@ function ModuloView({ user }) {
             </h1>
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
             {user && recursos.length > 0 && (
-              <p className="modulo-avance">{vistos} de {recursos.length} recursos revisados</p>
+              <TextoEditable as="p" className="modulo-avance" clave="modulo.avance"
+                datos={{ vistos, total: recursos.length }} defecto="{vistos} de {total} recursos revisados" />
             )}
             {mostrarJuegoS4 && (
               <div className="modulo-botones-extra">
-                <a className="button primary" href="/juegos/juego-s4.html" target="_blank" rel="noopener noreferrer">
-                  🎮 Abrir juego de la sesión 4
-                </a>
+                <BotonEditable clave="modulo.juego-s4" clase="button" {...deCurso}
+                  defecto={{ texto: '🎮 Abrir juego de la sesión 4', estilo: 'primary', url: '/juegos/juego-s4.html' }} />
               </div>
             )}
             {(modulo.botones_extra || []).length > 0 && (
@@ -381,7 +400,10 @@ function ModuloView({ user }) {
                 esUltimo={i === recursos.length - 1}
               />
             ))}
-            {recursos.length === 0 && <p className="sutil">Este módulo aún no tiene recursos.</p>}
+            {recursos.length === 0 && (
+              <TextoEditable as="p" className="sutil" clave="modulo.sin-recursos" {...deCurso}
+                defecto="Este módulo aún no tiene recursos." />
+            )}
           </div>
           <ExamenModulo moduloId={modulo.id} user={user} gestiona={gestiona} etiquetaDestino={`el módulo "${modulo.titulo}"`} />
 
@@ -397,7 +419,8 @@ function ModuloView({ user }) {
               : <span />}
             {next && <button className="button primary" onClick={() => navigate(`/modulo/${next.id}`)}>{next.titulo} →</button>}
             {!next && user && mostrarConstancia &&
-              <Link to={`/constancia/${curso.id}`} className="button constancia-btn">Obtener constancia</Link>}
+              <BotonEditable clave="modulo.constancia" clase="button constancia-btn" {...deCurso}
+                defecto={{ texto: 'Obtener constancia' }} to={`/constancia/${curso.id}`} />}
           </nav>
         </main>
       </div>
