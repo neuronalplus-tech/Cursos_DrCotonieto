@@ -25,6 +25,7 @@ import {
 } from '../lib/gestion'
 import { Breadcrumb } from './ui'
 import MatrizPermisos from './MatrizPermisos'
+import IndicadoresGestion from './IndicadoresGestion'
 
 /**
  * Quién mira el Centro y qué puede. Lo usan la lista y la página de
@@ -108,7 +109,9 @@ const tipoDe = (c) => (esContenedorTalleres(c) ? 'contenedor' : esTallerIndividu
 
 export default function CentroGestion({ user }) {
   const g = useGestion(user)
-  const pestana = g.params.get('ver') === 'permisos' && g.esAdminOrg ? 'permisos' : 'cursos'
+  // Indicadores primero: al entrar, lo global; los cursos, a un clic.
+  const ver = g.params.get('ver')
+  const pestana = ver === 'permisos' && g.esAdminOrg ? 'permisos' : ver === 'cursos' ? 'cursos' : 'indicadores'
   const [cursos, setCursos] = useState([])
   const [resumen, setResumen] = useState({})
   const [cargando, setCargando] = useState(true)
@@ -158,7 +161,7 @@ export default function CentroGestion({ user }) {
 
   const cambiarPestana = (p) => {
     const n = new URLSearchParams(g.params)
-    if (p === 'permisos') n.set('ver', 'permisos'); else n.delete('ver')
+    if (p === 'indicadores') n.delete('ver'); else n.set('ver', p)
     g.setParams(n)
   }
   const n = SECCIONES_CURSO.filter((s) => g.secciones.has(s.clave)).length
@@ -179,16 +182,17 @@ export default function CentroGestion({ user }) {
 
       <BarraVerComo g={g} />
 
-      {g.esAdminOrg && (
-        <nav className="gestion-pestanas" aria-label="Vistas del Centro">
-          <button type="button" className={`admin-tab${pestana === 'cursos' ? ' activa' : ''}`}
-            aria-current={pestana === 'cursos' ? 'page' : undefined} onClick={() => cambiarPestana('cursos')}>📚 Cursos</button>
-          <button type="button" className={`admin-tab${pestana === 'permisos' ? ' activa' : ''}`}
-            aria-current={pestana === 'permisos' ? 'page' : undefined} onClick={() => cambiarPestana('permisos')}>🔑 Permisos por perfil</button>
-        </nav>
-      )}
+      <nav className="gestion-pestanas" aria-label="Vistas del Centro">
+        {[['indicadores', '📈 Indicadores'], ['cursos', '📚 Cursos'], ...(g.esAdminOrg ? [['permisos', '🔑 Permisos por perfil']] : [])]
+          .map(([clave, texto]) => (
+            <button key={clave} type="button" className={`admin-tab${pestana === clave ? ' activa' : ''}`}
+              aria-current={pestana === clave ? 'page' : undefined} onClick={() => cambiarPestana(clave)}>{texto}</button>
+          ))}
+      </nav>
 
-      {pestana === 'permisos' ? (
+      {pestana === 'indicadores' ? (
+        <IndicadoresGestion g={g} />
+      ) : pestana === 'permisos' ? (
         <MatrizPermisos orgId={g.orgId} rolesBD={g.rolesBD} onRecargar={g.recargarRoles}
           puedeEditar={g.esAdminOrg && !g.perfilComo}
           onVerComo={(clave) => { const p = new URLSearchParams(); p.set('como', clave); g.setParams(p) }} />
