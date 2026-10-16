@@ -98,6 +98,12 @@ async function main() {
     // El alumno es de la ruta del módulo 1; si no, el módulo es «privado».
     acceso: [{ usuario_id: 'u1', curso_id: 1, grupo: 'Acompañamiento' }],
     contenido_sitio: CAPAS,
+    // Un enlace cerrado: el alumno no debe ni verlo («si no hay, no se despliega»).
+    recursos: [
+      { id: 1, modulo_id: 1, titulo: 'Presentacion', descripcion: 'PDF.', tipo: 'pdf', archivo: 'caso.pdf', orden: 1, url: null },
+      { id: 2, modulo_id: 1, titulo: 'Video', descripcion: 'Video.', tipo: 'video', archivo: 'v.mp4', orden: 2, url: null },
+      { id: 3, modulo_id: 1, titulo: 'Enlace cerrado', descripcion: '', tipo: 'enlace', url: 'https://x.mx', orden: 3, disponible: false },
+    ],
     organizaciones: [],
   }
 
@@ -161,6 +167,26 @@ async function main() {
     comprobar('«Por correo» sigue siendo mailto y sin pestaña nueva',
       correo?.getAttribute('href')?.startsWith('mailto:') && !correo.getAttribute('target'))
     comprobar('Atajo «Todo el curso» lleva al curso', enlaceCon(c, 'Todo el curso')?.getAttribute('href') === '/curso/1')
+    const secciones = [...c.querySelectorAll('.material-seccion-titulo')].map(textoDe)
+    comprobar('Materiales agrupados por sección, en orden fijo',
+      secciones.length === 2 && secciones[0].includes('Materiales de lectura') && secciones[1].includes('Grabaciones y videos'), secciones.join(' | '))
+    comprobar('El recurso cerrado no se le enseña al alumno', !c.textContent.includes('Enlace cerrado'))
+    comprobar('Sin «Enlaces de interés» vacía', !c.textContent.includes('Enlaces de interés'))
+    comprobar('Cada recurso lleva el color de su formato', !!c.querySelector('.recurso-item.formato-pdf') && !!c.querySelector('.recurso-item.formato-video'))
+    await p.quitar()
+  }
+
+  console.log('\n2b. Foro: solo si tiene temas')
+  {
+    const alumno = { id: 'u1', email: 'a@b.mx' }
+    let p = await montar('/curso/1', '/curso/:id', h(CursoView, { user: alumno }))
+    comprobar('Con temas, el alumno ve el foro', p.caja.textContent.includes('Foro del curso'))
+    await p.quitar()
+    const antes = globalThis.__TABLAS__.foro_hilos
+    globalThis.__TABLAS__.foro_hilos = []
+    p = await montar('/curso/1', '/curso/:id', h(CursoView, { user: alumno }))
+    comprobar('Sin temas, el foro no aparece', !p.caja.textContent.includes('Foro del curso'))
+    if (antes === undefined) delete globalThis.__TABLAS__.foro_hilos; else globalThis.__TABLAS__.foro_hilos = antes
     await p.quitar()
   }
 
@@ -261,6 +287,87 @@ async function main() {
     const upd = escrituras().find((e) => e.tabla === 'cursos' && e.operacion === 'update')
     comprobar('Borra el enlace y el texto en la base', upd?.datos?.link_registro === null && upd?.datos?.registro_texto === null, JSON.stringify(upd?.datos))
     comprobar('El botón «Registro (oculto)» desaparece', !p.caja.textContent.includes('Registro'))
+    await p.quitar()
+  }
+
+  console.log('\n8. Centro de gestión')
+  {
+    const CentroGestion = (await import('../src/components/CentroGestion.jsx')).default
+    const GestionCurso = (await import('../src/components/GestionCurso.jsx')).default
+    const jefe = { id: 'jefe', email: 'jefe@b.mx' }
+
+    let p = await montar('/gestion', '/gestion', h(CentroGestion, { user: jefe }))
+    await act(async () => { await asentar(80) })
+    const tarjetas = p.caja.querySelectorAll('.gestion-tarjeta')
+    comprobar('Una tarjeta por curso', tarjetas.length === 2, String(tarjetas.length))
+    const t1 = [...tarjetas].find((t) => t.textContent.includes('curso completo'))
+    comprobar('La tarjeta cuenta módulos y materiales', t1?.textContent.includes('3 módulos') && t1?.textContent.includes('3 materiales'), t1?.textContent)
+    comprobar('«Ver como» con los cuatro perfiles', p.caja.querySelectorAll('.vercomo .linea-pill').length === 5)
+    const busca = p.caja.querySelector('.gestion-filtros input')
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(busca, 'normativo')
+      busca.dispatchEvent(new window.Event('input', { bubbles: true }))
+    })
+    comprobar('El buscador filtra las tarjetas', p.caja.querySelectorAll('.gestion-tarjeta').length === 1)
+    await p.quitar()
+
+    p = await montar('/gestion?ver=permisos', '/gestion', h(CentroGestion, { user: jefe }))
+    await act(async () => { await asentar(60) })
+    comprobar('Matriz de permisos con una fila por elemento', p.caja.querySelectorAll('.matriz-tabla tbody tr:not(.matriz-grupo)').length >= 20)
+    comprobar('Sitio principal: aviso de que los roles son por organización, sin casillas',
+      p.caja.textContent.includes('por organización') && !p.caja.querySelector('.matriz-tabla input[type="checkbox"]'))
+    await p.quitar()
+
+    p = await montar('/gestion/curso/1', '/gestion/curso/:id', h(GestionCurso, { user: jefe }))
+    await act(async () => { await asentar(60) })
+    const cabezas = [...p.caja.querySelectorAll('.gestion-seccion-cabeza')]
+    comprobar('Nueve tarjetas, todas abiertas para administración', cabezas.length === 9 && cabezas.every((b) => !b.disabled))
+    await p.pulsar(cabezas.find((b) => b.textContent.includes('Módulos y materiales')))
+    const filas = p.caja.querySelectorAll('.gestion-modulo')
+    comprobar('Lista los módulos del curso', filas.length === 3, String(filas.length))
+    await p.pulsar(filas[0].querySelector('.gestion-fila-titulo'))
+    const cats = [...p.caja.querySelectorAll('.gestion-cat')].map(textoDe)
+    comprobar('Dentro del módulo, materiales por sección (también el cerrado, para ti)',
+      cats.some((t) => t.includes('Materiales de lectura')) && cats.some((t) => t.includes('Enlaces de interés')), cats.join(' | '))
+    comprobar('El cerrado sale marcado «Oculto para alumnos»', p.caja.textContent.includes('Oculto para alumnos'))
+    const mapa = p.caja.querySelector('.gestion-mapa')
+    comprobar('Mapa de la página: foro con temas aparece como lleno', !!mapa && [...mapa.querySelectorAll('li.lleno')].some((li) => li.textContent.includes('Foro')))
+    await p.quitar()
+
+    p = await montar('/gestion/curso/1?como=coordinacion', '/gestion/curso/:id', h(GestionCurso, { user: jefe }))
+    await act(async () => { await asentar(60) })
+    const sec = (t) => [...p.caja.querySelectorAll('.gestion-seccion')].find((x) => x.textContent.includes(t))
+    comprobar('Ver como Coordinación: Módulos con candado y la razón',
+      sec('Módulos y materiales')?.classList.contains('bloqueada') && sec('Módulos y materiales').textContent.includes('Coordinación no puede editar esto'))
+    comprobar('Ver como Coordinación: Generaciones abierta', !sec('Generaciones')?.classList.contains('bloqueada'))
+    comprobar('Ver como: aviso de vista previa', p.caja.querySelector('.vercomo.activa')?.textContent.includes('Vista previa como Coordinación'))
+    await p.quitar()
+  }
+
+  console.log('\n9. Matriz con los roles de una organización')
+  {
+    const MatrizPermisos = (await import('../src/components/MatrizPermisos.jsx')).default
+    const { limpiarEscritas, escrituras } = await import('./fake-supabase.js')
+    limpiarEscritas()
+    let avisos = 0
+    window.confirm = (t) => { avisos++; globalThis.__ULTIMO_AVISO__ = t; return true }
+    const rolesBD = { estado: 'ok', roles: [{ id: 1, nombre: 'Docente', permisos: ['cursos.ver'] }] }
+    let recargas = 0
+    const p = await montar('/', '/', h(MatrizPermisos, {
+      orgId: 7, rolesBD, puedeEditar: true, onRecargar: async () => { recargas++ }, onVerComo: () => {},
+    }))
+    const casillas = p.caja.querySelectorAll('input[type="checkbox"]')
+    comprobar('Solo el rol que existe tiene casillas', casillas.length > 0 &&
+      [...casillas].every((c) => c.getAttribute('aria-label').startsWith('Docente:')))
+    comprobar('Ofrece crear los roles que faltan', p.caja.textContent.includes('Crear los tres roles básicos'))
+    comprobar('Los textos del sitio no tienen casilla (solo quien administra)',
+      ![...casillas].some((c) => c.getAttribute('aria-label').includes('Textos, botones')))
+    await p.pulsar([...casillas].find((c) => c.getAttribute('aria-label') === 'Docente: Abrir, cerrar y calificar temas del foro'))
+    const ins = escrituras().find((e) => e.tabla === 'rol_permisos' && e.operacion === 'insert')
+    comprobar('Marcar da el permiso al rol en la base', ins?.datos?.rol_id === 1 && ins?.datos?.permiso === 'foro.moderar', JSON.stringify(ins?.datos))
+    comprobar('… y recarga la matriz', recargas === 1)
+    await p.pulsar([...casillas].find((c) => c.getAttribute('aria-label') === 'Docente: Materiales: lecturas, grabaciones, actividades…'))
+    comprobar('Avisa de lo demás que abre el mismo permiso', /Crear, ordenar, abrir y cerrar módulos/.test(globalThis.__ULTIMO_AVISO__ || ''))
     await p.quitar()
   }
 

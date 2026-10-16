@@ -17,6 +17,8 @@ import './App.css'
    Rutas públicas y de uso diario quedan eager; el resto va lazy con
    Suspense para no cambiar la navegación. */
 const Admin = lazy(() => import('./components/Admin'))
+const CentroGestion = lazy(() => import('./components/CentroGestion'))
+const GestionCurso = lazy(() => import('./components/GestionCurso'))
 const Perfil = lazy(() => import('./components/Perfil'))
 const MisCalificaciones = lazy(() => import('./components/MisCalificaciones'))
 const MisCursos = lazy(() => import('./components/MisCursos'))
@@ -110,6 +112,8 @@ function App() {
               <Route path="/mis-calificaciones" element={<MisCalificaciones user={user} />} />
               <Route path="/calendario" element={<Calendario user={user} />} />
               <Route path="/admin" element={<Admin user={user} />} />
+              <Route path="/gestion" element={<CentroGestion user={user} />} />
+              <Route path="/gestion/curso/:id" element={<GestionCurso user={user} />} />
               <Route path="/curso/:id" element={<CursoView user={user} />} />
               <Route path="/curso/:id/detalles" element={<CursoDetalle user={user} />} />
               <Route path="/modulo/:id" element={<ModuloView user={user} />} />

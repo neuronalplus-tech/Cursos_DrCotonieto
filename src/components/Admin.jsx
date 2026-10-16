@@ -1899,6 +1899,10 @@ function Admin({ user }) {
     <section className="contenedor">
       <Breadcrumb items={[{ label: 'Inicio', to: '/' }, { label: 'Panel de administración' }]} />
       <h1>Panel de administración</h1>
+      <Link to="/gestion" className="gestion-aviso">
+        <strong>✨ Centro de gestión</strong>
+        <span>Todo lo de cada curso en un solo lugar —módulos, materiales, botones, exámenes, tareas y foro— y los permisos de cada perfil. →</span>
+      </Link>
 
       {/* Trece pestañas en una sola fila obligaban a desplazarse de lado
           hasta en computadora, y en un teléfono eran impracticables.

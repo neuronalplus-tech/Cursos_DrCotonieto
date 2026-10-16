@@ -52,6 +52,8 @@ function CursoView({ user }) {
   // sin ruta asignada tiene miGrupo === null y se le ocultaba el foro.
   const [tieneAcceso, setTieneAcceso] = useState(false)
   const [progreso, setProgreso] = useState(0)
+  // Temas del foro: sin temas, el alumno no ve el bloque (estructura.js).
+  const [temasForo, setTemasForo] = useState(0)
   const [estado, setEstado] = useState('cargando')
   const [error, setError] = useState(null)
 
@@ -96,6 +98,12 @@ function CursoView({ user }) {
 
         const visibles = (mods || []).filter(m => gestiona || !m.oculto || !!user)
         setModulos(visibles)
+
+        if (gestiona || acceso) {
+          const { count } = await supabase.from('foro_hilos')
+            .select('id', { count: 'exact', head: true }).eq('curso_id', id)
+          setTemasForo(count || 0)
+        }
 
         if (user && visibles.length) {
           const modsConAcceso = visibles.filter(m => {
@@ -618,13 +626,20 @@ function CursoView({ user }) {
       {/* Foro del curso: solo quien tiene acceso al curso (o el admin).
           El RLS es lo que de verdad protege los datos; ocultar la puerta
           de entrada evita el susto de entrar y no ver nada. */}
-      {(gestiona || (user && tieneAcceso)) && (
+      {/* Sección fija «Foro»: el alumno la ve solo si hay al menos un
+          tema; quien gestiona la ve siempre, avisada de que está vacía. */}
+      {(gestiona || (user && tieneAcceso && temasForo > 0)) && (
         <section className="foro-acceso">
           <div>
             <TextoEditable as="h2" className="titulo-seccion" style={{ marginBottom: 4 }}
               clave="curso-pagina.foro.titulo" {...deCurso} defecto="Foro del curso" />
             <TextoEditable as="p" className="nota" style={{ margin: 0 }}
               clave="curso-pagina.foro.texto" {...deCurso} defecto="Dudas, comentarios y conversación con el resto del grupo." />
+            {gestiona && temasForo === 0 && (
+              <p className="nota" style={{ margin: '6px 0 0' }}>
+                Sin temas todavía: los alumnos no ven este bloque hasta que abras el primero.
+              </p>
+            )}
           </div>
           <BotonEditable clave="curso-pagina.foro.boton" clase="button" {...deCurso}
             defecto={{ texto: '💬 Entrar al foro', estilo: 'secondary' }} to={`/foro/${curso.id}`} />

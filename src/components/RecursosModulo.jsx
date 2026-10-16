@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { analizarUrl } from '../lib/helpers'
+import { CATEGORIAS_MATERIAL, categoriaDe, claseFormato } from '../lib/estructura'
 import { BUCKET_TALLERES, ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES, ICONO_TIPO, NOMBRE_TIPO } from '../config'
 import { ModalPortal, Breadcrumb, VideoPlayer, EmbedFrame, EditorBotonesExtra } from './ui'
 import { enviarCorreo, obtenerEmailsInscritos, notificarInscritos } from '../lib/correo'
@@ -147,6 +148,9 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
     archivo:     recurso?.archivo     || '',
     contenido:   recurso?.contenido   || '',
     orden:       recurso?.orden       ?? 100,
+    // '' = la de su formato (estructura.js). Solo se envía si cambia: así
+    // un recurso se sigue guardando aunque falte ESTRUCTURA_1_CATEGORIAS.
+    categoria:   recurso?.categoria_material || '',
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
@@ -170,6 +174,9 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
         archivo:     form.archivo.trim() || null,
         contenido:   form.contenido.trim() || null,
         orden:       parseInt(form.orden, 10) || 100,
+      }
+      if (form.categoria !== (recurso?.categoria_material || '')) {
+        payload.categoria_material = form.categoria || null
       }
       if (esNuevo) {
         const { data, error } = await supabase.from('recursos').insert(payload).select().single()
@@ -198,7 +205,9 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
       }
       onClose()
     } catch (e) {
-      setMsg('Error: ' + e.message)
+      setMsg(/categoria_material/.test(e.message || '')
+        ? 'Error: para elegir la sección falta correr supabase/ESTRUCTURA_1_CATEGORIAS.sql en Supabase → SQL Editor. Deja la sección en «la de su formato» y se guarda sin problema.'
+        : 'Error: ' + e.message)
     } finally {
       setGuardando(false)
     }
@@ -232,6 +241,14 @@ export function ModalEditarRecurso({ recurso, moduloId, curso, modulo, onClose, 
           <option value="word">📝 Word / Descargable</option>
           <option value="enlace">🔗 Enlace</option>
           <option value="autoevaluacion">✍️ Autoevaluación</option>
+        </select>
+
+        <label>Sección de la página</label>
+        <select value={form.categoria} onChange={e => set('categoria', e.target.value)}>
+          <option value="">
+            La de su formato ({CATEGORIAS_MATERIAL.find(c => c.clave === categoriaDe({ tipo: form.tipo }))?.nombre})
+          </option>
+          {CATEGORIAS_MATERIAL.map(c => <option key={c.clave} value={c.clave}>{c.icono} {c.nombre}</option>)}
         </select>
 
         <label>Título</label>
@@ -655,7 +672,7 @@ export function RecursoCard({ recurso, bucket, user, visto, onMarcarVisto, gesti
   }
 
   return (
-    <article className="recurso-item" id={`r-${recurso.id}`}>
+    <article className={`recurso-item ${claseFormato(recurso.tipo)}`} id={`r-${recurso.id}`}>
       <div className="recurso-cabecera">
         <div className="recurso-titulo">
           <span className="recurso-icono" aria-hidden="true">{ICONO_TIPO[recurso.tipo] || '📌'}</span>
