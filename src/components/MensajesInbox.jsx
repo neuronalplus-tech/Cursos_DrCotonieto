@@ -24,7 +24,7 @@ export default function MensajesInbox({ user, esAdmin }) {
   // El admin ve a todos; el facilitador, a los inscritos de los cursos
   // que gestiona. Ambos necesitan poder iniciar una conversacion.
   const { esFacilitador, cursosGestionados } = usePermisos(user)
-  const { cargado: orgCargada, organizacion } = useOrganizacion()
+  const { organizacion } = useOrganizacion()
   const [conversaciones, setConversaciones] = useState([])
   const [chatCon, setChatCon] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -143,14 +143,20 @@ export default function MensajesInbox({ user, esAdmin }) {
       }
 
       setCargandoContactos(true)
+      // La vista NO tiene columna organizacion_id (filtrar por ella rompe
+      // la consulta). Se acota igual que en Admin.jsx: por los cursos de
+      // la organización, en memoria. Si la org aún no resolvió, sin filtro.
+      const { data: misCursos } = organizacion?.id
+        ? await supabase.from('cursos').select('id').eq('organizacion_id', organizacion.id)
+        : { data: null }
+      const idsCurso = misCursos ? new Set(misCursos.map(c => c.id)) : null
       const { data, error } = await supabase
         .from('vista_admin_inscripciones')
-        .select('usuario_id, email, nombre_completo, curso, curso_id, organizacion_id')
-        .eq('organizacion_id', organizacion?.id)
+        .select('usuario_id, email, nombre_completo, curso, curso_id')
       if (error) { setError(error.message); setCargandoContactos(false); return }
 
       const mapa = {}
-      ;(data || []).forEach(f => {
+      ;(data || []).filter(f => !idsCurso || idsCurso.has(f.curso_id)).forEach(f => {
         if (!f.usuario_id) return
         if (!mapa[f.usuario_id]) {
           mapa[f.usuario_id] = {
@@ -167,7 +173,7 @@ export default function MensajesInbox({ user, esAdmin }) {
       setCargandoContactos(false)
     }
     load()
-  }, [esAdmin, esFacilitador, cursosGestionados, user, vistaSidebar])
+  }, [esAdmin, esFacilitador, cursosGestionados, user, vistaSidebar, organizacion?.id])
 
   useEffect(() => {
     if (!user || !chatCon || modoEnvioMultiple) return

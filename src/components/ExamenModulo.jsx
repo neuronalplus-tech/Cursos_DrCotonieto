@@ -36,7 +36,11 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
       const valor = moduloId ?? cursoId
       // La prórroga propia: RLS solo devuelve las de quien pregunta,
       // así que no hace falta filtrar por usuario aquí.
-      let consulta = supabase.from('examenes').select('id, titulo, descripcion, preguntas, aleatorio_n, mezclar_opciones, activo, max_intentos, umbral_aprobacion, curso_id, modulo_id, limite_minutos').eq(columna, valor)
+      // `*` a propósito: una lista explícita omitía fecha_limite y
+      // cierra_al_vencer (el examen quedaba abierto para siempre) y pedía
+      // limite_minutos, que si falta tumba la consulta. Recortar columnas
+      // no cierra B5: `preguntas` lleva las respuestas igual.
+      let consulta = supabase.from('examenes').select('*').eq(columna, valor)
       if (!gestiona) consulta = consulta.eq('activo', true)
       const { data: ex } = await consulta.maybeSingle()
       setExamen(ex)

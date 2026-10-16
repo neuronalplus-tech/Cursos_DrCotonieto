@@ -7,7 +7,6 @@ import {
 } from '../lib/helpers'
 import { rutaAcceso, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
-import { useOrganizacion } from '../lib/organizacion'
 import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
 import AdminTareas from './AdminTareas'
@@ -29,7 +28,6 @@ function CursoView({ user }) {
   // El id viene de la URL, asi que el permiso esta resuelto desde el
   // primer render, sin esperar a que cargue el curso.
   const gestiona = usePermisos(user).puedeGestionar(id)
-  const { cargado: orgCargada, organizacion } = useOrganizacion()
   const [examenesAbierto, setExamenesAbierto] = useState(false)
   const [progresoAbierto, setProgresoAbierto] = useState(false)
   const [tareasAbierto, setTareasAbierto] = useState(false)
@@ -272,10 +270,11 @@ function CursoView({ user }) {
   const notificarModuloAbierto = async (m) => {
     try {
       setNotificando(m.id)
+      // Basta con el curso: un curso pertenece a una sola organización.
+      // (La vista NO tiene columna organizacion_id; pedirla rompe la consulta.)
       const { data: todas, error: errA } = await supabase
         .from('vista_admin_inscripciones')
-        .select('email, nombre_completo, curso, curso_id, usuario_id, organizacion_id')
-        .eq('organizacion_id', organizacion?.id)
+        .select('email, nombre_completo, curso, curso_id, usuario_id')
         .eq('curso_id', curso.id)
       if (errA) throw errA
 

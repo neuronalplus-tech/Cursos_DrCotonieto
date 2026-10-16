@@ -344,12 +344,11 @@ function Admin({ user }) {
       ? await supabase.from('cursos').select('id').eq('organizacion_id', organizacion.id)
       : { data: null }
     const idsCurso = misCursos ? new Set(misCursos.map(c => c.id)) : null
-    // La vista es de toda la plataforma: se acota en la consulta a esta
-    // organización (RLS + filtro) y además a sus cursos en memoria.
-    let consulta = supabase.from('vista_admin_inscripciones')
+    // La vista NO tiene columna organizacion_id: filtrar por ella tumba el
+    // panel entero («column … does not exist»). Se acota a los cursos de la
+    // organización, en memoria, justo abajo.
+    const { data, error } = await supabase.from('vista_admin_inscripciones')
       .select('*').order('inscrito_el', { ascending: false })
-    if (organizacion?.id) consulta = consulta.eq('organizacion_id', organizacion.id)
-    const { data, error } = await consulta
     if (error) { setError(error.message); return }
     setFilas(idsCurso ? (data || []).filter(f => idsCurso.has(f.curso_id)) : (data || []))
   }
