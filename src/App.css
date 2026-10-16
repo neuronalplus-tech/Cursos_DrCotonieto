@@ -4049,3 +4049,54 @@ a { color: var(--primary); }
   .gestion-materiales { padding-left: 14px; }
 }
 .detalle-secciones { display: grid; gap: 16px; margin: 8px 0 24px; }
+
+/* ============================================================
+   INDICADORES (IndicadoresGestion.jsx)
+   El semáforo no depende solo del color: la meta va escrita y la
+   barra lateral cambia de grosor, para quien no distingue colores.
+   ============================================================ */
+:root {
+  --kpi-verde: #1F6B3B;
+  --kpi-ambar: #B7791F;
+  --kpi-rojo: #B5473A;
+}
+.indicadores-barra { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.indicadores-barra .input { max-width: 220px; }
+.kpi-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); margin-bottom: 18px; }
+.kpi-grid.destacados { grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); }
+.kpi {
+  background: var(--blanco); border: 1px solid var(--borde); border-left: 4px solid var(--borde);
+  border-radius: var(--radio); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+}
+.kpi.kpi-verde { border-left-color: var(--kpi-verde); }
+.kpi.kpi-ambar { border-left: 6px solid var(--kpi-ambar); }
+.kpi.kpi-rojo { border-left: 8px solid var(--kpi-rojo); }
+.kpi-nombre { margin: 0; font-size: 13.5px; color: var(--gris); font-weight: 600; }
+.kpi-ayuda { cursor: help; color: var(--primary); }
+.kpi-valor { margin: 0; font-size: 26px; font-weight: 700; color: var(--primary); line-height: 1.15; }
+.kpi.grande .kpi-valor { font-size: 34px; }
+.kpi-unidad { font-size: 14px; font-weight: 500; color: var(--gris); }
+.kpi-meta { margin: 0; font-size: 12.5px; color: var(--gris); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.kpi-meta .button.texto { padding: 0; font-size: 12.5px; }
+.kpi-verde .kpi-meta { color: var(--kpi-verde); }
+.kpi-ambar .kpi-meta { color: var(--kpi-ambar); }
+.kpi-rojo .kpi-meta { color: var(--kpi-rojo); font-weight: 600; }
+.kpi-todos { margin: 0 0 22px; }
+.kpi-todos summary { cursor: pointer; font-weight: 700; color: var(--primary); margin-bottom: 10px; }
+.kpi-todos h3 { font-size: 15px; margin: 12px 0 8px; }
+.kpi-tabla th .button.texto { padding: 0; font-weight: 700; color: inherit; }
+.kpi-tabla td.kpi-alerta { color: var(--kpi-rojo); font-weight: 700; }
+.kpi-tabla td.kpi-celda-verde { color: var(--kpi-verde); }
+.kpi-tabla td.kpi-celda-ambar { color: var(--kpi-ambar); font-weight: 600; }
+.kpi-tabla td.kpi-celda-rojo { color: var(--kpi-rojo); font-weight: 700; }
+.kpi-tabla tbody th a { color: var(--primary); }
+.kpi-externos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
+.kpi-externos section { background: var(--blanco); border: 1px solid var(--borde); border-radius: var(--radio); padding: 14px 16px; }
+.kpi-externos h3 { margin: 0 0 8px; font-size: 16px; }
+.kpi-externos ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kpi-externos li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.kpi-externos li .nota { grid-column: 1 / -1; margin: 0; font-size: 12px; }
+@media (max-width: 600px) {
+  .kpi-grid, .kpi-grid.destacados { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-valor, .kpi.grande .kpi-valor { font-size: 22px; }
+}

@@ -350,7 +350,8 @@ async function main() {
     const GestionCurso = (await import('../src/components/GestionCurso.jsx')).default
     const jefe = { id: 'jefe', email: 'jefe@b.mx' }
 
-    let p = await montar('/gestion', '/gestion', h(CentroGestion, { user: jefe }))
+    // La lista de cursos es ahora la segunda pestaña (la primera son los indicadores).
+    let p = await montar('/gestion?ver=cursos', '/gestion', h(CentroGestion, { user: jefe }))
     await act(async () => { await asentar(80) })
     const tarjetas = p.caja.querySelectorAll('.gestion-tarjeta')
     comprobar('Una tarjeta por curso', tarjetas.length === 3, String(tarjetas.length))
@@ -465,6 +466,64 @@ async function main() {
     comprobar('… con el correo en minúsculas', ins?.datos?.[0]?.email === 'nueva@docente.mx', JSON.stringify(ins?.datos))
     comprobar('Mensaje de éxito', /queda como facilitador/.test(p.caja.textContent), p.caja.querySelector('.nuevo-usuario-form .aviso-error, .nuevo-usuario-form .aviso-ok')?.textContent)
     await p.quitar()
+  }
+
+  console.log('\n11. Indicadores en el Centro')
+  {
+    const CentroGestion = (await import('../src/components/CentroGestion.jsx')).default
+    const jefe = { id: 'jefe', email: 'jefe@b.mx' }
+    const fila = (o) => ({
+      alumnos: 0, nuevos: 0, activos_7: 0, activos_periodo: 0, avance_medio: null, terminados: 0, en_riesgo: 0,
+      por_calificar: 0, calificadas: 0, horas_calificar: null, calificadas_7d: 0, intentos: 0, aprobados: 0,
+      asistencias: 0, presentes: 0, temas_foro: 0, respuestas_periodo: 0, constancias: 0, interesados: 0,
+      ultima_actividad: null, ...o,
+    })
+    globalThis.__RPC__ = {
+      kpi_cursos: [
+        fila({ curso_id: 1, titulo: 'Curso A', alumnos: 10, activos_periodo: 5, avance_medio: 80, por_calificar: 1, calificadas: 4, horas_calificar: 10 }),
+        fila({ curso_id: 5, titulo: 'Curso B', alumnos: 30, activos_periodo: 15, avance_medio: 40, por_calificar: 6, en_riesgo: 4, calificadas: 1, horas_calificar: 100 }),
+      ],
+      kpi_personas: [
+        { email: 'doc@x.mx', nombre: 'Docente Uno', cursos: 2, calificadas: 5, horas_calificar: 28, por_calificar: 7, respuestas_foro: 3, asistencias: 0, ultima_actividad: null },
+      ],
+    }
+    let p = await montar('/gestion', '/gestion', h(CentroGestion, { user: jefe }))
+    await act(async () => { await asentar(80) })
+    let c = p.caja
+    comprobar('Al entrar, la primera pestaña son los indicadores', c.querySelector('.gestion-pestanas .activa')?.textContent.includes('Indicadores'))
+    comprobar('Dice cuántos cursos tiene a su cargo', /2\s*curso\(s\) a tu cargo/.test(c.textContent))
+    const destacados = [...c.querySelectorAll('.kpi-grid.destacados .kpi')]
+    comprobar('Destacados de Dirección (incluye inscritos y finalización)',
+      destacados.some((k) => k.textContent.includes('Inscritos')) && destacados.some((k) => k.textContent.includes('finalización')))
+    const avance = destacados.find((k) => k.textContent.includes('Avance medio'))
+    comprobar('Avance global ponderado: 50%', avance?.querySelector('.kpi-valor')?.textContent === '50%', avance?.textContent)
+    comprobar('Avance bajo la meta de 60%: semáforo ámbar', avance?.classList.contains('kpi-ambar'))
+    const filasTabla = [...c.querySelectorAll('.kpi-tabla tbody tr')]
+    comprobar('Tabla por curso, de mayor a menor pendiente', filasTabla[0]?.textContent.includes('Curso B'), filasTabla[0]?.textContent)
+    comprobar('Cada curso lleva a su gestión', !!c.querySelector('.kpi-tabla a[href="/gestion/curso/5"]'))
+    comprobar('Tabla del equipo con tiempo para calificar', c.textContent.includes('Docente Uno') && c.textContent.includes('28 h'))
+    comprobar('Sin datos externos explica cómo conectarlos', c.textContent.includes('indicadores_externos'))
+    const th = [...c.querySelectorAll('.kpi-tabla th button')].find((b) => b.textContent.startsWith('Alumnos'))
+    await p.pulsar(th)
+    comprobar('Ordenar por una columna', [...c.querySelectorAll('.kpi-tabla tbody tr')][0]?.textContent.includes('Curso B'))
+    await p.pulsar(th)
+    comprobar('… y al revés', [...c.querySelectorAll('.kpi-tabla tbody tr')][0]?.textContent.includes('Curso A'))
+    await p.quitar()
+
+    p = await montar('/gestion?como=docente', '/gestion', h(CentroGestion, { user: jefe }))
+    await act(async () => { await asentar(80) })
+    c = p.caja
+    const dest = [...c.querySelectorAll('.kpi-grid.destacados .kpi')].map((k) => k.querySelector('.kpi-nombre')?.textContent || '')
+    comprobar('Ver como Docente: arriba lo que tiene por calificar', dest.some((t) => t.includes('Entregas por calificar')))
+    comprobar('Ver como Docente: «Tu desempeño» en vez de «Equipo»', c.textContent.includes('Tu desempeño'))
+    await p.quitar()
+
+    globalThis.__RPC__ = { kpi_cursos: { error: { code: 'PGRST202', message: 'Could not find the function public.kpi_cursos' } } }
+    p = await montar('/gestion', '/gestion', h(CentroGestion, { user: jefe }))
+    await act(async () => { await asentar(60) })
+    comprobar('Sin el SQL, dice qué script correr', p.caja.textContent.includes('INDICADORES_1_KPI.sql'))
+    await p.quitar()
+    delete globalThis.__RPC__
   }
 
   comprobar('Sin promesas rechazadas', rechazos.length === 0, rechazos.join(' | '))

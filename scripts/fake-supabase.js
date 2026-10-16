@@ -296,7 +296,13 @@ export const supabase = {
     },
   },
 
-  rpc: async () => ({ data: [], error: null }),
+  // __RPC__ deja a una prueba decir qué contesta una función:
+  // { nombre: datos } o { nombre: { error: {...} } }.
+  rpc: async (nombre) => {
+    const r = globalThis.__RPC__?.[nombre]
+    if (r && r.error) return { data: null, error: r.error }
+    return { data: r ?? [], error: null }
+  },
 
   // Reutiliza el canal con el mismo tema, igual que supabase-js.
   channel: (tema) => {

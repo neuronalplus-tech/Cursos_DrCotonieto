@@ -11,6 +11,7 @@ import {
   permite, permisosDePerfil, estadoCurso, estadoModulo, ANATOMIA,
 } from '../src/lib/estructura'
 import { filasFacilitadorNuevas } from '../src/lib/roles'
+import { KPIS, sumar, semaforo, destacadosDe, formato } from '../src/lib/indicadores'
 import {
   SECCIONES_CURSO, elementosDeSeccion, contextoReal, contextoSimulado, seccionesPermitidas, llenadoPagina, contarPorCurso,
 } from '../src/lib/gestion'
@@ -93,6 +94,24 @@ const nuevasF = filasFacilitadorNuevas(
   [{ email: 'ANA@x.mx', curso_id: 2 }])
 check('Solo inserta lo que falta, sin repetir y con el correo en minúsculas',
   JSON.stringify(nuevasF) === JSON.stringify([{ email: 'ana@x.mx', curso_id: 1 }, { email: 'beto@x.mx', curso_id: 1 }]), JSON.stringify(nuevasF))
+
+console.log('\n=== INDICADORES ===')
+const tk = sumar([
+  { alumnos: 10, activos_periodo: 5, avance_medio: 80, terminados: 2, calificadas: 4, horas_calificar: 10, intentos: 4, aprobados: 3, asistencias: 0, presentes: 0, por_calificar: 1 },
+  { alumnos: 30, activos_periodo: 15, avance_medio: 40, terminados: 0, calificadas: 1, horas_calificar: 100, intentos: 0, aprobados: 0, asistencias: 10, presentes: 9, por_calificar: 0 },
+])
+const kpi = (c) => KPIS.find((k) => k.clave === c)
+check('Avance ponderado por alumnos (no promedio de promedios)', kpi('avance').calcular(tk) === 50, String(kpi('avance').calcular(tk)))
+check('Horas para calificar ponderadas por entregas', kpi('horas_calificar').calcular(tk) === 28, String(kpi('horas_calificar').calcular(tk)))
+check('Tasas desde conteos (aprobación 75%, asistencia 90%)', kpi('aprobacion').calcular(tk) === 75 && kpi('asistencia').calcular(tk) === 90)
+check('Sin datos no hay tasa (no un falso 0%)', kpi('aprobacion').calcular(sumar([{ intentos: 0 }])) === null)
+check('Semáforo «más es mejor»', semaforo(kpi('avance'), 60, 60) === 'verde' && semaforo(kpi('avance'), 50, 60) === 'ambar' && semaforo(kpi('avance'), 20, 60) === 'rojo')
+check('Semáforo «menos es mejor» con meta 0', semaforo(kpi('por_calificar'), 0) === 'verde' && semaforo(kpi('por_calificar'), 2) === 'ambar' && semaforo(kpi('por_calificar'), 9) === 'rojo')
+check('Sin meta no hay semáforo', semaforo(kpi('activos7'), 5) === null)
+check('Cada perfil tiene sus destacados', ['direccion', 'coordinacion', 'docente'].every((p) => destacadosDe(p).length >= 3))
+check('Al docente se le destaca lo que tiene por calificar', destacadosDe('docente').some((k) => k.clave === 'por_calificar'))
+check('Horas largas se leen en días', formato(72, 'h') === '3 días' && formato(5, 'h') === '5 h' && formato(null, '%') === '—')
+check('Todo indicador explica cómo se calcula', KPIS.every((k) => k.como && k.calcular))
 
 console.log('\n=== ESTADOS Y PÁGINA ===')
 check('Curso archivado', estadoCurso({ activo: false, proximamente: true }) === 'archivado')
