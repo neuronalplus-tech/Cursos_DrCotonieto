@@ -1,0 +1,19 @@
+{
+  "name": "Dr. Ernesto Cotonieto · Aula virtual",
+  "short_name": "Aula Cotonieto",
+  "description": "Cursos, talleres y constancias del Dr. Ernesto Cotonieto.",
+  "lang": "es-MX",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FAFAF8",
+  "theme_color": "#1B3A4B",
+  "icons": [
+    {
+      "src": "/logo_terracota_1024.png",
+      "sizes": "192x192 512x512 1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
