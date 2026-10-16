@@ -36,7 +36,7 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
       const valor = moduloId ?? cursoId
       // La prórroga propia: RLS solo devuelve las de quien pregunta,
       // así que no hace falta filtrar por usuario aquí.
-      let consulta = supabase.from('examenes').select('*').eq(columna, valor)
+      let consulta = supabase.from('examenes').select('id, titulo, descripcion, preguntas, aleatorio_n, mezclar_opciones, activo, max_intentos, umbral_aprobacion, curso_id, modulo_id, limite_minutos').eq(columna, valor)
       if (!gestiona) consulta = consulta.eq('activo', true)
       const { data: ex } = await consulta.maybeSingle()
       setExamen(ex)
@@ -339,7 +339,7 @@ export default function ExamenModulo({ moduloId, cursoId, user, gestiona = false
       ) : plazo.abierto ? (
         <>
           <ol className="examen-preguntas">
-            {(juego || examen.preguntas || []).map((p) => {
+            {(juego || (examen?.preguntas || []).map(limpiarPregunta) || []).map((p) => {
               const tipo = tipoDe(p)
               return (
               <li key={p.id}>

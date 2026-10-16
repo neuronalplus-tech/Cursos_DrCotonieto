@@ -7,6 +7,7 @@ import {
 } from '../lib/helpers'
 import { rutaAcceso, wa } from '../config'
 import { usePermisos } from '../lib/permisos'
+import { useOrganizacion } from '../lib/organizacion'
 import AdminExamenes from './AdminExamenes'
 import PanelProgreso from './PanelProgreso'
 import AdminTareas from './AdminTareas'
@@ -28,6 +29,7 @@ function CursoView({ user }) {
   // El id viene de la URL, asi que el permiso esta resuelto desde el
   // primer render, sin esperar a que cargue el curso.
   const gestiona = usePermisos(user).puedeGestionar(id)
+  const { cargado: orgCargada, organizacion } = useOrganizacion()
   const [examenesAbierto, setExamenesAbierto] = useState(false)
   const [progresoAbierto, setProgresoAbierto] = useState(false)
   const [tareasAbierto, setTareasAbierto] = useState(false)
@@ -272,7 +274,9 @@ function CursoView({ user }) {
       setNotificando(m.id)
       const { data: todas, error: errA } = await supabase
         .from('vista_admin_inscripciones')
-        .select('email, nombre_completo, curso_id, usuario_id')
+        .select('email, nombre_completo, curso, curso_id, usuario_id, organizacion_id')
+        .eq('organizacion_id', organizacion?.id)
+        .eq('curso_id', curso.id)
       if (errA) throw errA
 
       // Se empareja por `curso_id`, no por el título: dos cursos con el

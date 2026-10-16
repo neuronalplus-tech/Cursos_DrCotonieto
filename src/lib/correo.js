@@ -35,7 +35,9 @@ const TIMEOUT_MS = 20000
 export async function obtenerEmailsInscritos(cursoId) {
   if (!cursoId) return []
   const { data, error } = await supabase
-    .from('vista_admin_inscripciones').select('email, curso_id')
+    .from('vista_admin_inscripciones')
+    .select('email, curso_id')
+    .eq('curso_id', cursoId)
   if (error) throw error
   const delCurso = (data || []).filter(f => String(f.curso_id) === String(cursoId))
   return [...new Set(delCurso.map(f => (f.email || '').trim().toLowerCase()).filter(Boolean))]

@@ -5,6 +5,7 @@ import { Breadcrumb, BandaRedes, ModalPortal, EmbedFrame } from './ui'
 import { rutaAcceso, FOTO_PERFIL, CHAT_ADJUNTOS_BUCKET } from '../config'
 import { firmarAdjunto } from '../lib/adjuntos'
 import { usePermisos } from '../lib/permisos'
+import { useOrganizacion } from '../lib/organizacion'
 
 /* ============================================================
    MENSAJES - bandeja (Supabase Realtime) + pagina completa
@@ -23,6 +24,7 @@ export default function MensajesInbox({ user, esAdmin }) {
   // El admin ve a todos; el facilitador, a los inscritos de los cursos
   // que gestiona. Ambos necesitan poder iniciar una conversacion.
   const { esFacilitador, cursosGestionados } = usePermisos(user)
+  const { cargado: orgCargada, organizacion } = useOrganizacion()
   const [conversaciones, setConversaciones] = useState([])
   const [chatCon, setChatCon] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -143,7 +145,8 @@ export default function MensajesInbox({ user, esAdmin }) {
       setCargandoContactos(true)
       const { data, error } = await supabase
         .from('vista_admin_inscripciones')
-        .select('usuario_id, email, nombre_completo, curso, curso_id')
+        .select('usuario_id, email, nombre_completo, curso, curso_id, organizacion_id')
+        .eq('organizacion_id', organizacion?.id)
       if (error) { setError(error.message); setCargandoContactos(false); return }
 
       const mapa = {}
