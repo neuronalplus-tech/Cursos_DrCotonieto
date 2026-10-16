@@ -5,6 +5,7 @@ dist/
 .smoke/
 .smoke-datos/
 .smoke-foro-ui/
+.smoke-contenido/
 *.log
 
 # Archivos temporales de editores

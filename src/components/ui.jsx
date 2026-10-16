@@ -8,7 +8,8 @@ import { Component, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { analizarUrl } from '../lib/helpers'
-import { WA_CONSULTA, LOGO_BLANCO, MARCA, REDES, ESTILOS_BOTON } from '../config'
+import { WA_MENSAJE_CONSULTA, LOGO_BLANCO, MARCA, REDES, ESTILOS_BOTON } from '../config'
+import { TextoEditable, ListaEditable, BotonEditable } from './Editable'
 
 /* ------------------------------------------------------------
    BARRERA DE ERRORES
@@ -112,9 +113,10 @@ export function Breadcrumb({ items }) {
 
 export function WhatsAppFlotante() {
   return (
-    <a className="wa-flotante" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer" aria-label="Escríbeme por WhatsApp">
-      <span className="wa-icono">💬</span><span className="wa-texto">WhatsApp</span>
-    </a>
+    <BotonEditable clave="sitio.whatsapp.flotante" clase="wa-flotante" lapizDentro
+      ariaLabel="Escríbeme por WhatsApp"
+      defecto={{ texto: 'WhatsApp', mensaje: WA_MENSAJE_CONSULTA }}
+      pintar={(t) => <><span className="wa-icono" aria-hidden="true">💬</span><span className="wa-texto">{t}</span></>} />
   )
 }
 
@@ -125,28 +127,35 @@ export function BandaRedes() {
         <div className="banda-redes-marca">
           <img src={LOGO_BLANCO} alt="Dr. Ernesto Cotonieto" className="banda-redes-logo" />
           <div>
-            <p className="banda-redes-nombre">{MARCA.nombre}</p>
-            <p className="banda-redes-credencial">{MARCA.credencial}</p>
+            <TextoEditable as="p" className="banda-redes-nombre" clave="perfil.nombre" defecto={MARCA.nombre} />
+            <TextoEditable as="p" className="banda-redes-credencial" clave="perfil.credencial" defecto={MARCA.credencial} />
           </div>
         </div>
         <div className="banda-redes-sociales">
-          <p className="banda-redes-titulo">Sígueme</p>
-          <div className="banda-redes-iconos">
-            {REDES.map((r) => (
-              <a key={r.nombre} className="banda-redes-icono" href={r.url}
-                 target="_blank" rel="noopener noreferrer" title={r.nombre}>
-                <span aria-hidden="true">{r.icono}</span>
-                <span>{r.corto}</span>
-              </a>
-            ))}
-          </div>
+          <TextoEditable as="p" className="banda-redes-titulo" clave="pie.redes.titulo" defecto="Sígueme" />
+          {/* Misma clave que la portada: se editan una vez y cambian en los dos sitios. */}
+          <ListaEditable clave="sitio.redes" defecto={REDES} etiqueta="Redes sociales"
+            campos={[{ k: 'nombre', etiqueta: 'Nombre' }, { k: 'corto', etiqueta: 'Texto corto' },
+              { k: 'url', etiqueta: 'Enlace' }, { k: 'icono', etiqueta: 'Icono' }]}>
+            {(items) => (
+              <div className="banda-redes-iconos">
+                {items.map((r, i) => (
+                  <a key={i} className="banda-redes-icono" href={r.url}
+                     target="_blank" rel="noopener noreferrer" title={r.nombre}>
+                    <span aria-hidden="true">{r.icono}</span>
+                    <span>{r.corto}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </ListaEditable>
         </div>
         <div className="banda-redes-legal">
-          <p className="banda-redes-legal-texto">
-            El contenido de este sitio es informativo y formativo, y no sustituye la atención clínica individual.
-            Si estás en una situación de urgencia, comunícate al <strong>911</strong> o a la Línea de la Vida <strong>800 911 2000</strong> (24 h, México).
-          </p>
-          <p className="banda-redes-copy">© {new Date().getFullYear()} Dr. Ernesto Cotonieto. Todos los derechos reservados. (v2)</p>
+          <TextoEditable as="p" className="banda-redes-legal-texto" clave="pie.aviso"
+            defecto="El contenido de este sitio es informativo y formativo, y no sustituye la atención clínica individual. Si estás en una situación de urgencia, comunícate al 911 o a la Línea de la Vida 800 911 2000 (24 h, México)." />
+          <TextoEditable as="p" className="banda-redes-copy" clave="pie.copy"
+            datos={{ anio: new Date().getFullYear() }}
+            defecto="© {anio} Dr. Ernesto Cotonieto. Todos los derechos reservados. (v2)" />
         </div>
       </div>
     </section>

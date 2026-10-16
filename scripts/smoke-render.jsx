@@ -31,6 +31,7 @@ import ModuloView from '../src/components/ModuloView'
 import CarruselCursos from '../src/components/CarruselCursos'
 import TallerRecursos from '../src/components/TallerRecursos'
 import MensajesInbox, { MensajesPage } from '../src/components/MensajesInbox'
+import { fijarPuedeEditar, alternarEdicion } from '../src/lib/contenido'
 
 // Datos falsos: solo necesitan la forma, nunca se llega a consultarlos
 // porque los efectos no se ejecutan al renderizar en servidor.
@@ -89,6 +90,36 @@ for (const [nombre, arbol] of vistas) {
     console.log(`  FALLA ${nombre}: ${e.message}`)
   }
 }
+
+// Segunda pasada en MODO EDICIÓN (Editable.jsx): las mismas piezas deben
+// pintarse y, además, ofrecer el lápiz ✏️ de edición.
+fijarPuedeEditar(true)
+alternarEdicion()
+const taller = {
+  ...curso, id: 2, gratuito: true, link_registro: 'https://ejemplo.com/registro',
+  registro_texto: 'Registrarme',
+}
+const vistasEdicion = [
+  ['Home (modo edición)',            pagina('/', h(Home, { user: admin, esAdmin: true }))],
+  ['CursoCard (modo edición)',       pagina('/', h(CursoCard, { curso, user: admin, esAdmin: true, tieneAcceso: false }))],
+  ['CursoCard taller (modo edición)', pagina('/', h(CursoCard, { curso: taller, user: admin, esAdmin: true, tieneAcceso: false }))],
+]
+for (const [nombre, arbol] of vistasEdicion) {
+  try {
+    const html = renderToString(arbol)
+    if (!html.includes('editable-lapiz')) {
+      fallos.push([nombre, 'no aparece ningún lápiz de edición'])
+      console.log(`  FALLA ${nombre}: sin lápiz`)
+    } else {
+      ok++
+      console.log(`  OK   ${nombre} (${(html.match(/editable-lapiz/g) || []).length} lápices)`)
+    }
+  } catch (e) {
+    fallos.push([nombre, e.message])
+    console.log(`  FALLA ${nombre}: ${e.message}`)
+  }
+}
+alternarEdicion()
 
 // Además: el enrutado completo de la app, que es donde se mezclan las rutas.
 // Se importa sin `await` arriba porque el target de Vite no admite

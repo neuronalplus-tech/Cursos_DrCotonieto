@@ -8,6 +8,7 @@ import Registro from './components/Registro'
 import Recuperar from './components/Recuperar'
 import VerificarConstancia from './components/VerificarConstancia'
 import { WhatsAppFlotante, BarreraErrores } from './components/ui'
+import { BarraEdicion } from './components/Editable'
 import './App.css'
 
 /* Alta/C4: lo pesado y lo de rol se carga bajo demanda.
@@ -125,6 +126,7 @@ function App() {
         </BarreraErrores>
       </main>
       <WhatsAppFlotante />
+      <BarraEdicion user={user} />
     </>
   )
 }

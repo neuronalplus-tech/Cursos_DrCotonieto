@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { rutaAcceso, FOTO_PERFIL, MARCA, WA_CONSULTA,
+import { rutaAcceso, FOTO_PERFIL, MARCA, WA_CONSULTA, WA_MENSAJE_CONSULTA,
   SERVICIOS, CASOS, ENFOQUES, REDES,
   ICONO_TIPO, NOMBRE_TIPO, LOGO_BLANCO, LOGO_CLARO,
   ENLACE_DIAPOSITIVAS_PRESENTAR_CASO, ENLACE_ENTREGABLES,
   CONTACTO_EMAIL,
 } from '../config'
+import { TextoEditable, ImagenEditable, ListaEditable, BotonEditable } from './Editable'
 import { esTallerIndividual } from '../lib/helpers'
 import { useOrganizacion, aplicarMarca } from '../lib/organizacion'
 import { WhatsAppFlotante, BandaRedes } from './ui'
@@ -73,26 +74,23 @@ function Home({ user }) {
     <div className="landing">
       <section className="franja-superior">
         <div className="mini-perfil">
-          <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="mini-foto" />
+          <ImagenEditable clave="perfil.foto" defecto={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="mini-foto" />
           <div className="mini-perfil-texto">
-            <h1>{MARCA.nombre}</h1>
-            <p className="mini-credencial">{MARCA.credencial}</p>
-            <p className="mini-slogan">"{MARCA.slogan}"</p>
-            <p className="mini-sub">{MARCA.subtitulo}</p>
-            <a className="button whatsapp" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
-              Agenda tu llamada sin costo
-            </a>
+            <TextoEditable as="h1" clave="perfil.nombre" defecto={MARCA.nombre} />
+            <TextoEditable as="p" className="mini-credencial" clave="perfil.credencial" defecto={MARCA.credencial} />
+            <TextoEditable as="p" className="mini-slogan" clave="perfil.slogan" defecto={MARCA.slogan} comillas />
+            <TextoEditable as="p" className="mini-sub" clave="perfil.subtitulo" defecto={MARCA.subtitulo} />
+            <BotonEditable clave="portada.agendar" clase="button"
+              defecto={{ texto: 'Agenda tu llamada sin costo', mensaje: WA_MENSAJE_CONSULTA, estilo: 'whatsapp' }} />
           </div>
         </div>
         {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} copia={copiaLineas} />}
       </section>
 
       <section className="seccion" id="cursos">
-        <h2>Cursos y talleres</h2>
-        <p className="seccion-intro">
-          Formación clínica aplicada, agrupada por línea temática. Los talleres gratuitos son de acceso
-          libre; los cursos requieren inscripción. Toca "Saber más" para ver de qué trata cada uno.
-        </p>
+        <TextoEditable as="h2" clave="portada.cursos.titulo" defecto="Cursos y talleres" />
+        <TextoEditable as="p" className="seccion-intro" clave="portada.cursos.intro"
+          defecto={'Formación clínica aplicada, agrupada por línea temática. Los talleres gratuitos son de acceso libre; los cursos requieren inscripción. Toca "Saber más" para ver de qué trata cada uno.'} />
 
         {lineas.length > 0 && (
           <div className="menu-lineas">
@@ -122,11 +120,9 @@ function Home({ user }) {
 
       {!loading && proximos.length > 0 && (
         <section className="seccion" id="proximos">
-          <h2>Próximamente</h2>
-          <p className="seccion-intro">
-            Estos cursos están en preparación. Toca "Me interesa" y te aviso en cuanto abra su inscripción —
-            así también sé qué producir primero.
-          </p>
+          <TextoEditable as="h2" clave="portada.proximos.titulo" defecto="Próximamente" />
+          <TextoEditable as="p" className="seccion-intro" clave="portada.proximos.intro"
+            defecto={'Estos cursos están en preparación. Toca "Me interesa" y te aviso en cuanto abra su inscripción — así también sé qué producir primero.'} />
           <div className="course-grid">
             {proximos.map((c) => <CursoCard key={c.id} curso={c} user={user} tieneAcceso={false} />)}
           </div>
@@ -134,39 +130,55 @@ function Home({ user }) {
       )}
 
       <section className="seccion">
-        <h2>Servicios</h2>
-        <div className="servicios-grid">
-          {SERVICIOS.map((s, i) => (
-            <div key={i} className="servicio-card"><h3>{s.titulo}</h3><p>{s.detalle}</p></div>
-          ))}
-        </div>
+        <TextoEditable as="h2" clave="portada.servicios.titulo" defecto="Servicios" />
+        <ListaEditable clave="portada.servicios" defecto={SERVICIOS} etiqueta="Servicios"
+          campos={[{ k: 'titulo', etiqueta: 'Título' }, { k: 'detalle', etiqueta: 'Detalle' }]}>
+          {(items) => (
+            <div className="servicios-grid">
+              {items.map((s, i) => (
+                <div key={i} className="servicio-card"><h3>{s.titulo}</h3><p>{s.detalle}</p></div>
+              ))}
+            </div>
+          )}
+        </ListaEditable>
       </section>
 
       <section className="seccion">
-        <h2>Casos que atiendo</h2>
-        <div className="lista-chips">{CASOS.map((c, i) => <span key={i} className="chip">{c}</span>)}</div>
-        <p className="enfoques"><strong>Enfoques:</strong> {ENFOQUES.join(' · ')}</p>
+        <TextoEditable as="h2" clave="portada.casos.titulo" defecto="Casos que atiendo" />
+        <ListaEditable clave="portada.casos" defecto={CASOS} etiqueta="Casos que atiendo"
+          campos={[{ k: 'texto', etiqueta: 'Caso' }]}>
+          {(items) => <div className="lista-chips">{items.map((c, i) => <span key={i} className="chip">{c}</span>)}</div>}
+        </ListaEditable>
+        <ListaEditable clave="portada.enfoques" defecto={ENFOQUES} etiqueta="Enfoques"
+          campos={[{ k: 'texto', etiqueta: 'Enfoque' }]}>
+          {(items) => <p className="enfoques"><strong>Enfoques:</strong> {items.join(' · ')}</p>}
+        </ListaEditable>
       </section>
 
       <section className="seccion sobre-mi">
-        <h2>Sobre mí</h2>
-        <img src={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="sobre-mi-foto" />
-        <p className="hero-bio">{MARCA.bio}</p>
-        <div className="redes">
-          {REDES.map((r) => (
-            <a key={r.nombre} className="red-btn" href={r.url} target="_blank" rel="noopener noreferrer" title={r.nombre}>
-              <span aria-hidden="true">{r.icono}</span><span>{r.corto}</span>
-            </a>
-          ))}
-        </div>
+        <TextoEditable as="h2" clave="portada.sobremi.titulo" defecto="Sobre mí" />
+        <ImagenEditable clave="perfil.foto" defecto={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="sobre-mi-foto" />
+        <TextoEditable as="p" className="hero-bio" clave="perfil.bio" defecto={MARCA.bio} />
+        <ListaEditable clave="sitio.redes" defecto={REDES} etiqueta="Redes sociales"
+          campos={[{ k: 'nombre', etiqueta: 'Nombre' }, { k: 'corto', etiqueta: 'Texto corto' },
+            { k: 'url', etiqueta: 'Enlace' }, { k: 'icono', etiqueta: 'Icono' }]}>
+          {(items) => (
+            <div className="redes">
+              {items.map((r, i) => (
+                <a key={i} className="red-btn" href={r.url} target="_blank" rel="noopener noreferrer" title={r.nombre}>
+                  <span aria-hidden="true">{r.icono}</span><span>{r.corto}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </ListaEditable>
       </section>
 
       <section className="seccion cierre">
-        <h2>¿Empezamos?</h2>
-        <p>Escríbeme y resolvemos dudas sobre terapia, cursos o supervisión clínica.</p>
-        <a className="button whatsapp grande" href={WA_CONSULTA} target="_blank" rel="noopener noreferrer">
-          Escríbeme por WhatsApp
-        </a>
+        <TextoEditable as="h2" clave="portada.cierre.titulo" defecto="¿Empezamos?" />
+        <TextoEditable as="p" clave="portada.cierre.texto" defecto="Escríbeme y resolvemos dudas sobre terapia, cursos o supervisión clínica." />
+        <BotonEditable clave="portada.cierre.boton" clase="button grande"
+          defecto={{ texto: 'Escríbeme por WhatsApp', mensaje: WA_MENSAJE_CONSULTA, estilo: 'whatsapp' }} />
       </section>
 
       <BandaRedes />

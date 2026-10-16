@@ -3834,3 +3834,49 @@ a { color: var(--primary); }
 }
 .modulo-orden-btn:hover:not(:disabled) { background: var(--bg-card); }
 .modulo-orden-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ============================================================
+   EDICIÓN EN LA PÁGINA (Editable.jsx)
+   Solo aparece en modo edición; fuera de él nada de esto se pinta.
+   ============================================================ */
+.editable { outline: 1px dashed var(--accent); outline-offset: 3px; border-radius: 4px; }
+.editable-oculto { opacity: .5; }
+.editable-eliminado { opacity: .4; text-decoration: line-through; }
+.editable-imagen { position: relative; display: inline-block; }
+.editable-imagen > .editable-lapiz { position: absolute; top: 4px; right: 4px; }
+.editable-lapiz {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; margin-left: 6px; padding: 0; flex-shrink: 0;
+  border: 1px solid var(--accent); border-radius: 50%;
+  background: var(--blanco); font-size: 14px; line-height: 1; cursor: pointer;
+  vertical-align: middle; text-decoration: none;
+}
+.editable-lapiz:hover { background: var(--bg-card); }
+.editable-lapiz:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.card-boton-admin > .editable-lapiz { align-self: center; margin-left: 0; }
+.editable-lista-barra {
+  display: flex; align-items: center; gap: 8px; margin: 8px 0;
+  font-size: 14px; color: var(--primary);
+}
+.barra-edicion {
+  position: fixed; left: 16px; bottom: 16px; z-index: 900;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: min(420px, calc(100vw - 32px));
+}
+.barra-edicion-aviso {
+  margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 14px;
+  background: var(--blanco); color: var(--body); border: 1px solid var(--borde);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+}
+.editor-capa label { display: block; margin-top: 10px; }
+.editor-capa .editor-capa-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.editor-capa-alcance { border: 1px solid var(--borde); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.editor-capa-alcance label { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.editor-capa-colores { display: flex; flex-wrap: wrap; gap: 16px; }
+.editor-capa-colores label { display: flex; align-items: center; gap: 8px; }
+.editor-capa-previa { max-width: 120px; max-height: 120px; margin-top: 8px; border-radius: 8px; }
+.editor-capa-lista { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.editor-capa-fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.editor-capa-fila .input { flex: 1 1 140px; min-width: 0; }
+@media (max-width: 600px) {
+  .barra-edicion { left: 12px; bottom: 76px; }
+}

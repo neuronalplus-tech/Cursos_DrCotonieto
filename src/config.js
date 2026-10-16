@@ -11,7 +11,8 @@ export const CHAT_ADJUNTOS_BUCKET = 'chat_adjuntos'
 export const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
 export const WHATSAPP = '5215637841931'
 export const wa = (t) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(t)}`
-export const WA_CONSULTA = wa('Hola, vi tu página y me gustaría agendar una llamada de encuadre.')
+export const WA_MENSAJE_CONSULTA = 'Hola, vi tu página y me gustaría agendar una llamada de encuadre.'
+export const WA_CONSULTA = wa(WA_MENSAJE_CONSULTA)
 
 export const LOGO_BLANCO = '/logo_blanco_1024.png'
 export const LOGO_CLARO = '/logo_claro_1024.png'

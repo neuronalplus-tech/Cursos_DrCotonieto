@@ -58,7 +58,8 @@ with esperado(orden, script, objeto, tipo) as (
     (45, 'RETENCION_1_ALERTAS.sql',         'alertas_retencion',          'funcion'),
     (46, 'COMUNICADOS_1_HISTORIAL.sql',     'comunicados',                'tabla'),
     (47, 'ENCUESTAS_1_NPS.sql',             'encuestas',                  'tabla'),
-    (48, 'MARCA_1_CSS.sql',                 'css_extra',                  'columna')
+    (48, 'MARCA_1_CSS.sql',                 'css_extra',                  'columna'),
+    (49, 'CONTENIDO_1_EDITABLE.sql',        'contenido_sitio',            'tabla')
     -- Nota: SEG_1/SEG_2 redefinen funciones y políticas ya listadas
     -- (bulk_*, modulos_lectura_publica); su efecto se comprueba aparte,
     -- no añaden objetos nuevos que contar aquí.
