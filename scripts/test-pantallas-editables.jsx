@@ -243,6 +243,27 @@ async function main() {
     await p.quitar()
   }
 
+  alternarEdicion() // fuera del modo edición: la papelera no debe depender de él
+
+  console.log('\n7. Eliminar de verdad el registro de un taller (🗑 junto al candado)')
+  {
+    const CursoCard = (await import('../src/components/CursoCard.jsx')).default
+    const { limpiarEscritas, escrituras } = await import('./fake-supabase.js')
+    globalThis.__TABLAS__ = { ...globalThis.__TABLAS__, admins: [{ email: 'jefe@b.mx', organizacion_id: null }] }
+    window.confirm = () => true
+    limpiarEscritas()
+    const taller = { id: 8, titulo: 'Taller de prueba', gratuito: true, linea: 'Talleres', activo: true,
+      link_registro: 'https://forms.example/registro', registro_texto: 'Registrarme', registro_activo: false }
+    const p = await montar('/', '/', h(CursoCard, { curso: taller, user: { id: 'jefe', email: 'jefe@b.mx' }, tieneAcceso: false }))
+    const papelera = p.caja.querySelector('.candado-toggle.borrar')
+    comprobar('Hay papelera junto al candado, sin modo edición', !!papelera && !!p.caja.querySelector('.candado-toggle.cerrado'))
+    await p.pulsar(papelera)
+    const upd = escrituras().find((e) => e.tabla === 'cursos' && e.operacion === 'update')
+    comprobar('Borra el enlace y el texto en la base', upd?.datos?.link_registro === null && upd?.datos?.registro_texto === null, JSON.stringify(upd?.datos))
+    comprobar('El botón «Registro (oculto)» desaparece', !p.caja.textContent.includes('Registro'))
+    await p.quitar()
+  }
+
   comprobar('Sin promesas rechazadas', rechazos.length === 0, rechazos.join(' | '))
   console.log(`\n${ok} comprobaciones bien · ${fallos.length} fallos`)
   process.exit(fallos.length ? 1 : 0)

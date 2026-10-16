@@ -168,12 +168,41 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
     },
   })
 
-  const candado = (visible, alternar) => gestiona && (
-    <button type="button" className={`candado-toggle ${visible ? 'abierto' : 'cerrado'}`}
-            onClick={alternar}
-            title={visible ? 'Ocultar botón al público' : 'Mostrar botón al público'}>
-      {visible ? '🔓' : '🔒'}
-    </button>
+  /* ELIMINAR DE VERDAD, sin modo edición y sin contenido_sitio.
+     Registro y grabación son huecos fijos del taller: «eliminar» vacía
+     su enlace y su texto en la base, y un hueco sin enlace ya no se
+     pinta para nadie (tampoco para ti). Para recuperarlo: «Editar
+     links y textos» y pegar el enlace otra vez. */
+  const eliminarRegistro = async () => {
+    if (!window.confirm('¿Eliminar el botón de registro? Se borran su enlace y su texto. Para volver a tenerlo, pega el enlace en «Editar links y textos».')) return
+    const upd = { link_registro: null, registro_texto: null, registro_activo: true }
+    const { error } = await supabase.from('cursos').update(upd).eq('id', curso.id)
+    if (error) { alert('No se pudo eliminar: ' + errorDeCurso(error, 'cursos')); return }
+    setCurso(c => ({ ...c, ...upd }))
+  }
+  const eliminarGrabacion = async () => {
+    if (!window.confirm('¿Eliminar el botón de la grabación? Se borran su enlace y su texto. Para volver a tenerlo, pega el enlace en «Editar links y textos».')) return
+    try { await guardarMaterial({ link_grabacion: '', grabacion_texto: '', grabacion_activo: true }) } catch (e) { alert('No se pudo eliminar: ' + e.message) }
+  }
+  const eliminarExtra = async (i) => {
+    if (!window.confirm(`¿Eliminar el botón «${botonesExtra[i]?.texto || 'extra'}»? No se puede deshacer.`)) return
+    try { await guardarMaterial({ botones_extra: botonesExtra.filter((_, j) => j !== i) }) } catch (e) { alert('No se pudo eliminar: ' + e.message) }
+  }
+
+  const candado = (visible, alternar, eliminar) => gestiona && (
+    <>
+      <button type="button" className={`candado-toggle ${visible ? 'abierto' : 'cerrado'}`}
+              onClick={alternar}
+              title={visible ? 'Ocultar botón al público' : 'Mostrar botón al público'}>
+        {visible ? '🔓' : '🔒'}
+      </button>
+      {eliminar && (
+        <button type="button" className="candado-toggle borrar" onClick={eliminar}
+                title="Eliminar este botón" aria-label="Eliminar este botón">
+          🗑️
+        </button>
+      )}
+    </>
   )
 
   if (esContenedor) {
@@ -290,13 +319,13 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
               <BotonEditable clave="curso.entrar-taller" clase="button ancho" {...deCurso}
                 defecto={{ texto: 'Entrar al taller', estilo: 'secondary' }} to={`/curso/${curso.id}`} />
 
-              {/* Admin ve el bloque aunque todavía no haya link; el público
-                  solo si hay link y está visible. */}
-              {(gestiona || registroAbierto) && (
+              {/* Sin enlace no hay botón, para nadie: el público lo ve si
+                  hay enlace y está abierto; tú, si hay enlace (abierto u
+                  oculto), con su candado y su papelera. */}
+              {(registroAbierto || (gestiona && curso.link_registro)) && (
                 <BotonEditable clave={`curso.registro@curso:${curso.id}`} clase="button ancho"
                   defecto={{ estilo: 'azul' }} fuente={fuenteRegistro} siempreVisible={gestiona}
-                  disabled={!curso.link_registro} textoDeshabilitado="🔒 Registro cerrado"
-                  extra={candado(registroVisible, toggleRegistro)} />
+                  extra={candado(registroVisible, toggleRegistro, eliminarRegistro)} />
               )}
 
               {/* Botones extra: candado, edición y ELIMINAR de verdad. */}
@@ -305,15 +334,14 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
                 return (
                   <BotonEditable key={i} clave={`curso.extra.${i}@curso:${curso.id}`} clase="button ancho"
                     defecto={{ estilo: b.estilo || 'azul' }} fuente={fuenteExtra(b, i)} siempreVisible={gestiona}
-                    extra={candado(b.activo !== false, () => toggleBotonExtra(i))} />
+                    extra={candado(b.activo !== false, () => toggleBotonExtra(i), () => eliminarExtra(i))} />
                 )
               })}
 
-              {(gestiona || grabacionAbierta) && (
+              {(grabacionAbierta || (gestiona && material?.link_grabacion)) && (
                 <BotonEditable clave={`curso.grabacion@curso:${curso.id}`} clase="button ancho"
                   defecto={{ estilo: 'secondary' }} fuente={fuenteGrabacion} siempreVisible={gestiona}
-                  disabled={!material?.link_grabacion} textoDeshabilitado="🎬 Grabación en proceso"
-                  extra={candado(grabacionVisible, toggleGrabacion)} />
+                  extra={candado(grabacionVisible, toggleGrabacion, eliminarGrabacion)} />
               )}
 
               {gestiona && (

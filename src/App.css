@@ -2535,7 +2535,10 @@ a { color: var(--primary); }
 }
 .candado-toggle.abierto { background: var(--ok-bg); border-color: var(--ok); }
 .candado-toggle.cerrado { background: #FFF4E6; border-color: #E0A88C; }
+.candado-toggle.borrar { background: #FDECEA; border-color: #D9A39B; }
 .candado-toggle:hover { transform: scale(1.08); }
+.card-boton-admin > .candado-toggle + .candado-toggle { margin-left: -2px; }
+.controles-gestion { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
 .candado-toggle:disabled { opacity: .6; cursor: wait; transform: none; }
 
 .modulo-row { display: flex; align-items: stretch; gap: 10px; }
