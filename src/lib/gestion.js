@@ -117,7 +117,16 @@ export async function cargarRolesBD(orgId) {
     .select('id, nombre, activo').eq('organizacion_id', orgId).order('nombre')
   if (error) {
     const falta = error.code === 'PGRST205' || error.code === '42P01' || /does not exist|could not find/i.test(error.message || '')
-    return { estado: falta ? 'sin-tabla' : 'error', roles: [], mensaje: error.message }
+    // Las políticas de ROLES_5 se consultaban entre sí (roles ↔
+    // asignaciones) y Postgres cortaba la consulta. ROLES_8 lo arregla.
+    const bucle = error.code === '42P17' || /infinite recursion/i.test(error.message || '')
+    return {
+      estado: falta ? 'sin-tabla' : 'error',
+      roles: [],
+      mensaje: bucle
+        ? 'las políticas de la tabla de roles se consultan entre sí. Corre supabase/ROLES_8_SIN_RECURSION.sql en Supabase → SQL Editor (una vez) y recarga esta página.'
+        : error.message,
+    }
   }
   const ids = (roles || []).map((r) => r.id)
   const { data: rp } = ids.length

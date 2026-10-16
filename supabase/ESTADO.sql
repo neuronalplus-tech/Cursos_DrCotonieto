@@ -60,7 +60,8 @@ with esperado(orden, script, objeto, tipo) as (
     (47, 'ENCUESTAS_1_NPS.sql',             'encuestas',                  'tabla'),
     (48, 'MARCA_1_CSS.sql',                 'css_extra',                  'columna'),
     (49, 'CONTENIDO_1_EDITABLE.sql',        'contenido_sitio',            'tabla'),
-    (50, 'ESTRUCTURA_1_CATEGORIAS.sql',     'categoria_material',         'columna')
+    (50, 'ESTRUCTURA_1_CATEGORIAS.sql',     'categoria_material',         'columna'),
+    (51, 'ROLES_8_SIN_RECURSION.sql',       'rol_es_mio',                 'funcion')
     -- Nota: SEG_1/SEG_2 redefinen funciones y políticas ya listadas
     -- (bulk_*, modulos_lectura_publica); su efecto se comprueba aparte,
     -- no añaden objetos nuevos que contar aquí.
