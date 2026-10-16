@@ -125,6 +125,9 @@ function consulta(tabla) {
   let filas = tablas()[tabla] || []
   let orden = null
   let limite = null
+  // select('id', { count: 'exact', head: true }): como el cliente real,
+  // devuelve `count` (y sin filas si head).
+  let conteo = null
 
   const construir = () => {
     let out = filas
@@ -146,7 +149,9 @@ function consulta(tabla) {
     return out
   }
 
-  const resolver = (datos) => Promise.resolve({ data: datos, error: null })
+  const resolver = (datos) => Promise.resolve(conteo
+    ? { data: conteo.head ? null : datos, count: Array.isArray(datos) ? datos.length : 0, error: null }
+    : { data: datos, error: null })
 
   const base = {
     then: (res, rej) => resolver(construir()).then(res, rej),
@@ -163,6 +168,8 @@ function consulta(tabla) {
       if (typeof prop === 'symbol') return undefined
 
       switch (prop) {
+        case 'select':
+          return (_cols, opts) => { if (opts?.count) conteo = { head: !!opts.head }; return proxy }
         case 'eq':
           return (col, val) => { filas = filas.filter((f) => igual(f[col], val)); return proxy }
         case 'neq':

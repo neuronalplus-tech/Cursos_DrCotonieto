@@ -8,6 +8,7 @@ import {
 } from '../lib/helpers'
 import { BUCKET_PAGO, BUCKET_TALLERES, CONTACTO_EMAIL, AVATAR_BUCKET, ICONO_TIPO, NOMBRE_TIPO, rutaAcceso, FOTO_PERFIL, MARCA } from '../config'
 import { TextoEditable, ImagenEditable, BotonEditable } from './Editable'
+import { agruparPorCategoria } from '../lib/estructura'
 import { usePermisos } from '../lib/permisos'
 import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
@@ -163,11 +164,13 @@ function ModuloView({ user }) {
   }
 
   // Reordenar recursos con ↑/↓ (igual que los módulos en CursoView).
-  const moverRecurso = async (r, dir) => {
-    const j = recursos.findIndex(x => x.id === r.id)
+  // `lista` es la sección donde está (lecturas, grabaciones…): subir un
+  // recurso lo cambia con su vecino de sección, no con uno de otra.
+  const moverRecurso = async (r, dir, lista = recursos) => {
+    const j = lista.findIndex(x => x.id === r.id)
     const k = j + dir
-    if (k < 0 || k >= recursos.length) return
-    const otro = recursos[k]
+    if (k < 0 || k >= lista.length) return
+    const otro = lista[k]
     const ordenR = r.orden ?? j
     const ordenO = otro.orden ?? k
     const nuevoR = ordenO === ordenR ? k : ordenO
@@ -222,7 +225,11 @@ function ModuloView({ user }) {
   const idx = modulosCurso.findIndex(m => m.id === parseInt(id))
   const prev = idx > 0 ? modulosCurso[idx - 1] : null
   const next = idx >= 0 && idx < modulosCurso.length - 1 ? modulosCurso[idx + 1] : null
-  const vistos = recursos.filter(r => progresoRecursos[r.id]).length
+  // Lo cerrado no se le enseña al alumno («si no hay, no se despliega»);
+  // quien gestiona lo ve con su candado para poder abrirlo.
+  const recursosVisibles = gestiona ? recursos : recursos.filter(r => r.disponible !== false)
+  const secciones = agruparPorCategoria(recursosVisibles)
+  const vistos = recursosVisibles.filter(r => progresoRecursos[r.id]).length
   const bloqueadoParaAlumno = moduloBloqueadoParaAlumno(modulo)
   const mostrarConstancia = emiteConstancia(curso) && constanciaDisponible
   const mostrarDiapositivas = modulo.grupo === 'Acompañamiento' || modulo.grupo === 'Clínica'
@@ -270,20 +277,25 @@ function ModuloView({ user }) {
               ))}
             </ul>
           </div>
-          {recursos.length > 0 && (
+          {recursosVisibles.length > 0 && (
             <div className="side-bloque">
               <TextoEditable as="h4" clave="modulo.lateral.recursos" defecto="En este módulo" />
-              <ul className="side-lista compacta">
-                {recursos.map((r) => (
-                  <li key={r.id}>
-                    <button className="side-btn" onClick={() => irA(r.id)}>
-                      <span aria-hidden="true">{ICONO_TIPO[r.tipo] || '📌'}</span>
-                      <span className="side-txt">{r.titulo}</span>
-                      {progresoRecursos[r.id] && <span className="side-check">✔</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {secciones.map(({ categoria, recursos: lista }) => (
+                <div key={categoria.clave}>
+                  {secciones.length > 1 && <p className="side-grupo">{categoria.nombre}</p>}
+                  <ul className="side-lista compacta">
+                    {lista.map((r) => (
+                      <li key={r.id}>
+                        <button className="side-btn" onClick={() => irA(r.id)}>
+                          <span aria-hidden="true">{ICONO_TIPO[r.tipo] || '📌'}</span>
+                          <span className="side-txt">{r.titulo}</span>
+                          {progresoRecursos[r.id] && <span className="side-check">✔</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           )}
           <div className="side-bloque contacto-bloque">
@@ -319,9 +331,9 @@ function ModuloView({ user }) {
               {modulo.grupo && <span className="etiqueta-grupo">Grupo {modulo.grupo}</span>}
             </h1>
             {modulo.descripcion && <p className="curso-desc">{modulo.descripcion}</p>}
-            {user && recursos.length > 0 && (
+            {user && recursosVisibles.length > 0 && (
               <TextoEditable as="p" className="modulo-avance" clave="modulo.avance"
-                datos={{ vistos, total: recursos.length }} defecto="{vistos} de {total} recursos revisados" />
+                datos={{ vistos, total: recursosVisibles.length }} defecto="{vistos} de {total} recursos revisados" />
             )}
             {mostrarJuegoS4 && (
               <div className="modulo-botones-extra">
@@ -381,26 +393,37 @@ function ModuloView({ user }) {
 
           <div className="recursos-list">
             {mostrarEntregables && <Entregables modulo={modulo} gestiona={gestiona} onGuardado={setModulo} />}
-            {recursos.map((r, i) => (
-              <RecursoCard
-                key={r.id}
-                recurso={r}
-                bucket={bucket}
-                user={user}
-                visto={!!progresoRecursos[r.id]}
-                onMarcarVisto={marcarVisto}
-                gestiona={gestiona}
-                onEditar={setEditandoRecurso}
-                onDuplicar={setDuplicandoRecurso}
-                onNotificar={setNotificandoRecurso}
-                onToggleDisponible={toggleRecursoDisponible}
-                esGratuito={!!curso?.gratuito}
-                onMover={moverRecurso}
-                esPrimero={i === 0}
-                esUltimo={i === recursos.length - 1}
-              />
+            {/* Secciones fijas, en el orden de estructura.js. Una sección
+                sin recursos no se pinta: su sitio lo toma la siguiente. */}
+            {secciones.map(({ categoria, recursos: lista }) => (
+              <section key={categoria.clave} className="material-seccion" aria-label={categoria.nombre}>
+                <h2 className="material-seccion-titulo">
+                  <span aria-hidden="true">{categoria.icono}</span>
+                  <TextoEditable clave={`material.${categoria.clave}.titulo`} defecto={categoria.nombre} />
+                  <span className="material-seccion-n">{lista.length}</span>
+                </h2>
+                {lista.map((r, i) => (
+                  <RecursoCard
+                    key={r.id}
+                    recurso={r}
+                    bucket={bucket}
+                    user={user}
+                    visto={!!progresoRecursos[r.id]}
+                    onMarcarVisto={marcarVisto}
+                    gestiona={gestiona}
+                    onEditar={setEditandoRecurso}
+                    onDuplicar={setDuplicandoRecurso}
+                    onNotificar={setNotificandoRecurso}
+                    onToggleDisponible={toggleRecursoDisponible}
+                    esGratuito={!!curso?.gratuito}
+                    onMover={(rec, dir) => moverRecurso(rec, dir, lista)}
+                    esPrimero={i === 0}
+                    esUltimo={i === lista.length - 1}
+                  />
+                ))}
+              </section>
             ))}
-            {recursos.length === 0 && (
+            {recursosVisibles.length === 0 && (
               <TextoEditable as="p" className="sutil" clave="modulo.sin-recursos" {...deCurso}
                 defecto="Este módulo aún no tiene recursos." />
             )}

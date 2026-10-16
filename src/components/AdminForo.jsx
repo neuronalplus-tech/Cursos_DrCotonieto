@@ -15,9 +15,11 @@ import { ModalPortal } from './ui'
 import EditorForo from './EditorForo'
 import { CamposPlazo } from './Prorrogas'
 
-export default function AdminForo({ user }) {
+// `cursoFijo`: el Centro de gestión ya está dentro de un curso, así que
+// el selector sobra (igual que en AdminExamenes).
+export default function AdminForo({ user, cursoFijo = null }) {
   const [cursos, setCursos] = useState([])
-  const [cursoId, setCursoId] = useState('')
+  const [cursoId, setCursoId] = useState(cursoFijo ? String(cursoFijo) : '')
   const [hilos, setHilos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [msg, setMsg] = useState(null)
@@ -60,9 +62,9 @@ export default function AdminForo({ user }) {
       const { data } = await supabase
         .from('cursos').select('id, titulo').order('titulo')
       setCursos(data || [])
-      if (data?.length) setCursoId(String(data[0].id))
+      if (!cursoFijo && data?.length) setCursoId(String(data[0].id))
     })()
-  }, [])
+  }, [cursoFijo])
 
   useEffect(() => {
     if (!cursoId) return
@@ -181,13 +183,17 @@ return (
       </p>
 
       <div className="admin-foro-barra">
-        <label>Curso</label>
-        <select className="input" value={cursoId} onChange={(e) => setCursoId(e.target.value)}>
-          {cursos.length === 0 && <option value="">No hay cursos</option>}
-          {cursos.map((c) => <option key={c.id} value={c.id}>{c.titulo}</option>)}
-        </select>
+        {!cursoFijo && (
+          <>
+            <label>Curso</label>
+            <select className="input" value={cursoId} onChange={(e) => setCursoId(e.target.value)}>
+              {cursos.length === 0 && <option value="">No hay cursos</option>}
+              {cursos.map((c) => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+            </select>
+          </>
+        )}
         <button type="button" className="button primary" onClick={abrirNuevo}
-                disabled={!cursoId || cursos.length === 0}>
+                disabled={!cursoId}>
           ➕ Nuevo tema
         </button>
       </div>

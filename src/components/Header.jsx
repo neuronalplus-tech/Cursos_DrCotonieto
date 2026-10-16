@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { LOGO_BLANCO } from '../config'
 import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
+import { usePermisos, useMisPermisos } from '../lib/permisos'
 import { TextoEditable, ImagenEditable, BotonEditable } from './Editable'
 
 /* ============================================================
@@ -26,6 +27,11 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
   const [misCursos, setMisCursos] = useState([])
   const cajaCuenta = useRef(null)
   const { organizacion } = useOrganizacion()
+  // El Centro de gestión es para quien gestiona algo: administra, facilita
+  // un curso o tiene un rol. Mismo criterio que la propia página.
+  const permisos = usePermisos(user)
+  const permisosRol = useMisPermisos(user, organizacion?.id)
+  const gestiona = esAdmin || permisos.esFacilitador || permisosRol.tieneAlguno
 
   // La marca de quien hospeda, con la de casa como repliegue: una
   // organización sin logo propio no debe quedarse sin cabecera.
@@ -183,6 +189,10 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
                     <BotonEditable clave="encabezado.menu.mensajes" clase="" role="menuitem"
                       defecto={{ texto: 'Mensajes' }} onClick={() => ir('/mensajes')}
                       pintar={(t) => `${t}${sinLeer > 0 ? ` (${sinLeer})` : ''}`} />
+                    {gestiona && (
+                      <BotonEditable clave="encabezado.menu.gestion" clase="destacado" role="menuitem"
+                        defecto={{ texto: 'Centro de gestión' }} onClick={() => ir('/gestion')} />
+                    )}
                     {esAdmin && (
                       <BotonEditable clave="encabezado.menu.panel" clase="destacado" role="menuitem"
                         defecto={{ texto: 'Panel de administración' }} onClick={() => ir('/admin')} />
