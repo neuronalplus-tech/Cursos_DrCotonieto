@@ -159,7 +159,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
               taller haya terminado: se emitirá con el nombre que cada quien dio al registrarse.
               (Si la casilla no guarda, falta correr supabase/ALTA_PUBLICA.sql en el SQL Editor.)
             </p>
-            {form.constancia_gratuita_activa && (
+            {(
               <>
                 <label style={{ marginTop: 10 }}>
                   <input type="checkbox" checked={form.constancia_incluir_horas}
