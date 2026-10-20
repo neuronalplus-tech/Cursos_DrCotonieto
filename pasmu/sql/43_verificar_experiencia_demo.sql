@@ -19,6 +19,7 @@ select 'sin escritura: casos.crear/agenda.programar/expediente.editar/reportes.e
        not exists (select 1 from public.rol_permisos rp join public.roles r on r.id = rp.rol_id
          join public.permisos p on p.id = rp.permiso_id
         where r.codigo = 'experiencia_demo'
+          and p.codigo <> 'perfil.editar'  -- único .editar permitido: el propio perfil de contacto
           and (p.codigo like '%.crear' or p.codigo like '%.editar' or p.codigo like '%.exportar'
                or p.codigo like 'admin.%' or p.codigo like 'configuracion.%'
                or p.codigo in ('agenda.programar', 'expediente.documentos', 'seguridad.ver',
