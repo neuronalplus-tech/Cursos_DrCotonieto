@@ -108,7 +108,7 @@ export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, 
   .pie span:last-child { display: inline-flex; align-items: center; justify-content: flex-end; gap: .07in; }
   .pie .wa-icono { width: .15in; height: .15in; fill: #25D366; flex: none; display: block; }
   ${compacto ? '.encabezado { margin-top: .1in; } .antetitulo { margin-top: .15in; } .acento { margin: .15in auto; } .contenido { margin-top: .1in; } .nombre { margin: .12in 0 .16in; } .separador { margin-bottom: .16in; } .curso { margin-top: .12in; } .calificacion, .horas { margin-top: .12in; } .verificacion { margin-top: .15in; } .bloque-firma { padding-top: .1in; } .firma { height: 1in; }' : ''}
-  @media screen { body { display: flex; justify-content: center; padding: 24px; background: #e8e5df; } .hoja { flex: 0 0 auto; box-shadow: 0 8px 30px #0002; } }
+  @media screen { body { display: flex; padding: 24px; background: #e8e5df; } .hoja { flex: 0 0 auto; margin: 0 auto; box-shadow: 0 8px 30px #0002; } }
   @media print { html, body { width: 8.5in; height: 11in; } body { display: block; } .hoja { margin: 0; box-shadow: none; } }
 </style></head><body><main class="hoja">
   <div class="franja"></div>
