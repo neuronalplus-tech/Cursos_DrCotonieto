@@ -28,7 +28,7 @@ function esperarImagen(url, timeout = 9000) {
   })
 }
 
-function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl }) {
+function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl, incluirHoras, horas }) {
   const nombreLimpio = escapar(nombre)
   const cursoLimpio = escapar(curso)
   const logo = escapar(logoUrl)
@@ -66,6 +66,7 @@ function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl
   .motivo { font-size: 13pt; line-height: 1.55; }
   .curso { margin: .24in auto 0; font: 600 ${cursoFont}pt Fraunces, Georgia, serif; line-height: 1.25; overflow-wrap: anywhere; }
   .calificacion { margin-top: .34in; color: #C17A5E; font-size: 12pt; font-weight: 600; }
+  .horas { margin-top: .22in; color: #6B7A85; font-size: 11pt; }
   .verificacion { width: 100%; margin-top: .35in; text-align: center; color: #8A9BAD; font-size: 8pt; line-height: 1.45; overflow-wrap: anywhere; }
   .bloque-firma { width: 100%; margin-top: auto; display: flex; flex-direction: column; align-items: center; padding-top: .35in; }
   .firma { width: 3.1in; height: 1.24in; object-fit: contain; filter: contrast(1.32) brightness(0.9); }
@@ -91,6 +92,7 @@ function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl
   <div class="separador"></div>
   <div class="motivo">por haber acreditado satisfactoriamente el curso</div>
   <div class="curso">«${cursoLimpio}»</div>
+  ${incluirHoras && horas ? `<div class="horas">Duración: ${horas} hora${horas !== 1 ? 's' : ''}</div>` : ''}
   <div class="calificacion">Calificación final: ${nota}/10 · ${escapar(conLetra(nota10))}</div>
   </section>
   <div class="verificacion">${fecha} · Verificable en ${escapar(verificar)} · ${contacto}</div>
@@ -154,7 +156,7 @@ function Constancia({ user }) {
       try {
         const [{ data: p, error: ePerfil }, { data: c, error: eCurso }] = await Promise.all([
           supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle(),
-          supabase.from('cursos').select('id, titulo, constancia, gratuito, constancia_gratuita_activa').eq('id', cursoId).maybeSingle(),
+          supabase.from('cursos').select('id, titulo, constancia, gratuito, constancia_gratuita_activa, constancia_incluir_horas, constancia_horas').eq('id', cursoId).maybeSingle(),
         ])
         if (ePerfil) throw ePerfil
         if (eCurso) throw eCurso
@@ -230,6 +232,8 @@ function Constancia({ user }) {
         fecha: fechaConLetra(emision.fechaEmision),
         firmaUrl,
         logoUrl,
+        incluirHoras: curso?.constancia_incluir_horas !== false,
+        horas: curso?.constancia_horas || null,
       }))
       ventana.document.close()
 
