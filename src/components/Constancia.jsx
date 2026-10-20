@@ -58,7 +58,7 @@ function Constancia({ user }) {
       try {
         const [{ data: p, error: ePerfil }, { data: c, error: eCurso }] = await Promise.all([
           supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle(),
-          supabase.from('cursos').select('id, titulo, constancia, gratuito, constancia_gratuita_activa, constancia_incluir_horas, constancia_horas').eq('id', cursoId).maybeSingle(),
+          supabase.from('cursos').select('*').eq('id', cursoId).maybeSingle(),
         ])
         if (ePerfil) throw ePerfil
         if (eCurso) throw eCurso
@@ -136,6 +136,9 @@ function Constancia({ user }) {
         logoUrl,
         incluirHoras: curso?.constancia_incluir_horas !== false,
         horas: curso?.constancia_horas || null,
+        titulo: curso?.constancia_titulo,
+        texto: curso?.constancia_texto,
+        mostrarNota: curso?.constancia_mostrar_nota !== false,
       }))
       ventana.document.close()
 

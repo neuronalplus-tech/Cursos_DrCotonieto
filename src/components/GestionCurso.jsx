@@ -35,6 +35,7 @@ const AdminForo = lazy(() => import('./AdminForo'))
 const AdminGeneraciones = lazy(() => import('./AdminGeneraciones'))
 const Participantes = lazy(() => import('./Participantes'))
 const PanelProgreso = lazy(() => import('./PanelProgreso'))
+const GestionConstancia = lazy(() => import('./GestionConstancia'))
 const ModalEditarTaller = lazy(() => import('./TallerRecursos').then((m) => ({ default: m.ModalEditarTaller })))
 
 export default function GestionCurso({ user }) {
@@ -92,6 +93,8 @@ export default function GestionCurso({ user }) {
     info: ESTADOS[estadoCurso(curso)].etiqueta,
     modulos: taller ? 'Registro, grabación, materiales y enlaces del taller' : `${modulos.length} módulos · ${recursos.length} materiales`,
     botones: taller ? 'Se editan con los enlaces del taller' : `${Object.values(curso.rutas_botones || {}).flat().length + modulos.reduce((n, m) => n + (m.botones_extra || []).length, 0)} botones`,
+    constancia: (taller ? curso.constancia_gratuita_activa === true : curso.constancia !== false)
+      ? 'Visible para los participantes' : 'Oculta para los participantes',
     tareas: `${tareas} tareas del curso`,
     foro: temasForo ? `${temasForo} temas` : 'Sin temas: el alumno no ve el foro',
   }
@@ -106,6 +109,7 @@ export default function GestionCurso({ user }) {
       case 'botones': return taller
         ? <TallerAqui curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
         : <Botones curso={curso} setCurso={setCurso} modulos={modulos} setModulos={setModulos} />
+      case 'constancia': return <GestionConstancia curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
       case 'examenes': return <AdminExamenes cursoFijo={curso.id} />
       case 'tareas': return <AdminTareas cursoId={curso.id} />
       case 'foro': return <AdminForo user={user} cursoFijo={curso.id} />

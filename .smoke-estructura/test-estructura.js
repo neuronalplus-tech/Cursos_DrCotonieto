@@ -72,7 +72,8 @@ const GRUPOS_ELEMENTOS = [
   ["Curso", [
     { clave: "curso.info", nombre: "Título, descripción e información", permiso: "cursos.editar", seccion: "info" },
     { clave: "curso.estado", nombre: "Publicar, «Próximamente» y archivar", permiso: "cursos.editar", seccion: "info" },
-    { clave: "curso.botones", nombre: "Botones de las rutas", permiso: "cursos.editar", seccion: "botones" }
+    { clave: "curso.botones", nombre: "Botones de las rutas", permiso: "cursos.editar", seccion: "botones" },
+    { clave: "curso.constancia", nombre: "Constancia: texto, horas y publicación", permiso: "cursos.editar", seccion: "constancia" }
   ]],
   ["Módulos y materiales", [
     { clave: "modulos", nombre: "Crear, ordenar, abrir y cerrar módulos", permiso: "cursos.editar", seccion: "modulos" },
@@ -124,11 +125,35 @@ function permite(elemento, { permisos, esAdminOrg = false, esPlataforma = false 
   return !!(permisos == null ? void 0 : permisos.has(elemento.permiso));
 }
 const CATEGORIAS_MATERIAL = [
-  { clave: "lectura", nombre: "Materiales de lectura", icono: "📖" },
-  { clave: "grabacion", nombre: "Grabaciones y videos", icono: "🎬" },
-  { clave: "actividad", nombre: "Actividades", icono: "✍️" },
-  { clave: "descargable", nombre: "Plantillas y descargables", icono: "📥" },
-  { clave: "enlace", nombre: "Enlaces de interés", icono: "🔗" }
+  {
+    clave: "sesion",
+    nombre: "Sesiones en vivo",
+    icono: "📡",
+    accion: "Entrar a la sesión ↗",
+    nota: "Se abre la videollamada en una pestaña nueva.",
+    soloEnlace: true
+  },
+  { clave: "lectura", nombre: "Materiales de lectura", icono: "📖", accion: "Abrir la lectura ↗" },
+  { clave: "grabacion", nombre: "Grabaciones y videos", icono: "🎬", accion: "Ver la grabación ↗" },
+  { clave: "actividad", nombre: "Actividades", icono: "✍️", accion: "Ir a la actividad ↗" },
+  {
+    clave: "juego",
+    nombre: "Juegos e interactivos",
+    icono: "🎮",
+    accion: "Abrir el juego ↗",
+    nota: "Se abre en una pestaña nueva.",
+    soloEnlace: true
+  },
+  { clave: "descargable", nombre: "Plantillas y descargables", icono: "📥", accion: "Abrir la plantilla ↗" },
+  {
+    clave: "entregable",
+    nombre: "Entregables",
+    icono: "📤",
+    accion: "Subir mi entrega ↗",
+    nota: "Se abre la carpeta compartida en una pestaña nueva. Sube tu archivo con el nombre indicado.",
+    soloEnlace: true
+  },
+  { clave: "enlace", nombre: "Enlaces de interés", icono: "🔗", accion: "Abrir enlace →" }
 ];
 const CATEGORIA_POR_FORMATO = {
   pdf: "lectura",
@@ -156,7 +181,8 @@ const ANATOMIA = {
     { clave: "contenido", nombre: "Contenido del curso", contiene: "Rutas y módulos, en su orden", seccion: "modulos" },
     { clave: "botones", nombre: "Botones de ruta", contiene: "Enlaces extra de cada ruta", seccion: "botones" },
     { clave: "tareas", nombre: "Tareas", contiene: "Entregas del curso", seccion: "tareas" },
-    { clave: "foro", nombre: "Foro", contiene: "Solo si hay al menos un tema publicado", seccion: "foro" }
+    { clave: "foro", nombre: "Foro", contiene: "Solo si hay al menos un tema publicado", seccion: "foro" },
+    { clave: "detalles", nombre: "Página de detalles", contiene: "Temario ampliado; solo si tiene contenido", seccion: null }
   ],
   modulo: [
     { clave: "encabezado", nombre: "Encabezado", contiene: "Título, descripción y avance", seccion: "modulos" },
@@ -185,6 +211,274 @@ function estadoModulo(m, ahora = Date.now()) {
 function normalizar(s) {
   return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 }
+function filasFacilitadorNuevas(filas, existentes) {
+  const clave = (f) => `${String(f.email || "").trim().toLowerCase()}|${Number(f.curso_id)}`;
+  const ya = new Set((existentes || []).map(clave));
+  const out = [];
+  for (const f of filas || []) {
+    const k = clave(f);
+    if (ya.has(k))
+      continue;
+    ya.add(k);
+    out.push({ ...f, email: String(f.email).trim().toLowerCase() });
+  }
+  return out;
+}
+function sumar(filas) {
+  const t = {
+    cursos: 0,
+    alumnos: 0,
+    nuevos: 0,
+    activos_7: 0,
+    activos_periodo: 0,
+    terminados: 0,
+    en_riesgo: 0,
+    por_calificar: 0,
+    calificadas: 0,
+    horas_ponderadas: 0,
+    calificadas_7d: 0,
+    intentos: 0,
+    aprobados: 0,
+    asistencias: 0,
+    presentes: 0,
+    temas_foro: 0,
+    respuestas_periodo: 0,
+    constancias: 0,
+    interesados: 0,
+    avance_ponderado: 0,
+    alumnos_con_avance: 0
+  };
+  for (const f of filas || []) {
+    t.cursos++;
+    for (const k of [
+      "alumnos",
+      "nuevos",
+      "activos_7",
+      "activos_periodo",
+      "terminados",
+      "en_riesgo",
+      "por_calificar",
+      "calificadas",
+      "calificadas_7d",
+      "intentos",
+      "aprobados",
+      "asistencias",
+      "presentes",
+      "temas_foro",
+      "respuestas_periodo",
+      "constancias",
+      "interesados"
+    ])
+      t[k] += Number(f[k]) || 0;
+    if (f.horas_calificar != null)
+      t.horas_ponderadas += Number(f.horas_calificar) * (Number(f.calificadas) || 0);
+    if (f.avance_medio != null) {
+      t.avance_ponderado += Number(f.avance_medio) * (Number(f.alumnos) || 0);
+      t.alumnos_con_avance += Number(f.alumnos) || 0;
+    }
+  }
+  return t;
+}
+const pct = (a, b) => b > 0 ? Math.round(a / b * 1e3) / 10 : null;
+const KPIS = [
+  // APRENDIZAJE
+  {
+    clave: "avance",
+    grupo: "Aprendizaje",
+    nombre: "Avance medio",
+    unidad: "%",
+    sentido: "sube",
+    meta: 60,
+    perfiles: ["direccion", "coordinacion", "docente"],
+    como: "Materiales vistos sobre los publicados, promedio por alumno (ponderado por curso).",
+    calcular: (t) => t.alumnos_con_avance ? Math.round(t.avance_ponderado / t.alumnos_con_avance * 10) / 10 : null
+  },
+  {
+    clave: "finalizacion",
+    grupo: "Aprendizaje",
+    nombre: "Tasa de finalización",
+    unidad: "%",
+    sentido: "sube",
+    meta: 50,
+    perfiles: ["direccion"],
+    como: "Alumnos que vieron todos los materiales de su curso, sobre los inscritos.",
+    calcular: (t) => pct(t.terminados, t.alumnos)
+  },
+  {
+    clave: "aprobacion",
+    grupo: "Aprendizaje",
+    nombre: "Aprobación de exámenes",
+    unidad: "%",
+    sentido: "sube",
+    meta: 80,
+    perfiles: ["coordinacion"],
+    como: "Intentos aprobados sobre intentos presentados en el periodo.",
+    calcular: (t) => pct(t.aprobados, t.intentos)
+  },
+  {
+    clave: "asistencia",
+    grupo: "Aprendizaje",
+    nombre: "Asistencia",
+    unidad: "%",
+    sentido: "sube",
+    meta: 85,
+    perfiles: ["coordinacion", "docente"],
+    como: "Presente o retardo sobre los registros de asistencia del periodo.",
+    calcular: (t) => pct(t.presentes, t.asistencias)
+  },
+  // ACTIVIDAD Y RETENCIÓN
+  {
+    clave: "activos",
+    grupo: "Actividad",
+    nombre: "Alumnos activos (periodo)",
+    unidad: "%",
+    sentido: "sube",
+    meta: 60,
+    perfiles: ["direccion", "coordinacion"],
+    como: "Inscritos que abrieron algún material en el periodo, sobre los inscritos.",
+    calcular: (t) => pct(t.activos_periodo, t.alumnos)
+  },
+  {
+    clave: "activos7",
+    grupo: "Actividad",
+    nombre: "Activos en los últimos 7 días",
+    unidad: "alumnos",
+    sentido: "sube",
+    meta: null,
+    perfiles: [],
+    como: "Inscritos con actividad en la última semana.",
+    calcular: (t) => t.activos_7
+  },
+  {
+    clave: "riesgo",
+    grupo: "Actividad",
+    nombre: "Alumnos en riesgo",
+    unidad: "alumnos",
+    sentido: "baja",
+    meta: 0,
+    perfiles: ["coordinacion", "docente"],
+    como: "Inscritos hace más de 7 días, sin terminar y sin actividad en 14 días.",
+    calcular: (t) => t.en_riesgo
+  },
+  // DOCENCIA (servicio al alumno)
+  {
+    clave: "por_calificar",
+    grupo: "Docencia",
+    nombre: "Entregas por calificar",
+    unidad: "entregas",
+    sentido: "baja",
+    meta: 0,
+    perfiles: ["docente", "coordinacion"],
+    como: "Entregas recibidas que todavía no tienen calificación (a hoy).",
+    calcular: (t) => t.por_calificar
+  },
+  {
+    clave: "horas_calificar",
+    grupo: "Docencia",
+    nombre: "Tiempo medio para calificar",
+    unidad: "h",
+    sentido: "baja",
+    meta: 72,
+    perfiles: ["docente", "coordinacion", "direccion"],
+    como: "Horas entre que el alumno entrega y recibe calificación, en lo calificado en el periodo.",
+    calcular: (t) => t.calificadas ? Math.round(t.horas_ponderadas / t.calificadas * 10) / 10 : null
+  },
+  {
+    clave: "a_tiempo",
+    grupo: "Docencia",
+    nombre: "Calificado en ≤ 7 días",
+    unidad: "%",
+    sentido: "sube",
+    meta: 90,
+    perfiles: ["coordinacion"],
+    como: "Entregas calificadas en una semana o menos, sobre las calificadas en el periodo.",
+    calcular: (t) => pct(t.calificadas_7d, t.calificadas)
+  },
+  {
+    clave: "foro",
+    grupo: "Docencia",
+    nombre: "Respuestas en el foro",
+    unidad: "respuestas",
+    sentido: "sube",
+    meta: null,
+    perfiles: ["docente"],
+    como: "Respuestas publicadas en los foros de tus cursos durante el periodo.",
+    calcular: (t) => t.respuestas_periodo
+  },
+  // CRECIMIENTO
+  {
+    clave: "inscritos",
+    grupo: "Crecimiento",
+    nombre: "Inscritos",
+    unidad: "alumnos",
+    sentido: "sube",
+    meta: null,
+    perfiles: ["direccion"],
+    como: "Inscripciones vigentes en los cursos a tu cargo.",
+    calcular: (t) => t.alumnos
+  },
+  {
+    clave: "nuevos",
+    grupo: "Crecimiento",
+    nombre: "Inscripciones nuevas",
+    unidad: "alumnos",
+    sentido: "sube",
+    meta: null,
+    perfiles: ["direccion"],
+    como: "Inscripciones creadas en el periodo.",
+    calcular: (t) => t.nuevos
+  },
+  {
+    clave: "interesados",
+    grupo: "Crecimiento",
+    nombre: "Interesados (leads)",
+    unidad: "personas",
+    sentido: "sube",
+    meta: null,
+    perfiles: ["direccion"],
+    como: "Correos dejados en talleres («quiero los materiales») en el periodo.",
+    calcular: (t) => t.interesados
+  },
+  {
+    clave: "constancias",
+    grupo: "Crecimiento",
+    nombre: "Constancias emitidas",
+    unidad: "constancias",
+    sentido: "sube",
+    meta: null,
+    perfiles: [],
+    como: "Constancias con folio emitidas en el periodo.",
+    calcular: (t) => t.constancias
+  }
+];
+[...new Set(KPIS.map((k) => k.grupo))];
+function semaforo(kpi2, valor, meta = kpi2.meta, tolerancia = 0.2) {
+  if (valor == null || meta == null)
+    return null;
+  if (kpi2.sentido === "sube") {
+    if (valor >= meta)
+      return "verde";
+    return valor >= meta * (1 - tolerancia) ? "ambar" : "rojo";
+  }
+  if (valor <= meta)
+    return "verde";
+  const margen = meta === 0 ? 3 : meta * tolerancia;
+  return valor <= meta + margen ? "ambar" : "rojo";
+}
+function destacadosDe(perfil) {
+  if (!perfil || perfil === "plataforma")
+    return KPIS.filter((k) => k.perfiles.includes("direccion"));
+  return KPIS.filter((k) => k.perfiles.includes(perfil));
+}
+function formato(valor, unidad) {
+  if (valor == null)
+    return "—";
+  if (unidad === "%")
+    return `${valor}%`;
+  if (unidad === "h")
+    return valor >= 48 ? `${Math.round(valor / 24 * 10) / 10} días` : `${valor} h`;
+  return String(valor);
+}
 createClient(
   "https://ohhdnaewtjfqszxemrju.supabase.co",
   "sb_publishable_Xb5gmCnnq2VHL9XhHWnsjA_g-W87puK"
@@ -193,6 +487,7 @@ const SECCIONES_CURSO = [
   { clave: "info", nombre: "Información del curso", icono: "📝", ayuda: "Título, descripción y estado de publicación." },
   { clave: "modulos", nombre: "Módulos y materiales", icono: "📚", ayuda: "Estructura del curso y los materiales de cada módulo, por sección." },
   { clave: "botones", nombre: "Botones", icono: "🔗", ayuda: "Enlaces extra de cada ruta y de cada módulo." },
+  { clave: "constancia", nombre: "Constancia", icono: "🎓", ayuda: "Qué dice, si lleva horas y cuándo la ven los participantes." },
   { clave: "examenes", nombre: "Exámenes", icono: "🧪", ayuda: "El examen del curso y los de cada módulo." },
   { clave: "tareas", nombre: "Tareas", icono: "📥", ayuda: "Entregas que el alumno sube y se califican aquí." },
   { clave: "foro", nombre: "Foro", icono: "💬", ayuda: "Temas de conversación. Sin temas, el alumno no ve el foro." },
@@ -221,7 +516,7 @@ function seccionesPermitidas(ctx) {
   return abiertas;
 }
 const elementosDeSeccion = (seccion, ctx) => ELEMENTOS.filter((e) => e.seccion === seccion).map((e) => ({ ...e, permitido: permite(e, ctx) }));
-function llenadoPagina({ curso, modulos = [], recursos = [], temasForo = 0, tareas = 0 }) {
+function llenadoPagina({ curso, modulos = [], recursos = [], temasForo = 0, tareas = 0, tieneDetalles = false }) {
   const botonesRuta = Object.values((curso == null ? void 0 : curso.rutas_botones) || {}).some((l) => (l || []).some((b) => b.activo !== false));
   const lleno = {
     encabezado: !!(curso == null ? void 0 : curso.titulo),
@@ -229,7 +524,8 @@ function llenadoPagina({ curso, modulos = [], recursos = [], temasForo = 0, tare
     contenido: modulos.length > 0,
     botones: botonesRuta,
     tareas: tareas > 0,
-    foro: temasForo > 0
+    foro: temasForo > 0,
+    detalles: !!tieneDetalles
   };
   const curso_ = ANATOMIA.curso.map((s) => ({ ...s, lleno: !!lleno[s.clave] }));
   const categorias = new Set(recursos.filter((r) => r.disponible !== false).map(categoriaDe));
@@ -325,6 +621,23 @@ check(
   "El módulo tiene una sección por categoría en su anatomía",
   CATEGORIAS_MATERIAL.every((c) => ANATOMIA.modulo.some((s) => s.clave === `material.${c.clave}`))
 );
+const sqlCat = readFileSync(new URL("../supabase/ESTRUCTURA_1_CATEGORIAS.sql", import.meta.url), "utf8");
+const enCheck = [...(sqlCat.match(/categoria_material in\s*\(([\s\S]*?)\)\)/) || ["", ""])[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+check(
+  "Las categorías del código = las que admite la base (ESTRUCTURA_1)",
+  igualesConjunto(enCheck, CATEGORIAS_MATERIAL.map((c) => c.clave)),
+  `base: ${enCheck}`
+);
+check(
+  "Sesión, juego y entregable existen y son solo enlace",
+  ["sesion", "juego", "entregable"].every((k) => {
+    var _a;
+    return (_a = CATEGORIAS_MATERIAL.find((c) => c.clave === k)) == null ? void 0 : _a.soloEnlace;
+  })
+);
+check("Toda categoría dice qué hace su botón", CATEGORIAS_MATERIAL.every((c) => c.accion));
+check("Un entregable migrado conserva su sección", categoriaDe({ tipo: "enlace", categoria_material: "entregable" }) === "entregable");
+check("Las sesiones en vivo van primero en el módulo", CATEGORIAS_MATERIAL[0].clave === "sesion");
 console.log("\n=== QUIÉN EDITA QUÉ ===");
 const sec = (clave) => seccionesPermitidas(contextoSimulado(clave, []));
 check("Administración global: todas las tarjetas", sec("plataforma").size === SECCIONES_CURSO.length);
@@ -350,6 +663,33 @@ check(
   seccionesPermitidas(contextoReal({ esFacilitador: true })).has("modulos")
 );
 check("Sin rol ni curso no abre nada", seccionesPermitidas(contextoReal({})).size === 0);
+console.log("\n=== ALTA DE FACILITADORES ===");
+const nuevasF = filasFacilitadorNuevas(
+  [{ email: "Ana@X.mx ", curso_id: 1 }, { email: "ana@x.mx", curso_id: 1 }, { email: "ana@x.mx", curso_id: 2 }, { email: "beto@x.mx", curso_id: 1 }],
+  [{ email: "ANA@x.mx", curso_id: 2 }]
+);
+check(
+  "Solo inserta lo que falta, sin repetir y con el correo en minúsculas",
+  JSON.stringify(nuevasF) === JSON.stringify([{ email: "ana@x.mx", curso_id: 1 }, { email: "beto@x.mx", curso_id: 1 }]),
+  JSON.stringify(nuevasF)
+);
+console.log("\n=== INDICADORES ===");
+const tk = sumar([
+  { alumnos: 10, activos_periodo: 5, avance_medio: 80, terminados: 2, calificadas: 4, horas_calificar: 10, intentos: 4, aprobados: 3, asistencias: 0, presentes: 0, por_calificar: 1 },
+  { alumnos: 30, activos_periodo: 15, avance_medio: 40, terminados: 0, calificadas: 1, horas_calificar: 100, intentos: 0, aprobados: 0, asistencias: 10, presentes: 9, por_calificar: 0 }
+]);
+const kpi = (c) => KPIS.find((k) => k.clave === c);
+check("Avance ponderado por alumnos (no promedio de promedios)", kpi("avance").calcular(tk) === 50, String(kpi("avance").calcular(tk)));
+check("Horas para calificar ponderadas por entregas", kpi("horas_calificar").calcular(tk) === 28, String(kpi("horas_calificar").calcular(tk)));
+check("Tasas desde conteos (aprobación 75%, asistencia 90%)", kpi("aprobacion").calcular(tk) === 75 && kpi("asistencia").calcular(tk) === 90);
+check("Sin datos no hay tasa (no un falso 0%)", kpi("aprobacion").calcular(sumar([{ intentos: 0 }])) === null);
+check("Semáforo «más es mejor»", semaforo(kpi("avance"), 60, 60) === "verde" && semaforo(kpi("avance"), 50, 60) === "ambar" && semaforo(kpi("avance"), 20, 60) === "rojo");
+check("Semáforo «menos es mejor» con meta 0", semaforo(kpi("por_calificar"), 0) === "verde" && semaforo(kpi("por_calificar"), 2) === "ambar" && semaforo(kpi("por_calificar"), 9) === "rojo");
+check("Sin meta no hay semáforo", semaforo(kpi("activos7"), 5) === null);
+check("Cada perfil tiene sus destacados", ["direccion", "coordinacion", "docente"].every((p) => destacadosDe(p).length >= 3));
+check("Al docente se le destaca lo que tiene por calificar", destacadosDe("docente").some((k) => k.clave === "por_calificar"));
+check("Horas largas se leen en días", formato(72, "h") === "3 días" && formato(5, "h") === "5 h" && formato(null, "%") === "—");
+check("Todo indicador explica cómo se calcula", KPIS.every((k) => k.como && k.calcular));
 console.log("\n=== ESTADOS Y PÁGINA ===");
 check("Curso archivado", estadoCurso({ activo: false, proximamente: true }) === "archivado");
 check("Curso próximamente", estadoCurso({ proximamente: true }) === "proximamente");

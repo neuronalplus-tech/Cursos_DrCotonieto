@@ -32,16 +32,38 @@ export function esperarImagen(url, timeout = 9000) {
   })
 }
 
-export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl, incluirHoras, horas }) {
+/* Textos que el docente puede elegir (Gestión → Constancia). Cada curso
+   guarda el suyo; vacío = el de siempre. Las opciones son solo atajos:
+   se puede escribir cualquier texto. */
+export const TITULO_CONSTANCIA = 'CONSTANCIA DE ACREDITACIÓN'
+export const TEXTO_CONSTANCIA = 'por haber acreditado satisfactoriamente el curso'
+export const PRESETS_CONSTANCIA = [
+  { nombre: 'Acreditación', titulo: 'CONSTANCIA DE ACREDITACIÓN', texto: 'por haber acreditado satisfactoriamente el curso' },
+  { nombre: 'Asistencia a taller', titulo: 'CONSTANCIA DE ASISTENCIA', texto: 'por haber asistido al taller' },
+  { nombre: 'Asistencia a curso', titulo: 'CONSTANCIA DE ASISTENCIA', texto: 'por haber asistido al curso' },
+  { nombre: 'Participación', titulo: 'CONSTANCIA DE PARTICIPACIÓN', texto: 'por su participación en el taller' },
+  { nombre: 'Conclusión', titulo: 'CONSTANCIA DE CONCLUSIÓN', texto: 'por haber concluido el curso' },
+]
+
+export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl, incluirHoras, horas, titulo, texto, mostrarNota = true }) {
+  const tituloLimpio = escapar((titulo || '').trim() || TITULO_CONSTANCIA)
+  const textoLimpio = escapar((texto || '').trim() || TEXTO_CONSTANCIA)
   const nombreLimpio = escapar(nombre)
   const cursoLimpio = escapar(curso)
   const logo = escapar(logoUrl)
   // Un taller gratuito no califica: sin nota no se imprime la línea de
   // calificación (antes salía «0/10» porque Number(null) es 0).
-  const conNota = nota10 != null && nota10 !== ''
+  const conNota = mostrarNota !== false && nota10 != null && nota10 !== ''
   const nota = conNota ? Number(nota10).toFixed(1).replace(/\.0$/, '') : null
   const nombreFont = nombre.length > 44 ? 25 : nombre.length > 32 ? 30 : 36
-  const cursoFont = curso.length > 64 ? 19 : curso.length > 44 ? 22 : 26
+  const cursoFont = curso.length > 100 ? 16 : curso.length > 64 ? 19 : curso.length > 44 ? 22 : 26
+  const tituloTxt = (titulo || '').trim() || TITULO_CONSTANCIA
+  const textoTxt = (texto || '').trim() || TEXTO_CONSTANCIA
+  const tituloFont = tituloTxt.length > 44 ? 10 : tituloTxt.length > 32 ? 11.5 : 13
+  const motivoFont = textoTxt.length > 110 ? 11 : textoTxt.length > 80 ? 12 : 13
+  // Con mucho texto se recortan los espacios verticales para que la firma y
+  // el pie nunca queden fuera de la hoja.
+  const compacto = nombre.length + curso.length + textoTxt.length + tituloTxt.length > 230
   const firma = escapar(firmaUrl)
   const folioHtml = escapar(folio)
   const verificar = `${window.location.origin}/verificar/${encodeURIComponent(folio)}`
@@ -64,13 +86,13 @@ export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, 
   .franja { position: absolute; inset: 0 0 auto; height: 7pt; background: #1B3A4B; }
   .encabezado { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: .32in; }
   .logo { width: .78in; height: auto; }
-  .antetitulo { margin-top: .28in; text-align: center; font-size: 13pt; letter-spacing: .25em; font-weight: 600; }
+  .antetitulo { max-width: 100%; margin-top: .28in; text-align: center; font-size: ${tituloFont}pt; letter-spacing: ${tituloFont > 11 ? '.25em' : '.12em'}; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
   .acento { width: .55in; height: 2pt; margin: .3in auto; background: #C17A5E; }
-  .contenido { width: 100%; text-align: center; margin-top: .38in; }
+  .contenido { width: 100%; min-width: 0; padding: 0 .1in; text-align: center; margin-top: .38in; }
   .se-otorga { font-size: 13pt; }
   .nombre { margin: .26in 0 .34in; text-align: center; font: 600 ${nombreFont}pt Fraunces, Georgia, serif; color: #1B3A4B; line-height: 1.18; overflow-wrap: anywhere; }
   .separador { width: 2.5in; height: 1pt; margin: 0 auto .35in; background: #D6DCE3; }
-  .motivo { font-size: 13pt; line-height: 1.55; }
+  .motivo { font-size: ${motivoFont}pt; line-height: 1.55; overflow-wrap: anywhere; }
   .curso { margin: .24in auto 0; font: 600 ${cursoFont}pt Fraunces, Georgia, serif; line-height: 1.25; overflow-wrap: anywhere; }
   .horas { margin-top: .22in; color: #6B7A85; font-size: 11pt; }
   .calificacion { margin-top: .34in; color: #C17A5E; font-size: 12pt; font-weight: 600; }
@@ -80,24 +102,26 @@ export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, 
   .linea-firma { width: 3.4in; height: 1pt; margin-top: .02in; background: #1B3A4B; }
   .firmante { margin-top: .13in; text-align: center; font-size: 10pt; font-weight: 700; }
   .cargo { margin-top: .06in; text-align: center; font-size: 8.5pt; color: #8A9BAD; }
+  .pie > * { min-width: 0; overflow-wrap: anywhere; }
   .pie { width: calc(100% + 1.36in); min-height: .42in; margin: .3in -.68in -.42in; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; padding: 0 .55in; background: #1B3A4B; color: #D6DCE3; font-size: 8pt; }
   .pie strong { text-align: center; color: #FAFAF8; font-size: 10pt; }
   .pie span:last-child { display: inline-flex; align-items: center; justify-content: flex-end; gap: .07in; }
   .pie .wa-icono { width: .15in; height: .15in; fill: #25D366; flex: none; display: block; }
+  ${compacto ? '.encabezado { margin-top: .1in; } .antetitulo { margin-top: .15in; } .acento { margin: .15in auto; } .contenido { margin-top: .1in; } .nombre { margin: .12in 0 .16in; } .separador { margin-bottom: .16in; } .curso { margin-top: .12in; } .calificacion, .horas { margin-top: .12in; } .verificacion { margin-top: .15in; } .bloque-firma { padding-top: .1in; } .firma { height: 1in; }' : ''}
   @media screen { body { display: flex; justify-content: center; padding: 24px; background: #e8e5df; } .hoja { flex: 0 0 auto; box-shadow: 0 8px 30px #0002; } }
   @media print { html, body { width: 8.5in; height: 11in; } body { display: block; } .hoja { margin: 0; box-shadow: none; } }
 </style></head><body><main class="hoja">
   <div class="franja"></div>
   <header class="encabezado">
   <img class="logo" src="${logo}" alt="">
-  <div class="antetitulo">CONSTANCIA DE ACREDITACIÓN</div>
+  <div class="antetitulo">${tituloLimpio}</div>
   <div class="acento"></div>
   </header>
   <section class="contenido">
   <div class="se-otorga">Se otorga a</div>
   <div class="nombre">${nombreLimpio}</div>
   <div class="separador"></div>
-  <div class="motivo">por haber acreditado satisfactoriamente el curso</div>
+  <div class="motivo">${textoLimpio}</div>
   <div class="curso">«${cursoLimpio}»</div>
   ${incluirHoras && horas ? `<div class="horas">Duración: ${horas} hora${horas !== 1 ? 's' : ''}</div>` : ''}
   ${conNota ? `<div class="calificacion">Calificación final: ${nota}/10 · ${escapar(conLetra(nota10))}</div>` : ''}
