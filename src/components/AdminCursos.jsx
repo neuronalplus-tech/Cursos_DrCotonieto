@@ -25,9 +25,6 @@ const VACIO = {
   activo: true, gratuito: false, proximamente: false, constancia: true,
   caratula: '', info_curso: '',
   fecha_sesion: '', link_registro: '', registro_texto: '',
-  constancia_gratuita_activa: false,
-  constancia_incluir_horas: true,
-  constancia_horas: null,
 }
 
 /** Los campos de taller solo estorban en un curso normal.
@@ -305,39 +302,6 @@ export default function AdminCursos() {
               </label>
             )}
           </div>
-
-          {/* Configuración de constancia para talleres gratuitos.
-             El docente activa la constancia cuando el taller termina y
-             elige si la constancia impresa incluye el número de horas. */}
-          {form.gratuito && (
-            <div className="curso-editor-casillas curso-editor-constancia-gratuita">
-              <label>
-                <input type="checkbox" checked={!!form.constancia_gratuita_activa}
-                       onChange={e => campo('constancia_gratuita_activa', e.target.checked)} />
-                <span>Constancia habilitada <em className="nota">(para inscritos con cuenta, al terminar el taller)</em></span>
-              </label>
-              {form.constancia_gratuita_activa && (
-                <>
-                  <label>
-                    <input type="checkbox" checked={form.constancia_incluir_horas !== false}
-                           onChange={e => campo('constancia_incluir_horas', e.target.checked)} />
-                    <span>Incluir número de horas en la constancia</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                    <span style={{ fontSize: '0.9rem', color: '#666' }}>Horas del taller:</span>
-                    <input className="input" type="number" min="1" max="999"
-                           value={form.constancia_horas == null ? '' : form.constancia_horas}
-                           onChange={e => campo('constancia_horas', e.target.value === '' ? null : Number(e.target.value))}
-                           placeholder="Ej. 4" />
-                  </label>
-                  <p className="nota" style={{ marginTop: 6 }}>
-                    Si marcas «Incluir número de horas», la constancia del
-                    taller mostrará la duración en el documento descargable.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
 
           <EditorPonderacion
             cursoId={editando}

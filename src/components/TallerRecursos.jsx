@@ -6,6 +6,8 @@ import { analizarUrl, emiteConstancia } from '../lib/helpers'
 import { enviarCorreo } from '../lib/correo'
 import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
 import { rutaAcceso, rutaRegistro } from '../config'
+import { fechaConLetra } from '../lib/plantillas'
+import { htmlConstancia, FIRMA_URL, LOGO_URL } from '../lib/constancia-html'
 import ExamenModulo from './ExamenModulo'
 
 /* ============================================================
@@ -29,7 +31,10 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
     materiales_activo: false,
     botones_extra:   [],
     constancia_gratuita_activa: curso.constancia_gratuita_activa === true,
+    constancia_incluir_horas: curso.constancia_incluir_horas !== false,
+    constancia_horas: curso.constancia_horas || null,
   })
+  const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -66,6 +71,8 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
         registro_texto:  form.registro_texto.trim() || null,
         registro_activo: !!form.registro_activo,
         constancia_gratuita_activa: !!form.constancia_gratuita_activa,
+        constancia_incluir_horas: !!form.constancia_incluir_horas,
+        constancia_horas: form.constancia_horas || null,
       }
       const res = await supabase.from('cursos').update(publico).eq('id', curso.id).select().single()
       if (res.error) throw res.error
@@ -152,6 +159,30 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
               taller haya terminado: se emitirá con el nombre que cada quien dio al registrarse.
               (Si la casilla no guarda, falta correr supabase/ALTA_PUBLICA.sql en el SQL Editor.)
             </p>
+            {form.constancia_gratuita_activa && (
+              <>
+                <label style={{ marginTop: 10 }}>
+                  <input type="checkbox" checked={form.constancia_incluir_horas}
+                         onChange={(e) => set('constancia_incluir_horas', e.target.checked)} />
+                  {' '}Incluir número de horas en la constancia
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: '0.9rem', color: '#666' }}>Horas del taller:</span>
+                  <input className="input" type="number" min="1" max="999"
+                         value={form.constancia_horas == null ? '' : form.constancia_horas}
+                         onChange={(e) => set('constancia_horas', e.target.value === '' ? null : Number(e.target.value))}
+                         placeholder="Ej. 4" />
+                </label>
+                <p className="nota" style={{ marginTop: 6 }}>
+                  Si marcas «Incluir número de horas», la constancia del taller
+                  mostrará la duración en el documento descargable.
+                </p>
+                <button type="button" className="button texto" style={{ marginTop: 8 }}
+                        onClick={() => setVistaPreviaAbierta(true)}>
+                  👁️ Vista previa de la constancia
+                </button>
+              </>
+            )}
           </>
         )}
 
@@ -172,6 +203,48 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
           </button>
         </div>
       </div>
+
+      {/* Vista previa con los valores ACTUALES del formulario (sin guardar):
+          el docente marca/desmarca «incluir horas», cambia el número y ve
+          el efecto al instante antes de activar la constancia. Usa el
+          MISMO htmlConstancia que imprime el alumno (lib/constancia-html). */}
+      {vistaPreviaAbierta && (
+        <div className="modal-overlay" onClick={(e) => { e.stopPropagation(); setVistaPreviaAbierta(false) }}
+             style={{ position: 'fixed', inset: 0, background: '#0009', zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}
+               style={{ maxHeight: '94vh', width: 'min(960px, 96vw)', overflowY: 'auto' }}>
+            <h2>Vista previa de la constancia</h2>
+            <p className="nota" style={{ marginTop: 0 }}>
+              Así se verá la constancia que descargarán tus alumnos. El nombre y el folio
+              son de ejemplo; el curso, el diseño y{' '}
+              {form.constancia_incluir_horas && form.constancia_horas
+                ? <strong>las {form.constancia_horas} hora(s) del taller</strong>
+                : <strong>la omisión de horas</strong>}{' '}
+              son los valores reales que acabas de configurar.
+            </p>
+            <iframe
+              title="Vista previa de la constancia"
+              style={{ width: '100%', height: '72vh', border: '1px solid #D6DCE3', borderRadius: 10, background: '#e8e5df' }}
+              srcDoc={htmlConstancia({
+                nombre: 'María Fernanda López Hernández',
+                curso: curso.titulo || '',
+                nota10: null,
+                folio: 'EJEMPLO-2026-VISTAPREVIA',
+                fecha: fechaConLetra(new Date()),
+                firmaUrl: typeof window === 'undefined' ? FIRMA_URL : new URL(FIRMA_URL, window.location.origin).href,
+                logoUrl: typeof window === 'undefined' ? LOGO_URL : new URL(LOGO_URL, window.location.origin).href,
+                incluirHoras: form.constancia_incluir_horas,
+                horas: form.constancia_horas,
+              })}
+            />
+            <div className="modal-botones">
+              <button type="button" className="button primary" onClick={() => setVistaPreviaAbierta(false)}>
+                Cerrar vista previa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </ModalPortal>
   )
