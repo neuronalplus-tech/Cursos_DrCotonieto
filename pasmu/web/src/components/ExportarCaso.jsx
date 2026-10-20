@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getExpediente } from '../services/pasmuService'
 import useServiceData from '../hooks/useServiceData'
-import { hasPermission } from '../lib/permissions'
+import { hasPermission, isExperienciaDemo } from '../lib/permissions'
 
 function formatFecha(valor) {
-  if (!valor) return '—'
+  if (!valor) return 'â€”'
   try { return new Date(valor).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) } catch { return valor }
 }
 
@@ -26,6 +26,17 @@ async function downloadPdf(html, filename) {
 }
 
 export default function ExportarCaso({ user }) {
+  const esDemo = isExperienciaDemo(user)
+  if (esDemo) {
+    return (
+      <section>
+        <h1>Exportar expediente (PDF)</h1>
+        <p className="form-hint\" role="note\">
+          ExploraciÃ³n DEMO: la exportaciÃ³n de expedientes no estÃ¡ disponible en modo de solo lectura.
+        </p>
+      </section>
+    )
+  }
   const [searchParams, setSearchParams] = useSearchParams()
   const caseId = searchParams.get('casoId')
   const { data: expediente, loading, error } = useServiceData(getExpediente, user, caseId)
@@ -60,13 +71,13 @@ export default function ExportarCaso({ user }) {
       button { cursor: pointer; }
     </style></head><body>
       <div class="portada">
-        <h2>Expediente clínico — NOM-004</h2>
-        <p class="subtitulo">Gestión PASMU · Registro pdf escrito</p>
-        <p>Folio: ${escapeHtml(expediente.folio || '—')}</p>
-        <p>Paciente: ${escapeHtml(expediente.paciente || '—')}</p>
-        <p>Motivo: ${escapeHtml(expediente.motivo || '—')}</p>
-        <p>Unidad: ${escapeHtml(expediente.unidad || '—')}</p>
-        <p>Programa: ${escapeHtml(expediente.programa || '—')}</p>
+        <h2>Expediente clÃ­nico â€” NOM-004</h2>
+        <p class="subtitulo">GestiÃ³n PASMU Â· Registro pdf escrito</p>
+        <p>Folio: ${escapeHtml(expediente.folio || 'â€”')}</p>
+        <p>Paciente: ${escapeHtml(expediente.paciente || 'â€”')}</p>
+        <p>Motivo: ${escapeHtml(expediente.motivo || 'â€”')}</p>
+        <p>Unidad: ${escapeHtml(expediente.unidad || 'â€”')}</p>
+        <p>Programa: ${escapeHtml(expediente.programa || 'â€”')}</p>
         <p>Apertura: ${formatFecha(expediente.fecha_apertura)}</p>
       </div>
       ${expediente.caso_profesionales && expediente.caso_profesionales.length > 0 ? `
@@ -77,7 +88,7 @@ export default function ExportarCaso({ user }) {
       <table class="data-grid"><tbody>${datosHtml}</tbody></table>
       <h3 class="section-title">Historial relevante</h3>
       <ul>${historialHtml}</ul>
-      <p class="pista">Generado el ${new Date().toLocaleString('es-MX')}. Versión impresa del expediente electrónico.</p>
+      <p class="pista">Generado el ${new Date().toLocaleString('es-MX')}. VersiÃ³n impresa del expediente electrÃ³nico.</p>
     </body></html>`
 
     downloadPdf(html, `expediente-${expediente.folio || new Date().toISOString().slice(0,10)}.pdf`)
@@ -86,21 +97,21 @@ export default function ExportarCaso({ user }) {
   return (
     <section>
       <h1>Exportar expediente (PDF)</h1>
-      {loading && <p role="status">Cargando expediente…</p>}
+      {loading && <p role="status">Cargando expedienteâ€¦</p>}
       {error && <p className="form-error" role="alert">No se pudo cargar el expediente: {error}</p>}
       {expediente && hasPermission(user, 'expediente.ver') && (
         <div className="panel">
           <div className="toolbar">
-            <h2>Ficha para exportación</h2>
+            <h2>Ficha para exportaciÃ³n</h2>
             <button type="button" className="primary-btn" onClick={generarPdf}>Descargar PDF</button>
           </div>
           <div className="data-grid">
             <table><tbody>
-              <tr><td><strong>Folio:</strong></td><td>{expediente.folio || '—'}</td></tr>
-              <tr><td><strong>Paciente:</strong></td><td>{expediente.paciente || '—'}</td></tr>
-              <tr><td><strong>Motivo:</strong></td><td>{expediente.motivo || '—'}</td></tr>
-              <tr><td><strong>Unidad:</strong></td><td>{expediente.unidad || '—'}</td></tr>
-              <tr><td><strong>Programa:</strong></td><td>{expediente.programa || '—'}</td></tr>
+              <tr><td><strong>Folio:</strong></td><td>{expediente.folio || 'â€”'}</td></tr>
+              <tr><td><strong>Paciente:</strong></td><td>{expediente.paciente || 'â€”'}</td></tr>
+              <tr><td><strong>Motivo:</strong></td><td>{expediente.motivo || 'â€”'}</td></tr>
+              <tr><td><strong>Unidad:</strong></td><td>{expediente.unidad || 'â€”'}</td></tr>
+              <tr><td><strong>Programa:</strong></td><td>{expediente.programa || 'â€”'}</td></tr>
               <tr><td><strong>Apertura:</strong></td><td>{formatFecha(expediente.fecha_apertura)}</td></tr>
             </tbody></table>
           </div>

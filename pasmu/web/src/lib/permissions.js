@@ -1,7 +1,7 @@
 export const ROLES = {
   experiencia_demo: {
     name: 'Experiencia DEMO',
-    permissions: ['dashboard.ver', 'casos.ver', 'agenda.ver', 'expediente.ver', 'reportes.ver', 'perfil.editar']
+    permissions: ['dashboard.ver', 'casos.ver', 'agenda.ver', 'expediente.ver', 'reportes.ver', 'perfil.ver']
   },
   direccion_pasmu: {
     name: 'Dirección PASMU',
@@ -103,10 +103,35 @@ export const USERS = {
 export const AUDIT_ACCOUNT_EMAIL = 'ernesto_cotonieto@uaeh.edu.mx'
 
 // Rol de exploración por invitación: solo lectura. No tiene .crear/.editar/.exportar/.admin.
+export const DEMO_SESSION_MINUTES = 15;
+
 export function isExperienciaDemo(user) {
-  const role = user?.role || user?.contexts?.[0]?.role
-  return role === 'experiencia_demo'
+  const role = user?.role || user?.contexts?.[0]?.role;
+  return role === 'experiencia_demo';
 }
+
+export function createDemoSession(user, minutes = DEMO_SESSION_MINUTES) {
+  const expiresAt = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  return {
+    ...user,
+    demo: {
+      expiresAt,
+      mode: "preview",
+      note: `Solo lectura · no se guarda ni sincroniza · sesión expira en ${minutes} minutos.`,
+      expiresAtDisplay: new Date(expiresAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
+    }
+  };
+}
+
+export function isDemoSessionActive(user, now = Date.now()) {
+  if (!user?.demo?.expiresAt) return false;
+  return new Date(user.demo.expiresAt).getTime() > now;
+}
+
+export function isReadOnlyDemo(user, now = Date.now()) {
+  return isExperienciaDemo(user) && isDemoSessionActive(user, now);
+}
+
 
 export function hasPermission(user, permission) {
   if (!user || typeof permission !== 'string' || permission.length === 0) return false
@@ -142,7 +167,12 @@ export function canAccessRoute(user, route) {
     return hasPermission(user, 'reportes.exportar')
   }
   if (route === 'perfil') {
-    return hasPermission(user, 'perfil.editar')
+    // Ver perfil propio está abierto a cualquier persona autenticada.
+    // Editar requiere `perfil.editar` explícito.
+    if (!user?.authUserId && !isExperienciaDemo(user)) {
+      return false
+    }
+    return true
   }
   if (route === 'chat') {
     return hasPermission(user, 'chat.leer')

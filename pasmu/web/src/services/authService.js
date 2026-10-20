@@ -95,11 +95,24 @@ export async function loadPasmuUser(authUser) {
   }
 
   const activeContext = contexts[0]
+
+  // Clave para el modo demostración: sesión de 15 minutos que no persiste y no se sincroniza.
+  const isDemoRole = activeContext?.role === 'experiencia_demo'
+  const demoSession = isDemoRole
+    ? {
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        mode: 'preview',
+        note:
+          'Solo lectura · no se guarda ni sincroniza · sesión expira en 15 minutos.'
+      }
+    : null
+
   return {
     id: person.id,
     authUserId: authUser.id,
     name: [person.nombre, person.apellidos].filter(Boolean).join(' '),
     ...activeContext,
-    contexts
+    contexts,
+    demo: demoSession
   }
 }

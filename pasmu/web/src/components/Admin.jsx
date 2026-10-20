@@ -6,7 +6,7 @@ import {
   submitConfigurationDraft,
   validateConfigurationDraft
 } from '../lib/configurationGovernance.js'
-import { hasPermission } from '../lib/permissions.js'
+import { hasPermission, isExperienciaDemo } from '../lib/permissions.js'
 import {
   createConfigurationChange,
   decideConfigurationChange,
@@ -43,7 +43,7 @@ function formatDate(value) {
 }
 
 export default function Admin({ user }) {
-  const isDemo = !user?.authUserId
+  const isDemo = !user?.authUserId || isExperienciaDemo(user)
   const [proposals, setProposals] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [revisionSource, setRevisionSource] = useState(null)

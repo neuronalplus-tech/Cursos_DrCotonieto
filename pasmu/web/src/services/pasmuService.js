@@ -7,6 +7,7 @@ import {
   seguridadEventos as demoSeguridadEventos
 } from '../data/mockData'
 import { supabase } from '../lib/supabase'
+import { isExperienciaDemo, isDemoSessionActive } from '../lib/permissions'
 
 const REPORT_QUERY_LIMIT = 200
 
@@ -20,7 +21,12 @@ function throwIfError(error) {
 }
 
 function isDemoUser(user) {
-  return !user?.authUserId
+  // Modo local (sin authUserId): disponibilidad de datos ficticios siempre.
+  if (!user?.authUserId) return true
+  // Usuario autenticado con rol de solo lectura demo: datos de simulación,
+  // sin escribir ni sincronizar. La sesión expira después de 15 minutos.
+  if (isExperienciaDemo(user) && isDemoSessionActive(user)) return true
+  return false
 }
 
 function scopeToActiveContext(query, user, { includeProgram = true } = {}) {

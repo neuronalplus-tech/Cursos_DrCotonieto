@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import { isExperienciaDemo } from '../lib/permissions'
 
 export default function ChatInterno({ user }) {
+  const esDemo = isExperienciaDemo(user)
+  if (esDemo) {
+    return (
+      <section>
+        <h1>Chat clínico</h1>
+        <p className="form-hint" role="note">
+          Exploración DEMO: el chat clínico no está disponible en modo de solo lectura.
+        </p>
+      </section>
+    )
+  }
   const [salaId, setSalaId] = useState(null)
   const [salaIdParam] = useState(() => {
     const params = new URLSearchParams(window.location.search)

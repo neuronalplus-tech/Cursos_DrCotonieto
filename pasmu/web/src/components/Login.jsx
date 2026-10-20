@@ -62,9 +62,14 @@ export default function Login({ onLogin, authError, hasSession, onLogout }) {
   }
 
   const simulateRoleLogin = () => {
-    const base = USERS.terapeuta
-    onLogin({ ...base, name: `${ROLES[selectedRole]?.name} (demo)`, role: selectedRole })
-    navigate('/dashboard')
+    const role = selectedRole || 'experiencia_demo';
+    const base = USERS[role] || USERS.experiencia_demo;
+    const user = { ...base, name: `${ROLES[role]?.name} (demo)`, role };
+    if (role === 'experiencia_demo') {
+      user.demo = createDemoSession({ ...user, expiresAtDisplay: new Date(Date.now() + 15 * 60 * 1000).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) });
+    }
+    onLogin(user);
+    navigate('/dashboard');
   }
 
   return (

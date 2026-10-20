@@ -95,7 +95,7 @@ test('experiencia_demo es solo lectura: navega, no edita ni exporta', () => {
   assert.equal(hasPermission(demo, 'agenda.ver'), true)
   assert.equal(hasPermission(demo, 'expediente.ver'), true)
   assert.equal(hasPermission(demo, 'reportes.ver'), true)
-  assert.equal(hasPermission(demo, 'perfil.editar'), true)
+  assert.equal(hasPermission(demo, 'perfil.editar'), false)
   for (const denied of ['casos.crear', 'casos.editar', 'agenda.programar', 'expediente.editar', 'reportes.exportar', 'admin.roles', 'configuracion.ver', 'seguridad.ver']) {
     assert.equal(hasPermission(demo, denied), false, `demo no debe tener ${denied}`)
   }

@@ -1,6 +1,9 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { canAccessRoute, hasPermission, isExperienciaDemo, ROLES } from '../lib/permissions'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { canAccessRoute, hasPermission, isExperienciaDemo, isDemoSessionActive, DEMO_SESSION_MINUTES, ROLES } from '../lib/permissions'
 import { isSupabaseConfigured } from '../lib/supabase'
+import DemoResultExample from './DemoResultExample'
+import { dashboardMetrics } from '../data/mockData'
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', route: 'dashboard' },
@@ -47,6 +50,7 @@ export default function Layout({ user, authError, onLogout, onContextChange }) {
     return canAccessRoute(user, link.route)
   })
   const esDemo = isExperienciaDemo(user)
+  const esDemoActivo = esDemo && isDemoSessionActive(user)
 
   return (
     <div className="shell">
@@ -87,10 +91,23 @@ export default function Layout({ user, authError, onLogout, onContextChange }) {
       </aside>
       <main className="content" id="main-content" tabIndex={-1}>
         {authError && <p className="form-error" role="alert">No se pudo cerrar la sesión: {authError}</p>}
-        {esDemo && (
-          <p className="data-notice" role="status">
+        {esDemo && esDemoActivo && (
+          <p className="data-notice demo-banner-active" role="status">
             Exploración DEMO · Solo lectura con datos ficticios. Puedes navegar, no puedes crear, editar ni exportar.
-            Vigencia limitada por invitación.
+            Sesión vigente hasta {user?.demo?.expiresAtDisplay || '—'}. No se guarda ni se sincroniza.
+          </p>
+        )}
+        {esDemo && !esDemoActivo && (
+          <p className="data-notice demo-banner-expired" role="alert">
+            Sesión DEMO expirada. La exploración de solo lectura ha terminado y los datos de simulación se han descartado.
+            Inicia sesión de nuevo para iniciar una nueva demostración.
+          </p>
+        )}
+        {!esDemo && (
+          <p className="data-notice" role="status">
+            {user?.authUserId
+              ? 'Sesión autenticada con Supabase. Las consultas reales están limitadas por tus permisos y las políticas RLS. No ingreses información clínica real hasta completar las pruebas de autorización.'
+              : 'Modo local de demostración: se muestran datos ficticios. No uses este modo con información clínica real.'}
           </p>
         )}
         {isSupabaseConfigured() && (

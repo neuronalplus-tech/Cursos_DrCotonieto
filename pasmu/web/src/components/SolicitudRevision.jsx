@@ -2,9 +2,20 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getCasos } from '../services/pasmuService'
 import useServiceData from '../hooks/useServiceData'
-import { hasPermission } from '../lib/permissions'
+import { hasPermission, isExperienciaDemo } from '../lib/permissions'
 
 export default function SolicitudRevision({ user }) {
+  const esDemo = isExperienciaDemo(user)
+  if (esDemo) {
+    return (
+      <section>
+        <h1>Solicitud de revisión</h1>
+        <p className="form-hint" role="note">
+          Exploración DEMO: la solicitud de revisiones no está disponible en modo de solo lectura.
+        </p>
+      </section>
+    )
+  }
   const [searchParams, setSearchParams] = useSearchParams()
   const caseId = searchParams.get('casoId')
   const { data: casos, loading: casesLoading, error: casesError } = useServiceData(getCasos, user)
