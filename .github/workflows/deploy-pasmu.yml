@@ -1,0 +1,41 @@
+name: Deploy PASMU a Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pasmu/web/**'
+      - '.github/workflows/deploy-pasmu.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pasmu/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: pasmu/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy a Cloudflare Workers (pasmuprototipo)
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
