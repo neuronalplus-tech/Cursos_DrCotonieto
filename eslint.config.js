@@ -27,6 +27,8 @@ export default [
       '.smoke*/**',
       // Copias de seguridad previas al refactor. No se tocan ni se revisan.
       'respaldo/**',
+      // Copia de otro proyecto (PASMU) guardada a mano: no es de este sitio.
+      'pasmu/**',
     ],
   },
 
