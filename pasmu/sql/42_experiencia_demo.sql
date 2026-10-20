@@ -74,7 +74,7 @@ begin
     if not (private.pasmu_es_admin_global() or 'direccion_pasmu' = any (private.pasmu_mis_roles())) then
       raise exception 'Solo Dirección PASMU da de alta a personas responsables de unidad.' using errcode = '42501'; end if;
   elsif not (private.pasmu_es_admin_global() or private.pasmu_has_permission('altas.personal', _unidad)) then
-    raise exception 'Solo en tus unidades.' using errcode = '42501'; end if;
+    raise exception 'Solo en tus unidades.' using errcode = '42501';
   end if;
   insert into public.prealtas_equipo (email, nombre, rol_codigo, unidad_id, programa_id, creada_por)
   values (lower(btrim(_email)), btrim(_nombre), _rol, _unidad, _programa, v_yo)
