@@ -401,7 +401,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                   Descargar mi constancia
                 </Link>
                 <p className="nota" style={{ margin: 0 }}>
-                  Se emite con el nombre con el que te registraste. Cada constancia admite 2 descargas.
+                  Se emite con el nombre con el que te registraste. Cada constancia admite {curso.constancia_max_descargas || 2} descargas.
                 </p>
               </div>
             ) : (

@@ -45,7 +45,7 @@ export const PRESETS_CONSTANCIA = [
   { nombre: 'Conclusión', titulo: 'CONSTANCIA DE CONCLUSIÓN', texto: 'por haber concluido el curso' },
 ]
 
-export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl, incluirHoras, horas, titulo, texto, mostrarNota = true }) {
+export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl, incluirHoras, horas, titulo, texto, mostrarNota = true, barra = false }) {
   const tituloLimpio = escapar((titulo || '').trim() || TITULO_CONSTANCIA)
   const textoLimpio = escapar((texto || '').trim() || TEXTO_CONSTANCIA)
   const nombreLimpio = escapar(nombre)
@@ -73,7 +73,7 @@ export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, 
   const nombreFirma = 'Dr. Ernesto Cotonieto Martínez'
 
   return `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>Constancia · ${cursoLimpio}</title>
+<html lang="es"><head><meta charset="utf-8">${barra ? '<meta name="viewport" content="width=device-width, initial-scale=1">' : ''}<title>Constancia · ${cursoLimpio}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -108,9 +108,14 @@ export function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, 
   .pie span:last-child { display: inline-flex; align-items: center; justify-content: flex-end; gap: .07in; }
   .pie .wa-icono { width: .15in; height: .15in; fill: #25D366; flex: none; display: block; }
   ${compacto ? '.encabezado { margin-top: .1in; } .antetitulo { margin-top: .15in; } .acento { margin: .15in auto; } .contenido { margin-top: .1in; } .nombre { margin: .12in 0 .16in; } .separador { margin-bottom: .16in; } .curso { margin-top: .12in; } .calificacion, .horas { margin-top: .12in; } .verificacion { margin-top: .15in; } .bloque-firma { padding-top: .1in; } .firma { height: 1in; }' : ''}
+  ${barra ? `@media screen { body { padding-top: 84px; } .barra { position: fixed; z-index: 9; inset: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; background: #1B3A4B; color: #fff; font: 500 14px Inter, Arial, sans-serif; box-shadow: 0 2px 10px #0004; } .barra button { padding: 10px 16px; border: 0; border-radius: 8px; font: 600 14px Inter, Arial, sans-serif; cursor: pointer; background: #C17A5E; color: #fff; } .barra button.sec { background: #fff; color: #1B3A4B; } .barra span { flex: 1 1 220px; opacity: .9; } }` : ''}
+  @media print { .barra { display: none !important; } }
   @media screen { body { display: flex; padding: 24px; background: #e8e5df; } .hoja { flex: 0 0 auto; margin: 0 auto; box-shadow: 0 8px 30px #0002; } }
   @media print { html, body { width: 8.5in; height: 11in; } body { display: block; } .hoja { margin: 0; box-shadow: none; } }
-</style></head><body><main class="hoja">
+</style></head><body>
+${barra ? `<div class="barra"><button type="button" id="b-pdf">⬇ Descargar PDF</button><button type="button" id="b-imp" class="sec">🖨️ Imprimir / Guardar como PDF</button><span id="b-msg">Guarda tu constancia en tu dispositivo con cualquiera de los dos botones.</span></div>
+<script>(function(){var z=function(){var h=document.querySelector('.hoja');if(!h)return;var w=window.innerWidth-16;h.style.zoom=w<816?(w/816):1;};document.addEventListener('DOMContentLoaded',z);window.addEventListener('load',z);window.addEventListener('resize',z);var m=document.getElementById('b-msg');document.getElementById('b-imp').onclick=function(){window.print();};document.getElementById('b-pdf').onclick=function(){if(!window.__guardarPdf){m.textContent='Usa el botón Imprimir / Guardar como PDF.';return;}m.textContent='Preparando el PDF…';window.__guardarPdf().then(function(){m.textContent='✓ Listo: revisa la carpeta de descargas de tu dispositivo.';}).catch(function(e){m.textContent='No se pudo crear el PDF ('+((e&&e.message)||e)+'). Usa Imprimir / Guardar como PDF.';});};})();</script>` : ''}
+<main class="hoja">
   <div class="franja"></div>
   <header class="encabezado">
   <img class="logo" src="${logo}" alt="">

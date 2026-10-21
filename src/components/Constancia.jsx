@@ -5,6 +5,7 @@ import { rutaAcceso, wa } from '../config'
 import { emiteConstancia } from '../lib/helpers'
 import { fechaConLetra } from '../lib/plantillas'
 import { FIRMA_URL, LOGO_URL, esperarImagen, htmlConstancia } from '../lib/constancia-html'
+import { descargarPdfDeConstancia, nombreArchivoConstancia } from '../lib/constancia-pdf'
 import { Breadcrumb, BandaRedes } from './ui'
 
 
@@ -40,6 +41,7 @@ function Constancia({ user }) {
   const [noEmite, setNoEmite] = useState(false)
   const [firmaLista, setFirmaLista] = useState(false)
   const [folio, setFolio] = useState(null)
+  const [ultimaEmision, setUltimaEmision] = useState(null)
 
   // El smoke renderiza este componente en SSR (sin window); en el navegador
   // siempre se resuelve contra el origen real del sitio.
@@ -91,9 +93,59 @@ function Constancia({ user }) {
     return () => { vivo = false }
   }, [firmaUrl, logoUrl])
 
+  // Escribe la constancia en la ventana nueva, con los botones de guardado
+  // (descargar PDF / imprimir). No imprime sola: quien la abre elige cómo guardarla.
+  const pintarConstancia = async (ventana, emision) => {
+    ventana.document.open()
+    ventana.document.write(htmlConstancia({
+      nombre: emision.nombre,
+      curso: curso?.titulo || '',
+      nota10: emision.nota10,
+      folio: emision.folio,
+      fecha: fechaConLetra(emision.fechaEmision),
+      firmaUrl,
+      logoUrl,
+      incluirHoras: curso?.constancia_incluir_horas !== false,
+      horas: curso?.constancia_horas || null,
+      titulo: curso?.constancia_titulo,
+      texto: curso?.constancia_texto,
+      mostrarNota: curso?.constancia_mostrar_nota !== false,
+      barra: true,
+    }))
+    ventana.document.close()
+    // Se engancha DESPUÉS de cerrar el documento: abrirlo borra lo anterior.
+    ventana.__guardarPdf = () => descargarPdfDeConstancia(
+      ventana.document, nombreArchivoConstancia(curso?.titulo, emision.folio))
+
+    const imagenes = [...ventana.document.images]
+    const cargaron = await Promise.all(imagenes.map(img => img.complete
+      ? Promise.resolve(img.naturalWidth > 0)
+      : new Promise(resolve => {
+        const reloj = setTimeout(() => resolve(false), 9000)
+        img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
+        img.onerror = () => { clearTimeout(reloj); resolve(false) }
+      })))
+    if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma escaneada de la constancia.')
+    if (ventana.document.fonts?.ready) await ventana.document.fonts.ready
+    ventana.focus()
+  }
+
+  // Vuelve a abrir la constancia ya generada en esta visita, sin gastar otra
+  // descarga: por si la ventana se cerró antes de guardarla.
+  const reabrir = async () => {
+    if (!ultimaEmision) return
+    const ventana = window.open('', '_blank')
+    if (!ventana) return setError('El navegador bloqueó la ventana. Permite las ventanas emergentes de este sitio e inténtalo otra vez.')
+    setError('')
+    try { await pintarConstancia(ventana, ultimaEmision) } catch (e) {
+      try { mostrarAvisoVentana(ventana, 'No se pudo abrir la constancia', e.message) } catch {}
+      setError(e.message || 'No se pudo abrir la constancia.')
+    }
+  }
+
   const generar = async () => {
     if (!estado?.disponible) return setError(estado?.limiteAlcanzado
-      ? 'Ya utilizaste las 2 descargas permitidas para esta constancia.'
+      ? `Ya utilizaste las ${maxDescargas} descargas permitidas para esta constancia.`
       : curso?.gratuito
         ? 'La constancia del taller se habilita cuando el docente la publica, al terminar el taller.'
         : 'La constancia se habilita al alcanzar la calificación mínima del curso.')
@@ -125,35 +177,8 @@ function Constancia({ user }) {
         minima10: emision.minima10,
       }))
       setFolio(emision.folio)
-      ventana.document.open()
-      ventana.document.write(htmlConstancia({
-        nombre: emision.nombre,
-        curso: curso?.titulo || '',
-        nota10: emision.nota10,
-        folio: emision.folio,
-        fecha: fechaConLetra(emision.fechaEmision),
-        firmaUrl,
-        logoUrl,
-        incluirHoras: curso?.constancia_incluir_horas !== false,
-        horas: curso?.constancia_horas || null,
-        titulo: curso?.constancia_titulo,
-        texto: curso?.constancia_texto,
-        mostrarNota: curso?.constancia_mostrar_nota !== false,
-      }))
-      ventana.document.close()
-
-      const imagenes = [...ventana.document.images]
-      const cargaron = await Promise.all(imagenes.map(img => img.complete
-        ? Promise.resolve(img.naturalWidth > 0)
-        : new Promise(resolve => {
-          const reloj = setTimeout(() => resolve(false), 9000)
-          img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
-          img.onerror = () => { clearTimeout(reloj); resolve(false) }
-        })))
-      if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma escaneada de la constancia.')
-      if (ventana.document.fonts?.ready) await ventana.document.fonts.ready
-      ventana.focus()
-      ventana.print()
+      setUltimaEmision(emision)
+      await pintarConstancia(ventana, emision)
     } catch (e) {
       const mensaje = e.message || 'No se pudo generar la constancia.'
       try { mostrarAvisoVentana(ventana, 'No se pudo generar la constancia', mensaje) } catch {}
@@ -162,6 +187,7 @@ function Constancia({ user }) {
       setGenerando(false)
     }
   }
+  const maxDescargas = Number(estado?.maxDescargas ?? curso?.constancia_max_descargas ?? 2) || 2
   if (!user) return null
   if (cargando) return <div className="loading">Cargando...</div>
 
@@ -200,12 +226,17 @@ function Constancia({ user }) {
         <strong>Nombre que aparecerá en la constancia</strong>
         <p><strong>{estado?.nombre || perfil.nombre || 'Aún no has agregado tu nombre completo en el perfil.'}</strong></p>
         <Link className="enlace-texto" to="/perfil">Actualizar mi nombre en Mi perfil</Link>
-        <p className="nota">La constancia toma el nombre de tu perfil y conserva ese nombre durante sus dos descargas.</p>
+        <p className="nota">La constancia toma el nombre de tu perfil y conserva ese nombre durante todas sus descargas.
+          </p>
       </div>
       <div className="bloque-cerrado">
         {estado?.limiteAlcanzado ? (
           <>
-            <p className="aviso-ok">Esta constancia ya alcanzó el límite de 2 descargas.</p>
+            <p className="aviso-ok">Esta constancia ya alcanzó el límite de {maxDescargas} {maxDescargas === 1 ? 'descarga' : 'descargas'}.</p>
+            {ultimaEmision && (
+              <p><button type="button" className="button primary" onClick={reabrir}>Abrir mi constancia otra vez</button>
+                <span className="nota"> No gasta otra descarga; disponible mientras no recargues esta página.</span></p>
+            )}
             <p className="sutil">El nombre queda asociado al folio desde la primera descarga. Si necesitas corregir un error, contacta al administrador.</p>
             {folio && <p className="constancia-folio">
               <span className="sutil">Folio {folio} ·</span>{' '}
@@ -220,12 +251,16 @@ function Constancia({ user }) {
               disabled={generando || !firmaLista || !(estado?.nombre || perfil.nombre).trim()}>
               {generando ? 'Preparando PDF…' : folio ? 'Descargar constancia' : 'Generar constancia'}
             </button>
-            <p className="nota">Descargas usadas: {Number(estado?.descargas || 0)} de 2. Cada generación consume una descarga.</p>
+            {ultimaEmision && (
+              <p><button type="button" className="button secondary" onClick={reabrir}>Abrir mi constancia otra vez</button>
+                <span className="nota"> No gasta otra descarga; disponible mientras no recargues esta página.</span></p>
+            )}
+            <p className="nota">Descargas usadas: {Number(estado?.descargas || 0)} de {maxDescargas}. Cada vez que generas la constancia se consume una.</p>
             {folio && <p className="constancia-folio">
               <span className="sutil">Folio {folio} ·</span>{' '}
               <Link className="enlace-texto" to={`/verificar/${folio}`}>verificar constancia</Link>
             </p>}
-            <p className="nota">Al continuar, el navegador abre el PDF para imprimirlo, descargarlo o guardarlo.</p>
+            <p className="nota">Se abre en una ventana nueva con los botones «Descargar PDF» e «Imprimir / Guardar como PDF». Guárdala antes de cerrarla.</p>
           </>
         ) : (
           <>

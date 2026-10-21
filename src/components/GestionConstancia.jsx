@@ -23,6 +23,7 @@ export default function GestionConstancia({ curso, onGuardado }) {
     incluirHoras: curso.constancia_incluir_horas !== false,
     horas: curso.constancia_horas || null,
     mostrarNota: curso.constancia_mostrar_nota !== false,
+    maxDescargas: curso.constancia_max_descargas || 2,
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState(null)
@@ -39,13 +40,14 @@ export default function GestionConstancia({ curso, onGuardado }) {
       constancia_incluir_horas: f.incluirHoras,
       constancia_horas: f.horas || null,
       constancia_mostrar_nota: f.mostrarNota,
+      constancia_max_descargas: Math.min(20, Math.max(1, Math.round(Number(f.maxDescargas) || 2))),
       ...(gratuito ? { constancia_gratuita_activa: f.visible } : { constancia: f.visible }),
     }
     const { data, error } = await supabase.from('cursos').update(upd).eq('id', curso.id).select().maybeSingle()
     setGuardando(false)
     if (error || !data) {
       setMsg({ tipo: 'error', texto: 'No se pudo guardar: ' + (error?.message || 'la base no lo permitió (permisos).') +
-        ' Si dice que falta una columna, corre supabase/CONSTANCIAS_7_TEXTO_EDITABLE.sql en el SQL Editor.' })
+        ' Si dice que falta una columna, corre supabase/CONSTANCIAS_7_TEXTO_EDITABLE.sql y supabase/CONSTANCIAS_8_LIMITE_DESCARGAS.sql en el SQL Editor.' })
       return
     }
     onGuardado(data)
@@ -100,6 +102,13 @@ export default function GestionConstancia({ curso, onGuardado }) {
         {' '}Mostrar la calificación final (si el curso tiene)
       </label>
       <p className="nota">Quítala en constancias de asistencia. Los talleres gratuitos nunca la muestran.</p>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span>Descargas permitidas por persona:</span>
+        <input className="input" type="number" min="1" max="20" style={{ maxWidth: 90 }}
+               value={f.maxDescargas} onChange={(e) => campo('maxDescargas', e.target.value)} />
+      </label>
+      <p className="nota">Cada vez que alguien genera su constancia se cuenta una descarga. Si subes el número, quienes ya llegaron al límite recuperan descargas.</p>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button type="button" className="button primary" onClick={guardar} disabled={guardando}>
