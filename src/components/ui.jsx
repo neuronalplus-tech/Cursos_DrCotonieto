@@ -8,7 +8,7 @@ import { Component, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { analizarUrl } from '../lib/helpers'
-import { subirPdfBoton, borrarPdfBoton } from '../lib/botonesPdf'
+import { subirArchivoBoton, borrarPdfBoton, ACEPTA_ARCHIVOS, nombreDeArchivo } from '../lib/botonesPdf'
 import { WA_MENSAJE_CONSULTA, LOGO_BLANCO, MARCA, REDES, ESTILOS_BOTON } from '../config'
 import { TextoEditable, ListaEditable, BotonEditable } from './Editable'
 
@@ -248,9 +248,9 @@ export function EditorBotonesExtra({ botones, onChange }) {
     if (!archivo) return
     setError(''); setSubiendo(true)
     try {
-      const ruta = await subirPdfBoton(archivo)
+      const ruta = await subirArchivoBoton(archivo)
       onChange([...botones, {
-        texto: archivo.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' '),
+        texto: archivo.name.replace(/\.\w+$/, '').replace(/[_-]+/g, ' '),
         url: '', archivo: ruta, nuevo: true, estilo: 'azul', activo: true,
       }])
     } catch (err) { setError(err.message) }
@@ -272,7 +272,7 @@ export function EditorBotonesExtra({ botones, onChange }) {
                  onChange={e => actualizar(i, 'texto', e.target.value)} />
           {b.archivo
             ? <span className="nota" style={{ flex: 1, margin: 0 }} title={b.archivo}>
-                📄 PDF: {b.archivo.replace(/^\d+_/, '')} · se lee dentro de la plataforma
+                📎 Archivo: {nombreDeArchivo(b.archivo)} · «Ver aquí» y descargar
               </span>
             : <input type="url" placeholder="https://..." value={b.url}
                      onChange={e => actualizar(i, 'url', e.target.value)} />}
@@ -285,9 +285,9 @@ export function EditorBotonesExtra({ botones, onChange }) {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
         <button type="button" className="button secondary" onClick={agregar}>➕ Agregar botón</button>
         <button type="button" className="button secondary" onClick={() => selector.current?.click()} disabled={subiendo}>
-          {subiendo ? 'Subiendo PDF…' : '📄 Agregar botón con PDF'}
+          {subiendo ? 'Subiendo archivo…' : '📎 Agregar botón con archivo (PDF, Word, Excel…)'}
         </button>
-        <input ref={selector} type="file" accept="application/pdf,.pdf" onChange={elegirPdf} hidden />
+        <input ref={selector} type="file" accept={ACEPTA_ARCHIVOS} onChange={elegirPdf} hidden />
       </div>
       {error && <p className="aviso-error" style={{ marginTop: 8 }}>{error}</p>}
     </>

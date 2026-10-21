@@ -7,8 +7,7 @@ import { enviarCorreo } from '../lib/correo'
 import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
 import { rutaAcceso, rutaRegistro } from '../config'
 import ExamenModulo from './ExamenModulo'
-import { PdfViewer } from './RecursosModulo'
-import { BOTONES_PDF_BUCKET } from '../config'
+import VisorArchivo, { sePuedeVer, descargarArchivo } from './VisorArchivo'
 import { botonesParaGuardar } from '../lib/botonesPdf'
 
 /* ============================================================
@@ -482,7 +481,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             {botonesExtra.map((b, i) => {
               const visible = b.activo !== false
               if (!gestiona && !visible) return null
-              const info = b.archivo ? { embeddable: true } : analizarUrl(b.url)
+              const info = b.archivo ? { embeddable: sePuedeVer(b.archivo) } : analizarUrl(b.url)
               const verlo = !!verBotonesExtra[i]
               return (
                 <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -496,6 +495,12 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                           {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
                         </button>
                       )}
+                      {b.archivo && user && (
+                        <button type="button" className="button secondary"
+                                onClick={() => descargarArchivo(b.archivo).catch(e => alert('No se pudo descargar: ' + e.message))}>
+                          ⬇ Descargar{info.embeddable ? '' : ` · ${b.texto}`}
+                        </button>
+                      )}
                       {!b.archivo && (
                         <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
                           {b.texto} ↗
@@ -507,7 +512,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                   {visible && info.embeddable && verlo && (
                     <div className="recurso-contenido" style={{ flexBasis: '100%' }}>
                       {b.archivo
-                        ? (user ? <PdfViewer archivo={b.archivo} bucket={BOTONES_PDF_BUCKET} />
+                        ? (user ? <VisorArchivo archivo={b.archivo} />
                                 : <p className="aviso-info">Inicia sesión para ver este documento.</p>)
                         : <EmbedFrame url={b.url} />}
                     </div>
