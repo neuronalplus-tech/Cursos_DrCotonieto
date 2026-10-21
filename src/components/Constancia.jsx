@@ -1,108 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { CONTACTO_EMAIL, rutaAcceso, wa } from '../config'
+import { rutaAcceso, wa } from '../config'
 import { emiteConstancia } from '../lib/helpers'
-import { conLetra, fechaConLetra } from '../lib/plantillas'
+import { fechaConLetra } from '../lib/plantillas'
+import { FIRMA_URL, LOGO_URL, esperarImagen, htmlConstancia } from '../lib/constancia-html'
+import { descargarPdfDeConstancia, nombreArchivoConstancia } from '../lib/constancia-pdf'
 import { Breadcrumb, BandaRedes } from './ui'
 
-// Servir la firma desde el mismo sitio evita que Drive exija permisos o
-// devuelva una página de confirmación en vez de la imagen al alumnado.
-const FIRMA_URL = '/firma_escaneada.png'
-const LOGO_URL = '/logo_terracota_1024.png'
-
-const escapar = (valor) => String(valor ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#39;')
-
-function esperarImagen(url, timeout = 9000) {
-  return new Promise(resolve => {
-    const img = new Image()
-    const reloj = setTimeout(() => resolve(false), timeout)
-    img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
-    img.onerror = () => { clearTimeout(reloj); resolve(false) }
-    img.src = url
-  })
-}
-
-function htmlConstancia({ nombre, curso, nota10, folio, fecha, firmaUrl, logoUrl }) {
-  const nombreLimpio = escapar(nombre)
-  const cursoLimpio = escapar(curso)
-  const logo = escapar(logoUrl)
-  const nota = Number(nota10).toFixed(1).replace(/\.0$/, '')
-  const nombreFont = nombre.length > 44 ? 25 : nombre.length > 32 ? 30 : 36
-  const cursoFont = curso.length > 64 ? 19 : curso.length > 44 ? 22 : 26
-  const firma = escapar(firmaUrl)
-  const folioHtml = escapar(folio)
-  const verificar = `${window.location.origin}/verificar/${encodeURIComponent(folio)}`
-  const contacto = escapar(CONTACTO_EMAIL)
-  const telefono = '56 3784 1931'
-  const cargo = 'Cédula profesional 10521804'
-  const nombreFirma = 'Dr. Ernesto Cotonieto Martínez'
-
-  return `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>Constancia · ${cursoLimpio}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  @page { size: letter portrait; margin: 0; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; }
-  body { font-family: Inter, Arial, sans-serif; color: #1B3A4B; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .hoja { position: relative; width: 8.5in; height: 11in; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: .58in .68in .42in; background: #FAFAF8; }
-  .franja { position: absolute; inset: 0 0 auto; height: 7pt; background: #1B3A4B; }
-  .encabezado { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: .32in; }
-  .logo { width: .78in; height: auto; }
-  .antetitulo { margin-top: .28in; text-align: center; font-size: 13pt; letter-spacing: .25em; font-weight: 600; }
-  .acento { width: .55in; height: 2pt; margin: .3in auto; background: #C17A5E; }
-  .contenido { width: 100%; text-align: center; margin-top: .38in; }
-  .se-otorga { font-size: 13pt; }
-  .nombre { margin: .26in 0 .34in; text-align: center; font: 600 ${nombreFont}pt Fraunces, Georgia, serif; color: #1B3A4B; line-height: 1.18; overflow-wrap: anywhere; }
-  .separador { width: 2.5in; height: 1pt; margin: 0 auto .35in; background: #D6DCE3; }
-  .motivo { font-size: 13pt; line-height: 1.55; }
-  .curso { margin: .24in auto 0; font: 600 ${cursoFont}pt Fraunces, Georgia, serif; line-height: 1.25; overflow-wrap: anywhere; }
-  .calificacion { margin-top: .34in; color: #C17A5E; font-size: 12pt; font-weight: 600; }
-  .verificacion { width: 100%; margin-top: .35in; text-align: center; color: #8A9BAD; font-size: 8pt; line-height: 1.45; overflow-wrap: anywhere; }
-  .bloque-firma { width: 100%; margin-top: auto; display: flex; flex-direction: column; align-items: center; padding-top: .35in; }
-  .firma { width: 3.1in; height: 1.24in; object-fit: contain; filter: contrast(1.32) brightness(0.9); }
-  .linea-firma { width: 3.4in; height: 1pt; margin-top: .02in; background: #1B3A4B; }
-  .firmante { margin-top: .13in; text-align: center; font-size: 10pt; font-weight: 700; }
-  .cargo { margin-top: .06in; text-align: center; font-size: 8.5pt; color: #8A9BAD; }
-  .pie { width: calc(100% + 1.36in); min-height: .42in; margin: .3in -.68in -.42in; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; padding: 0 .55in; background: #1B3A4B; color: #D6DCE3; font-size: 8pt; }
-  .pie strong { text-align: center; color: #FAFAF8; font-size: 10pt; }
-  .pie span:last-child { display: inline-flex; align-items: center; justify-content: flex-end; gap: .07in; }
-  .pie .wa-icono { width: .15in; height: .15in; fill: #25D366; flex: none; display: block; }
-  @media screen { body { display: flex; justify-content: center; padding: 24px; background: #e8e5df; } .hoja { flex: 0 0 auto; box-shadow: 0 8px 30px #0002; } }
-  @media print { html, body { width: 8.5in; height: 11in; } body { display: block; } .hoja { margin: 0; box-shadow: none; } }
-</style></head><body><main class="hoja">
-  <div class="franja"></div>
-  <header class="encabezado">
-  <img class="logo" src="${logo}" alt="">
-  <div class="antetitulo">CONSTANCIA DE ACREDITACIÓN</div>
-  <div class="acento"></div>
-  </header>
-  <section class="contenido">
-  <div class="se-otorga">Se otorga a</div>
-  <div class="nombre">${nombreLimpio}</div>
-  <div class="separador"></div>
-  <div class="motivo">por haber acreditado satisfactoriamente el curso</div>
-  <div class="curso">«${cursoLimpio}»</div>
-  <div class="calificacion">Calificación final: ${nota}/10 · ${escapar(conLetra(nota10))}</div>
-  </section>
-  <div class="verificacion">${fecha} · Verificable en ${escapar(verificar)} · ${contacto}</div>
-  <section class="bloque-firma">
-  <img id="firma-escaneada" class="firma" src="${firma}" alt="Firma autógrafa digital de ${escapar(nombreFirma)}">
-  <div class="linea-firma"></div>
-  <div class="firmante">${escapar(nombreFirma)}</div>
-  <div class="cargo">${escapar(cargo)}</div>
-  </section>
-  <footer class="pie"><span>Folio ${folioHtml}</span><strong>@dr.cotonieto</strong><span><svg class="wa-icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.347-.347.52-.52.174-.174.232-.298.347-.497.116-.198.058-.372-.022-.52-.081-.148-.676-1.63-.927-2.23-.245-.587-.494-.508-.676-.517-.174-.009-.373-.011-.572-.011-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>${telefono}</span></footer>
-</main></body></html>`
-}
 
 function mostrarAvisoVentana(ventana, titulo, mensaje) {
   if (!ventana || ventana.closed) return
@@ -136,6 +41,7 @@ function Constancia({ user }) {
   const [noEmite, setNoEmite] = useState(false)
   const [firmaLista, setFirmaLista] = useState(false)
   const [folio, setFolio] = useState(null)
+  const [ultimaEmision, setUltimaEmision] = useState(null)
 
   // El smoke renderiza este componente en SSR (sin window); en el navegador
   // siempre se resuelve contra el origen real del sitio.
@@ -154,7 +60,7 @@ function Constancia({ user }) {
       try {
         const [{ data: p, error: ePerfil }, { data: c, error: eCurso }] = await Promise.all([
           supabase.from('perfiles').select('nombre_completo').eq('id', user.id).maybeSingle(),
-          supabase.from('cursos').select('id, titulo, constancia, gratuito, constancia_gratuita_activa').eq('id', cursoId).maybeSingle(),
+          supabase.from('cursos').select('*').eq('id', cursoId).maybeSingle(),
         ])
         if (ePerfil) throw ePerfil
         if (eCurso) throw eCurso
@@ -187,9 +93,59 @@ function Constancia({ user }) {
     return () => { vivo = false }
   }, [firmaUrl, logoUrl])
 
+  // Escribe la constancia en la ventana nueva, con los botones de guardado
+  // (descargar PDF / imprimir). No imprime sola: quien la abre elige cómo guardarla.
+  const pintarConstancia = async (ventana, emision) => {
+    ventana.document.open()
+    ventana.document.write(htmlConstancia({
+      nombre: emision.nombre,
+      curso: curso?.titulo || '',
+      nota10: emision.nota10,
+      folio: emision.folio,
+      fecha: fechaConLetra(emision.fechaEmision),
+      firmaUrl,
+      logoUrl,
+      incluirHoras: curso?.constancia_incluir_horas !== false,
+      horas: curso?.constancia_horas || null,
+      titulo: curso?.constancia_titulo,
+      texto: curso?.constancia_texto,
+      mostrarNota: curso?.constancia_mostrar_nota !== false,
+      barra: true,
+    }))
+    ventana.document.close()
+    // Se engancha DESPUÉS de cerrar el documento: abrirlo borra lo anterior.
+    ventana.__guardarPdf = () => descargarPdfDeConstancia(
+      ventana.document, nombreArchivoConstancia(curso?.titulo, emision.folio))
+
+    const imagenes = [...ventana.document.images]
+    const cargaron = await Promise.all(imagenes.map(img => img.complete
+      ? Promise.resolve(img.naturalWidth > 0)
+      : new Promise(resolve => {
+        const reloj = setTimeout(() => resolve(false), 9000)
+        img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
+        img.onerror = () => { clearTimeout(reloj); resolve(false) }
+      })))
+    if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma escaneada de la constancia.')
+    if (ventana.document.fonts?.ready) await ventana.document.fonts.ready
+    ventana.focus()
+  }
+
+  // Vuelve a abrir la constancia ya generada en esta visita, sin gastar otra
+  // descarga: por si la ventana se cerró antes de guardarla.
+  const reabrir = async () => {
+    if (!ultimaEmision) return
+    const ventana = window.open('', '_blank')
+    if (!ventana) return setError('El navegador bloqueó la ventana. Permite las ventanas emergentes de este sitio e inténtalo otra vez.')
+    setError('')
+    try { await pintarConstancia(ventana, ultimaEmision) } catch (e) {
+      try { mostrarAvisoVentana(ventana, 'No se pudo abrir la constancia', e.message) } catch {}
+      setError(e.message || 'No se pudo abrir la constancia.')
+    }
+  }
+
   const generar = async () => {
     if (!estado?.disponible) return setError(estado?.limiteAlcanzado
-      ? 'Ya utilizaste las 2 descargas permitidas para esta constancia.'
+      ? `Ya utilizaste las ${maxDescargas} descargas permitidas para esta constancia.`
       : curso?.gratuito
         ? 'La constancia del taller se habilita cuando el docente la publica, al terminar el taller.'
         : 'La constancia se habilita al alcanzar la calificación mínima del curso.')
@@ -221,30 +177,8 @@ function Constancia({ user }) {
         minima10: emision.minima10,
       }))
       setFolio(emision.folio)
-      ventana.document.open()
-      ventana.document.write(htmlConstancia({
-        nombre: emision.nombre,
-        curso: curso?.titulo || '',
-        nota10: emision.nota10,
-        folio: emision.folio,
-        fecha: fechaConLetra(emision.fechaEmision),
-        firmaUrl,
-        logoUrl,
-      }))
-      ventana.document.close()
-
-      const imagenes = [...ventana.document.images]
-      const cargaron = await Promise.all(imagenes.map(img => img.complete
-        ? Promise.resolve(img.naturalWidth > 0)
-        : new Promise(resolve => {
-          const reloj = setTimeout(() => resolve(false), 9000)
-          img.onload = () => { clearTimeout(reloj); resolve(img.naturalWidth > 0) }
-          img.onerror = () => { clearTimeout(reloj); resolve(false) }
-        })))
-      if (cargaron.some(ok => !ok)) throw new Error('No se pudo cargar el logo o la firma escaneada de la constancia.')
-      if (ventana.document.fonts?.ready) await ventana.document.fonts.ready
-      ventana.focus()
-      ventana.print()
+      setUltimaEmision(emision)
+      await pintarConstancia(ventana, emision)
     } catch (e) {
       const mensaje = e.message || 'No se pudo generar la constancia.'
       try { mostrarAvisoVentana(ventana, 'No se pudo generar la constancia', mensaje) } catch {}
@@ -253,6 +187,7 @@ function Constancia({ user }) {
       setGenerando(false)
     }
   }
+  const maxDescargas = Number(estado?.maxDescargas ?? curso?.constancia_max_descargas ?? 2) || 2
   if (!user) return null
   if (cargando) return <div className="loading">Cargando...</div>
 
@@ -291,12 +226,17 @@ function Constancia({ user }) {
         <strong>Nombre que aparecerá en la constancia</strong>
         <p><strong>{estado?.nombre || perfil.nombre || 'Aún no has agregado tu nombre completo en el perfil.'}</strong></p>
         <Link className="enlace-texto" to="/perfil">Actualizar mi nombre en Mi perfil</Link>
-        <p className="nota">La constancia toma el nombre de tu perfil y conserva ese nombre durante sus dos descargas.</p>
+        <p className="nota">La constancia toma el nombre de tu perfil y conserva ese nombre durante todas sus descargas.
+          </p>
       </div>
       <div className="bloque-cerrado">
         {estado?.limiteAlcanzado ? (
           <>
-            <p className="aviso-ok">Esta constancia ya alcanzó el límite de 2 descargas.</p>
+            <p className="aviso-ok">Esta constancia ya alcanzó el límite de {maxDescargas} {maxDescargas === 1 ? 'descarga' : 'descargas'}.</p>
+            {ultimaEmision && (
+              <p><button type="button" className="button primary" onClick={reabrir}>Abrir mi constancia otra vez</button>
+                <span className="nota"> No gasta otra descarga; disponible mientras no recargues esta página.</span></p>
+            )}
             <p className="sutil">El nombre queda asociado al folio desde la primera descarga. Si necesitas corregir un error, contacta al administrador.</p>
             {folio && <p className="constancia-folio">
               <span className="sutil">Folio {folio} ·</span>{' '}
@@ -311,12 +251,16 @@ function Constancia({ user }) {
               disabled={generando || !firmaLista || !(estado?.nombre || perfil.nombre).trim()}>
               {generando ? 'Preparando PDF…' : folio ? 'Descargar constancia' : 'Generar constancia'}
             </button>
-            <p className="nota">Descargas usadas: {Number(estado?.descargas || 0)} de 2. Cada generación consume una descarga.</p>
+            {ultimaEmision && (
+              <p><button type="button" className="button secondary" onClick={reabrir}>Abrir mi constancia otra vez</button>
+                <span className="nota"> No gasta otra descarga; disponible mientras no recargues esta página.</span></p>
+            )}
+            <p className="nota">Descargas usadas: {Number(estado?.descargas || 0)} de {maxDescargas}. Cada vez que generas la constancia se consume una.</p>
             {folio && <p className="constancia-folio">
               <span className="sutil">Folio {folio} ·</span>{' '}
               <Link className="enlace-texto" to={`/verificar/${folio}`}>verificar constancia</Link>
             </p>}
-            <p className="nota">Al continuar, el navegador abre el PDF para imprimirlo, descargarlo o guardarlo.</p>
+            <p className="nota">Se abre en una ventana nueva con los botones «Descargar PDF» e «Imprimir / Guardar como PDF». Guárdala antes de cerrarla.</p>
           </>
         ) : (
           <>

@@ -7,6 +7,8 @@ import { enviarCorreo } from '../lib/correo'
 import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
 import { rutaAcceso, rutaRegistro } from '../config'
 import ExamenModulo from './ExamenModulo'
+import VisorArchivo, { sePuedeVer, descargarArchivo } from './VisorArchivo'
+import { botonesParaGuardar } from '../lib/botonesPdf'
 
 /* ============================================================
    TALLERES - modal de edicion + material del taller
@@ -28,7 +30,6 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
     link_materiales: '',
     materiales_activo: false,
     botones_extra:   [],
-    constancia_gratuita_activa: curso.constancia_gratuita_activa === true,
   })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
@@ -57,7 +58,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
-      const botonesValidos = form.botones_extra.filter(b => (b.texto || '').trim() && (b.url || '').trim())
+      const botonesValidos = botonesParaGuardar(form.botones_extra)
 
       // Lo público (fecha, registro, constancia) sigue en `cursos`.
       const publico = {
@@ -65,7 +66,6 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
         link_registro:   form.link_registro.trim() || null,
         registro_texto:  form.registro_texto.trim() || null,
         registro_activo: !!form.registro_activo,
-        constancia_gratuita_activa: !!form.constancia_gratuita_activa,
       }
       const res = await supabase.from('cursos').update(publico).eq('id', curso.id).select().single()
       if (res.error) throw res.error
@@ -140,21 +140,6 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
                placeholder="https://onedrive.live.com/embed?... (Insertar)" />
         <p className="nota">A los visitantes sin cuenta se les pide su correo antes de mostrarles este link. Tip OneDrive: usa <strong>Compartir → Insertar / Embed</strong> (<code>onedrive.live.com/embed</code>) en vez del <code>1drv.ms</code> corto para que salga "Ver aquí".</p>
 
-        {curso.gratuito && (
-          <>
-            <label>
-              <input type="checkbox" checked={form.constancia_gratuita_activa}
-                     onChange={(e) => set('constancia_gratuita_activa', e.target.checked)} />
-              {' '}Constancia habilitada para quienes tienen cuenta
-            </label>
-            <p className="nota">
-              Mientras esté apagada no se promete constancia a nadie. Enciéndela cuando el
-              taller haya terminado: se emitirá con el nombre que cada quien dio al registrarse.
-              (Si la casilla no guarda, falta correr supabase/ALTA_PUBLICA.sql en el SQL Editor.)
-            </p>
-          </>
-        )}
-
         <label>Botones adicionales (ej. liga de Teams en vivo)</label>
         <p className="nota" style={{ marginTop: 0 }}>
           Para sesión en vivo pega aquí la liga de <strong>Teams</strong> (abre en pestaña aparte ↗, sin límite).
@@ -172,6 +157,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
           </button>
         </div>
       </div>
+
     </div>
     </ModalPortal>
   )
@@ -415,7 +401,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                   Descargar mi constancia
                 </Link>
                 <p className="nota" style={{ margin: 0 }}>
-                  Se emite con el nombre con el que te registraste. Cada constancia admite 2 descargas.
+                  Se emite con el nombre con el que te registraste. Cada constancia admite {curso.constancia_max_descargas || 2} descargas.
                 </p>
               </div>
             ) : (
@@ -495,7 +481,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             {botonesExtra.map((b, i) => {
               const visible = b.activo !== false
               if (!gestiona && !visible) return null
-              const info = analizarUrl(b.url)
+              const info = b.archivo ? { embeddable: sePuedeVer(b.archivo) } : analizarUrl(b.url)
               const verlo = !!verBotonesExtra[i]
               return (
                 <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -509,15 +495,26 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                           {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
                         </button>
                       )}
-                      <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
-                        {b.texto} ↗
-                      </a>
+                      {b.archivo && user && (
+                        <button type="button" className="button secondary"
+                                onClick={() => descargarArchivo(b.archivo).catch(e => alert('No se pudo descargar: ' + e.message))}>
+                          ⬇ Descargar{info.embeddable ? '' : ` · ${b.texto}`}
+                        </button>
+                      )}
+                      {!b.archivo && (
+                        <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                          {b.texto} ↗
+                        </a>
+                      )}
                     </>
                   )}
                   {controles(visible, () => toggleBotonExtraActivo(i), () => eliminarBotonExtra(i))}
                   {visible && info.embeddable && verlo && (
                     <div className="recurso-contenido" style={{ flexBasis: '100%' }}>
-                      <EmbedFrame url={b.url} />
+                      {b.archivo
+                        ? (user ? <VisorArchivo archivo={b.archivo} />
+                                : <p className="aviso-info">Inicia sesión para ver este documento.</p>)
+                        : <EmbedFrame url={b.url} />}
                     </div>
                   )}
                 </div>

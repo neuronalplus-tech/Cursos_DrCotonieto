@@ -80,6 +80,7 @@ export const GRUPOS_ELEMENTOS = [
     { clave: 'curso.info', nombre: 'Título, descripción e información', permiso: 'cursos.editar', seccion: 'info' },
     { clave: 'curso.estado', nombre: 'Publicar, «Próximamente» y archivar', permiso: 'cursos.editar', seccion: 'info' },
     { clave: 'curso.botones', nombre: 'Botones de las rutas', permiso: 'cursos.editar', seccion: 'botones' },
+    { clave: 'curso.constancia', nombre: 'Constancia: texto, horas y publicación', permiso: 'cursos.editar', seccion: 'constancia' },
   ]],
   ['Módulos y materiales', [
     { clave: 'modulos', nombre: 'Crear, ordenar, abrir y cerrar módulos', permiso: 'cursos.editar', seccion: 'modulos' },

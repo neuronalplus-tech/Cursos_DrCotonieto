@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ModalPortal, EditorBotonesExtra } from './ui'
+import { botonesParaGuardar } from '../lib/botonesPdf'
 import { aCampoLocal, deCampoLocal } from '../lib/plazos'
 
 /**
@@ -18,7 +19,7 @@ export function ModalEditarBotonesRuta({ curso, grupo, onClose, onGuardado }) {
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
-      const botonesValidos = botones.filter(b => b.texto.trim() && b.url.trim())
+      const botonesValidos = botonesParaGuardar(botones)
       const nuevoMapa = { ...(curso.rutas_botones || {}), [grupo]: botonesValidos }
       const { data, error } = await supabase.from('cursos')
         .update({ rutas_botones: nuevoMapa }).eq('id', curso.id).select().single()
@@ -272,7 +273,7 @@ export function ModalEditarBotonesModulo({ modulo, onClose, onGuardado, incluirE
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
-      const botonesValidos = botones.filter(b => b.texto.trim() && b.url.trim())
+      const botonesValidos = botonesParaGuardar(botones)
       const { data, error } = await supabase.from('modulos')
         .update({ botones_extra: botonesValidos }).eq('id', modulo.id).select().single()
       if (error) throw error

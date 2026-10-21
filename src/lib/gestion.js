@@ -18,6 +18,7 @@ export const SECCIONES_CURSO = [
   { clave: 'info', nombre: 'Información del curso', icono: '📝', ayuda: 'Título, descripción y estado de publicación.' },
   { clave: 'modulos', nombre: 'Módulos y materiales', icono: '📚', ayuda: 'Estructura del curso y los materiales de cada módulo, por sección.' },
   { clave: 'botones', nombre: 'Botones', icono: '🔗', ayuda: 'Enlaces extra de cada ruta y de cada módulo.' },
+  { clave: 'constancia', nombre: 'Constancia', icono: '🎓', ayuda: 'Qué dice, si lleva horas y cuándo la ven los participantes.' },
   { clave: 'examenes', nombre: 'Exámenes', icono: '🧪', ayuda: 'El examen del curso y los de cada módulo.' },
   { clave: 'tareas', nombre: 'Tareas', icono: '📥', ayuda: 'Entregas que el alumno sube y se califican aquí.' },
   { clave: 'foro', nombre: 'Foro', icono: '💬', ayuda: 'Temas de conversación. Sin temas, el alumno no ve el foro.' },

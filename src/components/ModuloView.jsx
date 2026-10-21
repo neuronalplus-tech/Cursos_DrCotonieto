@@ -12,6 +12,7 @@ import { agruparPorCategoria } from '../lib/estructura'
 import { usePermisos } from '../lib/permisos'
 import { ModalPortal, Breadcrumb, BandaRedes, NavegacionFlotante } from './ui'
 import TallerRecursos from './TallerRecursos'
+import BotonesExtra from './BotonesExtra'
 import ExamenModulo from './ExamenModulo'
 import AdminTareas from './AdminTareas'
 import TareasAlumno from './TareasAlumno'
@@ -352,13 +353,8 @@ function ModuloView({ user }) {
               </div>
             )}
             {(modulo.botones_extra || []).length > 0 && (
-              <div className="modulo-botones-extra">
-                {modulo.botones_extra.filter(b => b.activo !== false && b.tipo !== 'entregables').map((b, i) => (
-                  <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
-                    {b.texto}
-                  </a>
-                ))}
-              </div>
+              <BotonesExtra clase="modulo-botones-extra" logueado={!!user}
+                botones={modulo.botones_extra.filter(b => b.activo !== false && b.tipo !== 'entregables')} />
             )}
           </header>
 

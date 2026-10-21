@@ -19,6 +19,7 @@ import TareasAlumno from './TareasAlumno'
 import { enviarCorreo } from '../lib/correo'
 import { ModalPortal, Breadcrumb, BandaRedes } from './ui'
 import TallerRecursos from './TallerRecursos'
+import BotonesExtra from './BotonesExtra'
 import ExamenModulo from './ExamenModulo'
 import { ModalEditarBotonesRuta, ModalNuevoModulo } from './AdminModales'
 import CursoCard from './CursoCard'
@@ -552,16 +553,10 @@ function CursoView({ user }) {
                       defecto="🔒 Aún no tienes acceso a esta ruta. Puedes solicitar información o iniciar sesión con la cuenta correcta." />
                 )}
                 {(curso.rutas_botones?.[g] || []).length > 0 && (
-                  <div className="ruta-botones-extra">
-                    {/* Respeta la casilla "Activo" del editor: antes se pintaban
-                        todos, así que apagar un botón no lo quitaba. El gestor
-                        sí los ve todos, para poder reactivarlos. */}
-                    {curso.rutas_botones[g].filter(b => gestiona || b.activo !== false).map((b, i) => (
-                      <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
-                        {b.texto}
-                      </a>
-                    ))}
-                  </div>
+                  /* Respeta la casilla "Activo" del editor: apagar un botón lo
+                     quita. El gestor sí los ve todos, para poder reactivarlos. */
+                  <BotonesExtra clase="ruta-botones-extra" logueado={!!user}
+                    botones={curso.rutas_botones[g].filter(b => gestiona || b.activo !== false)} />
                 )}
                 {gestiona && (
                   <button type="button" className="button texto" style={{ marginTop: 10 }}

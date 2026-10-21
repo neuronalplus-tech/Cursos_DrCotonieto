@@ -25,7 +25,9 @@ import {
 } from '../lib/estructura'
 import { SECCIONES_CURSO, elementosDeSeccion, llenadoPagina, resumenMateriales } from '../lib/gestion'
 import { useGestion, BarraVerComo, Insignia } from './CentroGestion'
-import { Breadcrumb } from './ui'
+import { Breadcrumb, EditorBotonesExtra } from './ui'
+import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
+import { botonesParaGuardar } from '../lib/botonesPdf'
 import { ModalEditarBotonesRuta, ModalNuevoModulo, ModalEditarModulo, ModalEditarBotonesModulo } from './AdminModales'
 import { ModalEditarRecurso } from './RecursosModulo'
 
@@ -35,6 +37,7 @@ const AdminForo = lazy(() => import('./AdminForo'))
 const AdminGeneraciones = lazy(() => import('./AdminGeneraciones'))
 const Participantes = lazy(() => import('./Participantes'))
 const PanelProgreso = lazy(() => import('./PanelProgreso'))
+const GestionConstancia = lazy(() => import('./GestionConstancia'))
 const ModalEditarTaller = lazy(() => import('./TallerRecursos').then((m) => ({ default: m.ModalEditarTaller })))
 
 export default function GestionCurso({ user }) {
@@ -92,6 +95,8 @@ export default function GestionCurso({ user }) {
     info: ESTADOS[estadoCurso(curso)].etiqueta,
     modulos: taller ? 'Registro, grabación, materiales y enlaces del taller' : `${modulos.length} módulos · ${recursos.length} materiales`,
     botones: taller ? 'Se editan con los enlaces del taller' : `${Object.values(curso.rutas_botones || {}).flat().length + modulos.reduce((n, m) => n + (m.botones_extra || []).length, 0)} botones`,
+    constancia: (taller ? curso.constancia_gratuita_activa === true : curso.constancia !== false)
+      ? 'Visible para los participantes' : 'Oculta para los participantes',
     tareas: `${tareas} tareas del curso`,
     foro: temasForo ? `${temasForo} temas` : 'Sin temas: el alumno no ve el foro',
   }
@@ -104,8 +109,9 @@ export default function GestionCurso({ user }) {
         ? <TallerAqui curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
         : <ListaModulos curso={curso} modulos={modulos} setModulos={setModulos} recursos={recursos} setRecursos={setRecursos} />
       case 'botones': return taller
-        ? <TallerAqui curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
+        ? <BotonesTaller cursoId={curso.id} />
         : <Botones curso={curso} setCurso={setCurso} modulos={modulos} setModulos={setModulos} />
+      case 'constancia': return <GestionConstancia curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
       case 'examenes': return <AdminExamenes cursoFijo={curso.id} />
       case 'tareas': return <AdminTareas cursoId={curso.id} />
       case 'foro': return <AdminForo user={user} cursoFijo={curso.id} />
@@ -278,12 +284,45 @@ function TallerAqui({ curso, onGuardado }) {
   const [abierto, setAbierto] = useState(false)
   return (
     <div>
-      <p>Registro, grabación, materiales y enlaces extra del taller se editan en un solo formulario.
-        En la página, cada botón tiene además su 🔒 candado y su 🗑️ papelera.</p>
+      <p>Fecha, registro, grabación y materiales del taller se editan en un solo formulario.
+        Los botones extra (enlaces y PDF) se editan en la tarjeta «Botones».</p>
       <button type="button" className="button primary" onClick={() => setAbierto(true)}>✏️ Editar links y textos del taller</button>
       {abierto && (
         <ModalEditarTaller curso={curso} onClose={() => setAbierto(false)} onGuardado={(c) => { onGuardado(c); setAbierto(false) }} />
       )}
+    </div>
+  )
+}
+
+/* Botones extra del taller (enlaces y PDF que se leen en la plataforma). */
+function BotonesTaller({ cursoId }) {
+  const [botones, setBotones] = useState(null)
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState(null)
+  useEffect(() => {
+    let vivo = true
+    materialDeTaller(cursoId).then((m) => { if (vivo) setBotones(Array.isArray(m?.botones_extra) ? m.botones_extra : []) })
+    return () => { vivo = false }
+  }, [cursoId])
+  if (botones === null) return <div className="loading">Cargando…</div>
+  const guardar = async () => {
+    setGuardando(true); setMsg(null)
+    try {
+      const limpios = botonesParaGuardar(botones)
+      await guardarMaterialTaller(cursoId, { botones_extra: limpios })
+      setBotones(limpios)
+      setMsg({ tipo: 'ok', texto: 'Guardado. Ya se ven en la página del taller.' })
+    } catch (e) { setMsg({ tipo: 'error', texto: 'No se pudo guardar: ' + e.message }) }
+    setGuardando(false)
+  }
+  return (
+    <div className="gestion-form">
+      <p className="nota">Un botón con PDF se abre dentro de la página del taller («Ver aquí»). En la página, cada botón tiene además su 🔒 candado y su 🗑️ papelera.</p>
+      <EditorBotonesExtra botones={botones} onChange={setBotones} />
+      <div style={{ marginTop: 12 }}>
+        <button type="button" className="button primary" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar botones'}</button>
+      </div>
+      {msg && <p className={msg.tipo === 'error' ? 'aviso-error' : 'aviso-ok'}>{msg.texto}</p>}
     </div>
   )
 }
