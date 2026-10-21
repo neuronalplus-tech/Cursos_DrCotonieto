@@ -4,10 +4,11 @@
    durante el refactor (etapa 2b). Mismo render, mismo comportamiento.
    ============================================================ */
 
-import { Component, useEffect } from 'react'
+import { Component, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { analizarUrl } from '../lib/helpers'
+import { subirPdfBoton, borrarPdfBoton } from '../lib/botonesPdf'
 import { WA_MENSAJE_CONSULTA, LOGO_BLANCO, MARCA, REDES, ESTILOS_BOTON } from '../config'
 import { TextoEditable, ListaEditable, BotonEditable } from './Editable'
 
@@ -228,11 +229,33 @@ export function EmbedFrame({ url }) {
 // Editor reutilizable de "botones libres" — lo usan curso, módulo y ruta/subgrupo.
 // El padre es dueño del estado (botones + onChange); este componente es solo la UI.
 export function EditorBotonesExtra({ botones, onChange }) {
+  const [subiendo, setSubiendo] = useState(false)
+  const [error, setError] = useState('')
+  const selector = useRef(null)
   const actualizar = (i, campo, valor) =>
     onChange(botones.map((b, idx) => idx === i ? { ...b, [campo]: valor } : b))
   const agregar = () => onChange([...botones, { texto: '', url: '', estilo: 'azul', activo: true }])
-  const eliminar = (i) => onChange(botones.flatMap((b, idx) => idx !== i ? [b] :
-    b.tipo === 'entregables' ? [{ ...b, eliminado: true }] : []))
+  const eliminar = (i) => {
+    // Un PDF recién subido que se descarta no debe quedar huérfano en el almacén.
+    if (botones[i]?.archivo && botones[i].nuevo) borrarPdfBoton(botones[i].archivo)
+    onChange(botones.flatMap((b, idx) => idx !== i ? [b] :
+      b.tipo === 'entregables' ? [{ ...b, eliminado: true }] : []))
+  }
+
+  const elegirPdf = async (e) => {
+    const archivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!archivo) return
+    setError(''); setSubiendo(true)
+    try {
+      const ruta = await subirPdfBoton(archivo)
+      onChange([...botones, {
+        texto: archivo.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' '),
+        url: '', archivo: ruta, nuevo: true, estilo: 'azul', activo: true,
+      }])
+    } catch (err) { setError(err.message) }
+    setSubiendo(false)
+  }
 
   return (
     <>
@@ -247,17 +270,26 @@ export function EditorBotonesExtra({ botones, onChange }) {
           </select>
           <input type="text" placeholder="Texto del botón" value={b.texto}
                  onChange={e => actualizar(i, 'texto', e.target.value)} />
-          <input type="url" placeholder="https://..." value={b.url}
-                 onChange={e => actualizar(i, 'url', e.target.value)} />
+          {b.archivo
+            ? <span className="nota" style={{ flex: 1, margin: 0 }} title={b.archivo}>
+                📄 PDF: {b.archivo.replace(/^\d+_/, '')} · se lee dentro de la plataforma
+              </span>
+            : <input type="url" placeholder="https://..." value={b.url}
+                     onChange={e => actualizar(i, 'url', e.target.value)} />}
           <label className="boton-extra-activo"><input type="checkbox" checked={b.activo !== false}
             onChange={e => actualizar(i, 'activo', e.target.checked)} /> Activo</label>
           <button type="button" className="boton-extra-quitar" onClick={() => eliminar(i)} title="Quitar botón">✕</button>
           </>}
         </div>
       ))}
-      <button type="button" className="button secondary" style={{ marginTop: 8 }} onClick={agregar}>
-        ➕ Agregar botón
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        <button type="button" className="button secondary" onClick={agregar}>➕ Agregar botón</button>
+        <button type="button" className="button secondary" onClick={() => selector.current?.click()} disabled={subiendo}>
+          {subiendo ? 'Subiendo PDF…' : '📄 Agregar botón con PDF'}
+        </button>
+        <input ref={selector} type="file" accept="application/pdf,.pdf" onChange={elegirPdf} hidden />
+      </div>
+      {error && <p className="aviso-error" style={{ marginTop: 8 }}>{error}</p>}
     </>
   )
 }

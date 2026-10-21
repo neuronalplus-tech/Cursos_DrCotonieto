@@ -7,6 +7,8 @@ export const BUCKET_PAGO = 'curso_duelo'
 export const BUCKET_TALLERES = 'talleres'
 export const AVATAR_BUCKET = 'avatares'
 export const CHAT_ADJUNTOS_BUCKET = 'chat_adjuntos'
+// PDF que se suben desde «Botones» y se leen dentro de la plataforma.
+export const BOTONES_PDF_BUCKET = 'botones_pdf'
 
 export const CONTACTO_EMAIL = 'cotonietoe@gmail.com'
 export const WHATSAPP = '5215637841931'

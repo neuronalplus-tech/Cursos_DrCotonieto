@@ -341,6 +341,7 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
                 return (
                   <BotonEditable key={i} clave={`curso.extra.${i}@curso:${curso.id}`} clase="button ancho"
                     defecto={{ estilo: b.estilo || 'azul' }} fuente={fuenteExtra(b, i)} siempreVisible={gestiona}
+                    to={b.archivo ? `/curso/${curso.id}` : undefined}
                     extra={candado(b.activo !== false, () => toggleBotonExtra(i), () => eliminarExtra(i))} />
                 )
               })}

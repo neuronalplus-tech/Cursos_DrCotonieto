@@ -7,6 +7,9 @@ import { enviarCorreo } from '../lib/correo'
 import { materialDeTaller, guardarMaterialTaller } from '../lib/material'
 import { rutaAcceso, rutaRegistro } from '../config'
 import ExamenModulo from './ExamenModulo'
+import { PdfViewer } from './RecursosModulo'
+import { BOTONES_PDF_BUCKET } from '../config'
+import { botonesParaGuardar } from '../lib/botonesPdf'
 
 /* ============================================================
    TALLERES - modal de edicion + material del taller
@@ -56,7 +59,7 @@ export function ModalEditarTaller({ curso, onClose, onGuardado }) {
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
-      const botonesValidos = form.botones_extra.filter(b => (b.texto || '').trim() && (b.url || '').trim())
+      const botonesValidos = botonesParaGuardar(form.botones_extra)
 
       // Lo público (fecha, registro, constancia) sigue en `cursos`.
       const publico = {
@@ -479,7 +482,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             {botonesExtra.map((b, i) => {
               const visible = b.activo !== false
               if (!gestiona && !visible) return null
-              const info = analizarUrl(b.url)
+              const info = b.archivo ? { embeddable: true } : analizarUrl(b.url)
               const verlo = !!verBotonesExtra[i]
               return (
                 <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -493,15 +496,20 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                           {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
                         </button>
                       )}
-                      <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
-                        {b.texto} ↗
-                      </a>
+                      {!b.archivo && (
+                        <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
+                          {b.texto} ↗
+                        </a>
+                      )}
                     </>
                   )}
                   {controles(visible, () => toggleBotonExtraActivo(i), () => eliminarBotonExtra(i))}
                   {visible && info.embeddable && verlo && (
                     <div className="recurso-contenido" style={{ flexBasis: '100%' }}>
-                      <EmbedFrame url={b.url} />
+                      {b.archivo
+                        ? (user ? <PdfViewer archivo={b.archivo} bucket={BOTONES_PDF_BUCKET} />
+                                : <p className="aviso-info">Inicia sesión para ver este documento.</p>)
+                        : <EmbedFrame url={b.url} />}
                     </div>
                   )}
                 </div>
