@@ -21,6 +21,7 @@ import Recuperar from './components/Recuperar'
 import Perfil from './components/Perfil'
 import ChatInterno from './components/ChatInterno'
 import ExportarCaso from './components/ExportarCaso'
+import MiEspacio from './components/MiEspacio'
 
 const supabaseConfigured = isSupabaseConfigured()
 
@@ -183,6 +184,7 @@ export default function App() {
         <Route path="/pase" element={<ProtectedRoute user={user} route="agenda"><PaseSesion user={user} /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute user={user} route="admin"><Admin user={user} /></ProtectedRoute>} />
         <Route path="/perfil" element={<ProtectedRoute user={user} route="perfil"><Perfil user={user} /></ProtectedRoute>} />
+        <Route path="/mi-espacio" element={<ProtectedRoute user={user} route="mi-espacio"><MiEspacio user={user} /></ProtectedRoute>} />
         <Route path="/conversacion" element={<ProtectedRoute user={user} route="chat"><ChatInterno user={user} /></ProtectedRoute>} />
         <Route path="/recuperar" element={<Recuperar />} />
         <Route path="/sin-acceso" element={<SinAcceso />} />
