@@ -105,12 +105,7 @@ export default function GestionCurso({ user }) {
 
   const contenidoDe = (clave) => {
     switch (clave) {
-      case 'info': return (
-        <>
-          <FormInfo curso={curso} onGuardado={setCurso} />
-          <Autoinscripcion curso={curso} onGuardado={setCurso} />
-        </>
-      )
+      case 'info': return <FormInfo curso={curso} onGuardado={setCurso} />
       case 'modulos': return taller
         ? <TallerAqui curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
         : <ListaModulos curso={curso} modulos={modulos} setModulos={setModulos} recursos={recursos} setRecursos={setRecursos} />
@@ -148,6 +143,14 @@ export default function GestionCurso({ user }) {
       </div>
 
       <BarraVerComo g={g} />
+
+      {/* Panel propio y siempre visible: el enlace de autoinscripción es
+          lo que se reparte el día del taller, no debe quedar enterrado en
+          una tarjeta colapsada. Solo para quien puede editar el curso y
+          fuera del modo «ver como». */}
+      {g.secciones.has('info') && !g.perfilComo && (
+        <Autoinscripcion curso={curso} onGuardado={setCurso} />
+      )}
 
       <div className="gestion-curso">
         <div className="gestion-secciones">
@@ -336,8 +339,8 @@ function Autoinscripcion({ curso, onGuardado }) {
   }
 
   return (
-    <div className="gestion-form" style={{ marginTop: 24, borderTop: '1px solid #e5e7eb', paddingTop: 20 }}>
-      <h3 style={{ margin: '0 0 4px' }}>🎟️ Autoinscripción con enlace</h3>
+    <section className="gestion-form" style={{ margin: '0 0 20px', padding: '16px 20px', border: '1px solid #d1d5db', borderRadius: 12, background: '#f8fafc' }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: '1.15rem' }}>🎟️ Autoinscripción con enlace</h2>
       <p className="nota" style={{ marginTop: 0 }}>
         Reparte un enlace para que cada persona cree su cuenta y quede inscrita{' '}
         <strong>sola y solo en este taller</strong>. No tendrán acceso a ningún otro curso.
@@ -374,7 +377,7 @@ function Autoinscripcion({ curso, onGuardado }) {
         </>
       )}
       {msg && <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'} role="status">{msg.texto}</p>}
-    </div>
+    </section>
   )
 }
 
