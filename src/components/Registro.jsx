@@ -78,6 +78,20 @@ function Registro() {
   // hay forma de saber a qué taller llegó. Se manda en la metadata y el
   // disparador crea la inscripción (solo si ese curso es gratuito).
   const cursoDelEnlace = (destino.match(/^\/curso\/(\d+)(?:\/|$)/) || [])[1] || null
+  // Nombre del taller del que viene la persona, para nombrárselo en el
+  // registro: quien llega del enlace de un taller gratuito ve a qué se
+  // está inscribiendo y no se pregunta por qué le piden crear una cuenta.
+  const [tallerNombre, setTallerNombre] = useState('')
+
+  // Traer el título del taller del enlace (lectura pública). Si falla o no
+  // hay enlace, no se muestra nada: el registro funciona igual.
+  useEffect(() => {
+    if (!cursoDelEnlace) return
+    let vivo = true
+    supabase.from('cursos').select('titulo').eq('id', cursoDelEnlace).maybeSingle()
+      .then(({ data }) => { if (vivo && data?.titulo) setTallerNombre(data.titulo) })
+    return () => { vivo = false }
+  }, [cursoDelEnlace])
 
   // Quien ya tiene sesión no debió llegar aquí: no hay nada que registrar.
   useEffect(() => {
@@ -165,6 +179,14 @@ function Registro() {
         <img src={LOGO_CLARO} alt="" className="logo-login" />
         <p className="eyebrow">Aula virtual</p>
         <h1>{cfg.titulo}</h1>
+
+        {cursoDelEnlace && (
+          <p className="registro-contexto">
+            🎟️ Te registras para el taller{tallerNombre ? ': ' : '.'}
+            {tallerNombre && <strong>{tallerNombre}</strong>}
+            {' '}Crea tu cuenta con tu <strong>nombre completo</strong>: así saldrá en tu constancia.
+          </p>
+        )}
 
         {confirma ? (
           <>
