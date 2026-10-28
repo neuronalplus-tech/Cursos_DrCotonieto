@@ -18,6 +18,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { rutaRegistro } from '../config'
 import { esTallerIndividual, esCursoProblemasContemporaneos, cursoEspecial } from '../lib/helpers'
 import { useContenido, tieneDetalles } from '../lib/contenido'
 import {
@@ -104,7 +105,12 @@ export default function GestionCurso({ user }) {
 
   const contenidoDe = (clave) => {
     switch (clave) {
-      case 'info': return <FormInfo curso={curso} onGuardado={setCurso} />
+      case 'info': return (
+        <>
+          <FormInfo curso={curso} onGuardado={setCurso} />
+          <Autoinscripcion curso={curso} onGuardado={setCurso} />
+        </>
+      )
       case 'modulos': return taller
         ? <TallerAqui curso={curso} onGuardado={(c) => setCurso((x) => ({ ...x, ...c }))} />
         : <ListaModulos curso={curso} modulos={modulos} setModulos={setModulos} recursos={recursos} setRecursos={setRecursos} />
@@ -273,6 +279,101 @@ function FormInfo({ curso, onGuardado }) {
       </fieldset>
       {msg && <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'} role="status">{msg.texto}</p>}
       <button type="button" className="button primary" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------
+   AUTOINSCRIPCIÓN CON ENLACE
+   ------------------------------------------------------------
+   Un enlace que se reparte (en una videollamada, por correo o
+   WhatsApp) para que cada persona cree su cuenta y quede inscrita
+   SOLA y solo en ESTE taller, sin darla de alta una por una.
+
+   El enlace siempre es /registro?redirigir=/curso/ID. Lo que lo hace
+   FUNCIONAR es que el curso sea gratuito y esté activo: el disparador
+   manejar_alta_publica (supabase/ALTA_PUBLICA_2_TANDAS.sql) solo crea
+   la fila de inscripción `acceso` para cursos gratuitos, así nadie
+   entra a un curso de pago manipulando la dirección. Por eso aquí
+   «habilitar» es, exactamente, marcar el curso gratuito y activo; no
+   hace falta SQL nuevo, ese disparador ya está puesto.
+   ------------------------------------------------------------ */
+function Autoinscripcion({ curso, onGuardado }) {
+  const [ocupado, setOcupado] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [copiado, setCopiado] = useState(false)
+
+  const activa = curso.gratuito === true && curso.activo !== false
+  const enlace = `${window.location.origin}${rutaRegistro(`/curso/${curso.id}`)}`
+
+  const habilitar = async () => {
+    setOcupado(true); setMsg(null)
+    const { data, error } = await supabase.from('cursos')
+      .update({ gratuito: true, activo: true, proximamente: false })
+      .eq('id', curso.id).select().maybeSingle()
+    setOcupado(false)
+    if (error || !data) { setMsg({ tipo: 'error', texto: 'No se pudo habilitar: ' + (error?.message || 'la base no lo permitió (permisos).') }); return }
+    onGuardado(data)
+    setMsg({ tipo: 'ok', texto: 'Autoinscripción habilitada. Copia el enlace y repártelo.' })
+  }
+
+  const deshabilitar = async () => {
+    if (!confirm('¿Cerrar la autoinscripción? El enlace dejará de inscribir a gente nueva y el taller volverá a ser de pago/con inscripción. Quienes ya entraron conservan su acceso.')) return
+    setOcupado(true); setMsg(null)
+    const { data, error } = await supabase.from('cursos')
+      .update({ gratuito: false }).eq('id', curso.id).select().maybeSingle()
+    setOcupado(false)
+    if (error || !data) { setMsg({ tipo: 'error', texto: 'No se pudo cerrar: ' + (error?.message || 'la base no lo permitió (permisos).') }); return }
+    onGuardado(data)
+    setMsg({ tipo: 'ok', texto: 'Autoinscripción cerrada.' })
+  }
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(enlace)
+      setCopiado(true); setTimeout(() => setCopiado(false), 2000)
+    } catch { setMsg({ tipo: 'error', texto: 'No se pudo copiar solo. Selecciona el enlace y cópialo a mano.' }) }
+  }
+
+  return (
+    <div className="gestion-form" style={{ marginTop: 24, borderTop: '1px solid #e5e7eb', paddingTop: 20 }}>
+      <h3 style={{ margin: '0 0 4px' }}>🎟️ Autoinscripción con enlace</h3>
+      <p className="nota" style={{ marginTop: 0 }}>
+        Reparte un enlace para que cada persona cree su cuenta y quede inscrita{' '}
+        <strong>sola y solo en este taller</strong>. No tendrán acceso a ningún otro curso.
+      </p>
+
+      {activa ? (
+        <>
+          <label htmlFor="ai-enlace">Enlace para repartir</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input id="ai-enlace" className="input" readOnly value={enlace}
+                   onFocus={(e) => e.target.select()} style={{ flex: '1 1 320px' }} />
+            <button type="button" className="button primary" onClick={copiar}>{copiado ? '✓ Copiado' : 'Copiar enlace'}</button>
+            <a className="button secondary" href={enlace} target="_blank" rel="noopener noreferrer">Probar ↗</a>
+          </div>
+          <p className="nota">
+            Al abrirlo crean su cuenta con el nombre para su constancia y, al confirmar el
+            correo, entran directo a este taller. La constancia se habilita aparte, en la
+            tarjeta «Constancia», cuando el taller termine.
+          </p>
+          <button type="button" className="button texto" onClick={deshabilitar} disabled={ocupado}>
+            Cerrar la autoinscripción
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="aviso-info" style={{ marginTop: 0 }}>
+            Para que el enlace inscriba, este curso debe quedar <strong>gratuito y activo</strong>:
+            así se abre sin pago y el registro crea la inscripción automática. Un curso de pago no
+            se puede inscribir con enlace (nadie entra gratis manipulando la dirección).
+          </p>
+          <button type="button" className="button primary" onClick={habilitar} disabled={ocupado}>
+            {ocupado ? 'Habilitando…' : 'Habilitar autoinscripción con enlace'}
+          </button>
+        </>
+      )}
+      {msg && <p className={msg.tipo === 'ok' ? 'aviso-ok' : 'aviso-error'} role="status">{msg.texto}</p>}
     </div>
   )
 }
