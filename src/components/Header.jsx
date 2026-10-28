@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useOrganizacion } from '../lib/organizacion'
 import { usePermisos, useMisPermisos } from '../lib/permisos'
 import { TextoEditable, ImagenEditable, BotonEditable } from './Editable'
+import Icon from './Icon'
 
 /* ============================================================
    BARRA SUPERIOR
@@ -128,7 +129,9 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
           <TextoEditable className="brand-name" clave="encabezado.nombre" defecto={marcaNombre} />
         </div>
 
-        <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">☰</button>
+        <button className="menu-toggle" onClick={() => setMenuAbierto(v => !v)} aria-label="Menú">
+          <Icon name="menu" size={24} />
+        </button>
 
         <nav className={`header-actions ${menuAbierto ? 'abierto' : ''}`}>
           {location.pathname !== '/' && (
@@ -148,7 +151,7 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
               <button className="header-icono" onClick={() => ir('/mensajes')}
                       title={sinLeer ? `${sinLeer} mensaje(s) sin leer` : 'Mensajes'}
                       aria-label={sinLeer ? `Mensajes, ${sinLeer} sin leer` : 'Mensajes'}>
-                <span aria-hidden="true">✉️</span>
+                <Icon name="mail" size={22} />
                 {sinLeer > 0 && <span className="header-globo">{sinLeer > 99 ? '99+' : sinLeer}</span>}
               </button>
 
@@ -161,7 +164,7 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
                         {iniciales(nombreUsuario || user.email)}
                       </span>}
                   <span className="header-cuenta-nombre">{nombreUsuario || user.email}</span>
-                  <span aria-hidden="true">▾</span>
+                  <Icon name="chevron-down" size={18} className={cuentaAbierta ? 'girado' : ''} />
                 </button>
 
                 {cuentaAbierta && (

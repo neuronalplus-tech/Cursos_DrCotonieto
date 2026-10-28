@@ -1277,8 +1277,15 @@ a { color: var(--primary); }
    ------------------------------------------------------------ */
 /* ---- Barra superior: buzon y menu de cuenta ----------------- */
 .header-icono { position: relative; background: none; border: 0; cursor: pointer;
-  font-size: var(--fs-lg); line-height: 1; padding: 5px 7px; border-radius: 8px; }
+  display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1; padding: 5px 7px; border-radius: 8px; }
 .header-icono:hover { background: rgba(255,255,255,.12); }
+
+/* Íconos SVG de interfaz (componente Icon.jsx). Toman el color del texto
+   con currentColor, se alinean con la línea base y escalan con la letra. */
+.icono { display: inline-block; vertical-align: middle; flex: none; transition: transform var(--t-fast); }
+.header-cuenta-btn .icono.girado { transform: rotate(180deg); }
+.menu-toggle .icono { display: block; }
 
 /* El globo del contador se ancla al icono, no al flujo, para que
    no desplace el resto de la barra al aparecer. */
@@ -4023,6 +4030,15 @@ a { color: var(--primary); }
 
 .gestion-form { display: grid; gap: 8px; max-width: 640px; }
 .gestion-form .button { justify-self: start; margin-top: 6px; }
+
+/* Panel destacado dentro de la gestión (p. ej. Autoinscripción con enlace).
+   Antes llevaba estilos en línea con grises fríos; ahora usa tokens y la
+   paleta de marca. */
+.gestion-panel { max-width: none; margin: 0 0 var(--sp-5); padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--borde); border-radius: var(--radio-lg); background: var(--bg-info); }
+.gestion-panel h2 { font-size: var(--fs-xl); margin: 0 0 var(--sp-1); }
+.gestion-panel .enlace-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.gestion-panel .enlace-row .input { flex: 1 1 320px; }
 .gestion-estado { border: 1px solid var(--borde); border-radius: 8px; padding: 8px 12px; display: grid; gap: 6px; }
 .gestion-barra { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .gestion-lista { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }

@@ -339,9 +339,9 @@ function Autoinscripcion({ curso, onGuardado }) {
   }
 
   return (
-    <section className="gestion-form" style={{ margin: '0 0 20px', padding: '16px 20px', border: '1px solid #d1d5db', borderRadius: 12, background: '#f8fafc' }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: '1.15rem' }}>🎟️ Autoinscripción con enlace</h2>
-      <p className="nota" style={{ marginTop: 0 }}>
+    <section className="gestion-form gestion-panel">
+      <h2>🎟️ Autoinscripción con enlace</h2>
+      <p className="nota">
         Reparte un enlace para que cada persona cree su cuenta y quede inscrita{' '}
         <strong>sola y solo en este taller</strong>. No tendrán acceso a ningún otro curso.
       </p>
@@ -349,9 +349,9 @@ function Autoinscripcion({ curso, onGuardado }) {
       {activa ? (
         <>
           <label htmlFor="ai-enlace">Enlace para repartir</label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="enlace-row">
             <input id="ai-enlace" className="input" readOnly value={enlace}
-                   onFocus={(e) => e.target.select()} style={{ flex: '1 1 320px' }} />
+                   onFocus={(e) => e.target.select()} />
             <button type="button" className="button primary" onClick={copiar}>{copiado ? '✓ Copiado' : 'Copiar enlace'}</button>
             <a className="button secondary" href={enlace} target="_blank" rel="noopener noreferrer">Probar ↗</a>
           </div>
@@ -366,7 +366,7 @@ function Autoinscripcion({ curso, onGuardado }) {
         </>
       ) : (
         <>
-          <p className="aviso-info" style={{ marginTop: 0 }}>
+          <p className="aviso-info">
             Para que el enlace inscriba, este curso debe quedar <strong>gratuito y activo</strong>:
             así se abre sin pago y el registro crea la inscripción automática. Un curso de pago no
             se puede inscribir con enlace (nadie entra gratis manipulando la dirección).
