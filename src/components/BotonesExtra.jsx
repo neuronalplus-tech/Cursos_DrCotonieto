@@ -17,31 +17,38 @@ export default function BotonesExtra({ botones, clase, logueado = true }) {
       <div className={clase}>
         {botones.map((b, i) => {
           const oculto = b.activo === false ? ' (oculto)' : ''
-          if (!b.archivo) return (
+          const esHtml = !!b.html
+          if (!b.archivo && !esHtml) return (
             <a key={i} className={`button ${b.estilo || 'azul'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
               {b.texto}{oculto}
             </a>
           )
+          const embeddable = esHtml ? true : sePuedeVer(b.archivo)
           return (
             <span key={i} style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
-              {sePuedeVer(b.archivo) && (
+              {embeddable && (
                 <button type="button" className={`button ${b.estilo || 'azul'}`}
                         aria-expanded={abierto === i} onClick={() => setAbierto(abierto === i ? null : i)}>
                   {abierto === i ? 'Ocultar' : 'Ver aquí'} · {b.texto}{oculto}
                 </button>
               )}
-              {logueado && (
+              {!esHtml && b.archivo && logueado && (
                 <button type="button" className="button secondary" onClick={() => descargar(b.archivo)}>
-                  ⬇ Descargar{sePuedeVer(b.archivo) ? '' : ` · ${b.texto}`}
+                  ⬇ Descargar{embeddable ? '' : ` · ${b.texto}`}
                 </button>
               )}
             </span>
           )
         })}
       </div>
-      {abierto != null && botones[abierto]?.archivo && (
-        logueado
-          ? <div className="recurso-contenido" style={{ marginTop: 12 }}><VisorArchivo archivo={botones[abierto].archivo} /></div>
+      {abierto != null && (botones[abierto]?.archivo || botones[abierto]?.html) && (
+        logueado || botones[abierto]?.html
+          ? <div className="recurso-contenido" style={{ marginTop: 12 }}>
+              {botones[abierto]?.html
+                ? <iframe title={botones[abierto]?.texto || 'HTML'} srcDoc={botones[abierto].html}
+                          sandbox="allow-scripts" style={{ width: '100%', minHeight: 320, border: '1px solid #D6DCE3', borderRadius: 10 }} />
+                : <VisorArchivo archivo={botones[abierto].archivo} />}
+            </div>
           : <p className="aviso-info">Inicia sesión para ver este documento.</p>
       )}
     </>

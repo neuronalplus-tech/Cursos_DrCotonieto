@@ -256,6 +256,8 @@ export function EditorBotonesExtra({ botones, onChange }) {
     } catch (err) { setError(err.message) }
     setSubiendo(false)
   }
+  const agregarHtml = () => onChange([...botones, { texto: '', html: '', estilo: 'azul', activo: true }])
+
 
   return (
     <>
@@ -274,8 +276,12 @@ export function EditorBotonesExtra({ botones, onChange }) {
             ? <span className="nota" style={{ flex: 1, margin: 0 }} title={b.archivo}>
                 📎 Archivo: {nombreDeArchivo(b.archivo)} · «Ver aquí» y descargar
               </span>
-            : <input type="url" placeholder="https://..." value={b.url}
-                     onChange={e => actualizar(i, 'url', e.target.value)} />}
+            : 'html' in b
+              ? <textarea placeholder="<div>…tu código HTML…</div>" value={b.html || ''}
+                         onChange={e => actualizar(i, 'html', e.target.value)}
+                         style={{ flex: 1, minHeight: 80, fontFamily: 'monospace', fontSize: 12 }} />
+              : <input type="url" placeholder="https://..." value={b.url}
+                       onChange={e => actualizar(i, 'url', e.target.value)} />}
           <label className="boton-extra-activo"><input type="checkbox" checked={b.activo !== false}
             onChange={e => actualizar(i, 'activo', e.target.checked)} /> Activo</label>
           <button type="button" className="boton-extra-quitar" onClick={() => eliminar(i)} title="Quitar botón">✕</button>
@@ -287,6 +293,10 @@ export function EditorBotonesExtra({ botones, onChange }) {
         <button type="button" className="button secondary" onClick={() => selector.current?.click()} disabled={subiendo}>
           {subiendo ? 'Subiendo archivo…' : '📎 Agregar botón con archivo (PDF, Word, Excel…)'}
         </button>
+        <button type="button" className="button secondary" onClick={agregarHtml}>
+          🧩 Agregar botón con código HTML
+        </button>
+
         <input ref={selector} type="file" accept={ACEPTA_ARCHIVOS} onChange={elegirPdf} hidden />
       </div>
       {error && <p className="aviso-error" style={{ marginTop: 8 }}>{error}</p>}

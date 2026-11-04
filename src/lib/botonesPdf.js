@@ -58,9 +58,9 @@ export async function borrarPdfBoton(ruta) {
   try { await supabase.storage.from(BOTONES_PDF_BUCKET).remove([ruta]) } catch { /* ya no estaba */ }
 }
 
-/** ¿Este botón guardado cuenta como completo? (texto + enlace o PDF) */
-export const botonValido = (b) => !!(b.texto || '').trim() && (!!(b.url || '').trim() || !!b.archivo)
+/** ¿Este botón guardado cuenta como completo? (texto + enlace, PDF o HTML) */
+export const botonValido = (b) => !!(b.texto || '').trim() && (!!(b.url || '').trim() || !!b.archivo || !!(b.html || '').trim())
 
 /** Lo que se guarda: solo botones completos y sin la marca interna `nuevo`. */
 export const botonesParaGuardar = (lista) =>
-  (lista || []).filter(botonValido).map(({ nuevo, ...b }) => b) // eslint-disable-line no-unused-vars
+  (lista || []).filter(botonValido).map(({ nuevo, ...b }) => b)

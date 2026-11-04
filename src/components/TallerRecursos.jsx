@@ -481,7 +481,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
             {botonesExtra.map((b, i) => {
               const visible = b.activo !== false
               if (!gestiona && !visible) return null
-              const info = b.archivo ? { embeddable: sePuedeVer(b.archivo) } : analizarUrl(b.url)
+              const info = b.archivo ? { embeddable: sePuedeVer(b.archivo) } : b.html ? { embeddable: true } : analizarUrl(b.url)
               const verlo = !!verBotonesExtra[i]
               return (
                 <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -501,7 +501,7 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                           ⬇ Descargar{info.embeddable ? '' : ` · ${b.texto}`}
                         </button>
                       )}
-                      {!b.archivo && (
+                      {!b.archivo && !b.html && (
                         <a className={`button ${info.embeddable ? 'secondary' : 'primary'}`} target="_blank" rel="noopener noreferrer" href={b.url}>
                           {b.texto} ↗
                         </a>
@@ -514,7 +514,10 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                       {b.archivo
                         ? (user ? <VisorArchivo archivo={b.archivo} />
                                 : <p className="aviso-info">Inicia sesión para ver este documento.</p>)
-                        : <EmbedFrame url={b.url} />}
+                        : b.html
+                          ? <iframe title={b.texto || 'HTML'} srcDoc={b.html}
+                                    sandbox="allow-scripts" style={{ width: '100%', minHeight: 320, border: '1px solid #D6DCE3', borderRadius: 10 }} />
+                          : <EmbedFrame url={b.url} />}
                     </div>
                   )}
                 </div>
