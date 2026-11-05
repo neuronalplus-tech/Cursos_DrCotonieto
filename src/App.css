@@ -195,7 +195,7 @@ a { color: var(--primary); }
 .hero-ed-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
 .hero-ed-cred { font-size: var(--fs-xs); color: var(--gris); margin: 0; max-width: 52ch; }
 .hero-ed-foto { display: flex; justify-content: center; }
-.hero-ed-retrato { width: 100%; max-width: 320px; aspect-ratio: 4 / 5; object-fit: cover;
+.hero-ed-retrato { width: 100%; max-width: 272px; aspect-ratio: 4 / 5; object-fit: cover;
   object-position: center top; border-radius: var(--radio-lg); box-shadow: var(--sombra-lg); }
 .hero-ed-retrato.es-logo { object-fit: contain; background: var(--blanco); padding: 24px; aspect-ratio: 1; }
 .hero-carrusel { margin: 0 0 clamp(36px, 5vw, 56px); }
