@@ -495,6 +495,18 @@ export default function TallerRecursos({ curso: cursoProp, user, gestiona, onAct
                           {verlo ? 'Ocultar' : 'Ver aquí'} · {b.texto}
                         </button>
                       )}
+                       {b.html && (
+                         <button type="button" className="button secondary"
+                                 onClick={() => {
+                                   const blob = new Blob([b.html], { type: 'text/html' })
+                                   const url = URL.createObjectURL(blob)
+                                   window.open(url, '_blank', 'noopener')
+                                   setTimeout(() => URL.revokeObjectURL(url), 60000)
+                                 }}>
+                           ↗ Abrir en nueva pestaña
+                         </button>
+                       )}
+
                       {b.archivo && user && (
                         <button type="button" className="button secondary"
                                 onClick={() => descargarArchivo(b.archivo).catch(e => alert('No se pudo descargar: ' + e.message))}>

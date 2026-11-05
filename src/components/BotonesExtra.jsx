@@ -32,6 +32,18 @@ export default function BotonesExtra({ botones, clase, logueado = true }) {
                   {abierto === i ? 'Ocultar' : 'Ver aquí'} · {b.texto}{oculto}
                 </button>
               )}
+              {esHtml && (
+                <button type="button" className="button secondary"
+                        onClick={() => {
+                          const blob = new Blob([b.html], { type: 'text/html' })
+                          const url = URL.createObjectURL(blob)
+                          window.open(url, '_blank', 'noopener')
+                          setTimeout(() => URL.revokeObjectURL(url), 60000)
+                        }}>
+                  ↗ Abrir en nueva pestaña
+                </button>
+              )}
+
               {!esHtml && b.archivo && logueado && (
                 <button type="button" className="button secondary" onClick={() => descargar(b.archivo)}>
                   ⬇ Descargar{embeddable ? '' : ` · ${b.texto}`}
