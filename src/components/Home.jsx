@@ -72,20 +72,32 @@ function Home({ user }) {
 
   return (
     <div className="landing">
-      <section className="franja-superior">
-        <div className="mini-perfil">
-          <ImagenEditable clave="perfil.foto" defecto={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="mini-foto" />
-          <div className="mini-perfil-texto">
-            <TextoEditable as="h1" clave="perfil.nombre" defecto={MARCA.nombre} />
-            <TextoEditable as="p" className="mini-credencial" clave="perfil.credencial" defecto={MARCA.credencial} />
-            <TextoEditable as="p" className="mini-slogan" clave="perfil.slogan" defecto={MARCA.slogan} comillas />
-            <TextoEditable as="p" className="mini-sub" clave="perfil.subtitulo" defecto={MARCA.subtitulo} />
-            <BotonEditable clave="portada.agendar" clase="button"
+      {/* HERO EDITORIAL: titular Fraunces grande + una frase + 2 CTA + retrato.
+          Estilo Maven / School of Life, con la marca y paleta de la casa. */}
+      <section className="hero-ed">
+        <div className="hero-ed-texto">
+          <TextoEditable as="p" className="hero-ed-eyebrow" clave="perfil.nombre" defecto={MARCA.nombre} />
+          <TextoEditable as="h1" className="hero-ed-titulo" clave="perfil.slogan" defecto={MARCA.slogan} />
+          <TextoEditable as="p" className="hero-ed-lead" clave="perfil.subtitulo" defecto={MARCA.subtitulo} />
+          <div className="hero-ed-ctas">
+            <BotonEditable clave="portada.agendar" clase="button whatsapp grande"
               defecto={{ texto: 'Agenda tu llamada sin costo', mensaje: WA_MENSAJE_CONSULTA, estilo: 'whatsapp' }} />
+            <button type="button" className="button secondary grande" onClick={() => irACurso('todas')}>
+              Ver cursos y talleres
+            </button>
           </div>
+          <TextoEditable as="p" className="hero-ed-cred" clave="perfil.credencial" defecto={MARCA.credencial} />
         </div>
-        {!loading && <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} copia={copiaLineas} />}
+        <div className="hero-ed-foto">
+          <ImagenEditable clave="perfil.foto" defecto={FOTO_PERFIL} alt={MARCA.nombre} className="hero-ed-retrato" />
+        </div>
       </section>
+
+      {!loading && (
+        <div className="hero-carrusel">
+          <CarruselCursos lineas={lineas} cursos={cursos} onSelect={irACurso} copia={copiaLineas} />
+        </div>
+      )}
 
       <section className="seccion" id="cursos">
         <p className="seccion-eyebrow">Formación</p>
