@@ -126,7 +126,8 @@ a { color: var(--primary); }
 .enlace-texto:hover { color: var(--primary); }
 
 /* ---------- HEADER ---------- */
-.app-header { background: var(--primary); color: #fff; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.12); }
+.app-header { background: var(--primary); color: #fff; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,.12); border-top: 3px solid var(--accent); border-bottom: 1px solid rgba(255,255,255,.08); }
 /* La barra ocupa TODO el ancho, a diferencia del contenido de las
    páginas, que se acota a 1150 px para que una línea de texto no se
    vuelva ilegible de tan larga. Una barra de aplicación no tiene ese
@@ -181,8 +182,13 @@ a { color: var(--primary); }
 
 /* ---------- FRANJA SUPERIOR ---------- */
 .franja-superior { display: flex; align-items: stretch; gap: 28px; padding: 32px 0 40px; }
-.mini-perfil { flex: 0 0 260px; display: flex; flex-direction: column; align-items: flex-start;
-  text-align: left; gap: 10px; }
+/* Perfil como "tarjeta de identidad" institucional: panel blanco con
+   borde y una franja superior en el color primario, como una credencial
+   oficial. Es el primer golpe de seriedad al abrir la página. */
+.mini-perfil { flex: 0 0 300px; display: flex; flex-direction: column; align-items: flex-start;
+  text-align: left; gap: 10px; background: var(--blanco); border: 1px solid var(--borde);
+  border-top: 4px solid var(--primary); border-radius: var(--radio-lg);
+  padding: 24px 22px; box-shadow: var(--sombra); }
 .mini-foto { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; border: 3px solid var(--blanco);
   box-shadow: var(--sombra); }
 .mini-foto.es-logo { object-fit: contain; background: var(--blanco); padding: 10px; }
@@ -218,7 +224,15 @@ a { color: var(--primary); }
 .punto.activo { background: #fff; width: 22px; border-radius: 5px; }
 
 .seccion { padding: 44px 0; border-top: 1px solid var(--borde); }
-.seccion h2 { font-size: var(--fs-2xl); margin: 0 0 8px; }
+/* Título de sección con subrayado de acento: el marcador de sección más
+   reconocible de un sitio institucional. Fraunces en peso fuerte + una
+   barra corta en terracota bajo el título. */
+.seccion h2 { font-size: var(--fs-2xl); font-weight: 700; margin: 0 0 8px;
+  position: relative; padding-bottom: 14px; }
+.seccion h2::after { content: ''; position: absolute; left: 0; bottom: 0;
+  width: 52px; height: 3px; background: var(--accent); border-radius: 2px; }
+/* En las secciones centradas, el subrayado se centra con el título. */
+.seccion.cierre h2::after, .seccion.sobre-mi h2::after { left: 50%; transform: translateX(-50%); }
 .seccion-intro { color: var(--gris); margin: 0 0 26px; max-width: 660px; }
 .titulo-seccion { font-size: var(--fs-xl); margin: 34px 0 16px; }
 .cierre { text-align: center; }
@@ -232,7 +246,7 @@ a { color: var(--primary); }
 
 .menu-lineas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 30px;
   overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-.linea-pill { flex: 0 0 auto; background: var(--blanco); border: 1px solid var(--borde); border-radius: 30px;
+.linea-pill { flex: 0 0 auto; background: var(--blanco); border: 1px solid var(--borde); border-radius: var(--radio-sm);
   padding: 9px 18px; font-family: var(--texto); font-size: var(--fs-xs); font-weight: 600; color: var(--primary);
   cursor: pointer; transition: all .18s; white-space: nowrap; }
 .linea-pill:hover { border-color: var(--accent); background: var(--bg-card); }
@@ -241,8 +255,8 @@ a { color: var(--primary); }
 /* ---------- CATÁLOGO ---------- */
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; align-items: start; }
 .course-card { background: var(--blanco); border-radius: var(--radio); border: 1px solid var(--borde);
-  overflow: hidden; display: flex; flex-direction: column; transition: all .2s; }
-.course-card:hover { box-shadow: var(--sombra); transform: translateY(-2px); }
+  overflow: hidden; display: flex; flex-direction: column; transition: all .2s; box-shadow: var(--sombra); }
+.course-card:hover { box-shadow: var(--sombra-lg); transform: translateY(-2px); border-color: var(--accent-claro); }
 .course-card.gratis { border-top: 4px solid var(--wa); }
 .course-card.contenedor { border-top: 4px solid var(--accent); }
 .course-card.contenedor .contenedor-desc { font-size: var(--fs-sm); color: var(--gris); margin: 0; }
@@ -272,11 +286,12 @@ a { color: var(--primary); }
 /* ---------- SERVICIOS / CASOS ---------- */
 .servicios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 16px; }
 .servicio-card { background: var(--blanco); border: 1px solid var(--borde); border-left: 4px solid var(--accent);
-  border-radius: 10px; padding: 18px 20px; }
+  border-radius: var(--radio); padding: 18px 20px; box-shadow: var(--sombra); transition: all .2s; }
+.servicio-card:hover { box-shadow: var(--sombra-lg); transform: translateY(-2px); }
 .servicio-card h3 { margin: 0 0 6px; font-size: var(--fs-lg); }
 .servicio-card p { margin: 0; font-size: var(--fs-sm); color: var(--gris); }
 .lista-chips { display: flex; flex-wrap: wrap; gap: 10px; }
-.chip { background: var(--bg-card); border-radius: 20px; padding: 8px 16px; font-size: var(--fs-sm); font-weight: 500; color: var(--primary); }
+.chip { background: var(--bg-card); border: 1px solid var(--borde); border-radius: var(--radio-sm); padding: 8px 16px; font-size: var(--fs-sm); font-weight: 500; color: var(--primary); }
 .enfoques { margin-top: 20px; color: var(--gris); font-size: var(--fs-sm); }
 
 /* ---------- LOGIN ---------- */
