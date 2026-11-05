@@ -178,11 +178,11 @@ a { color: var(--primary); }
 .bc-sep { margin: 0 8px; opacity: .5; }
 
 /* ---------- LANDING ---------- */
-.landing { max-width: 1150px; margin: 0 auto; padding: 0 24px; }
+.landing { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 
 /* ---------- HERO EDITORIAL ---------- */
 .hero-ed { display: grid; grid-template-columns: 1.15fr .85fr; align-items: center;
-  gap: clamp(32px, 5vw, 72px); padding: clamp(44px, 7vw, 92px) 0 clamp(36px, 5vw, 64px); }
+  gap: clamp(28px, 4vw, 56px); padding: clamp(32px, 5vw, 64px) 0 clamp(28px, 4vw, 48px); }
 .hero-ed-texto { max-width: 640px; }
 .hero-ed-eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: var(--fs-2xs);
   font-weight: 700; color: var(--accent); margin: 0 0 20px; }
@@ -190,8 +190,8 @@ a { color: var(--primary); }
    pantalla (34px en móvil → ~56px en escritorio). */
 .hero-ed-titulo { font-family: var(--titulo); font-size: clamp(30px, 4.4vw, 50px); font-weight: 700;
   line-height: 1.07; letter-spacing: -0.025em; color: var(--primary); margin: 0 0 22px; }
-.hero-ed-lead { font-size: var(--fs-xl); line-height: 1.5; color: var(--gris);
-  margin: 0 0 30px; max-width: 46ch; }
+.hero-ed-lead { font-size: var(--fs-lg); line-height: 1.5; color: var(--gris);
+  margin: 0 0 24px; max-width: 48ch; }
 .hero-ed-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
 .hero-ed-cred { font-size: var(--fs-xs); color: var(--gris); margin: 0; max-width: 52ch; }
 .hero-ed-foto { display: flex; justify-content: center; }
@@ -266,7 +266,7 @@ a { color: var(--primary); }
 
 /* Ritmo editorial: aire amplio y CONSTANTE entre secciones (escala con la
    pantalla), como School of Life / Maven. Una sola medida para todas. */
-.seccion { padding: clamp(52px, 7vw, 88px) 0; border-top: 1px solid var(--borde); }
+.seccion { padding: clamp(40px, 5vw, 68px) 0; border-top: 1px solid var(--borde); }
 /* Eyebrow: la etiqueta corta en mayúsculas sobre el título. Firma editorial
    que da jerarquía sin ruido. */
 .seccion-eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: var(--fs-2xs);
@@ -277,8 +277,8 @@ a { color: var(--primary); }
 .seccion h2 { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -0.02em;
   line-height: 1.12; margin: 0 0 14px; }
 /* Intro con medida legible y cuerpo cómodo, estilo editorial. */
-.seccion-intro { color: var(--gris); font-size: var(--fs-lg); line-height: 1.6;
-  margin: 0 0 var(--sp-6); max-width: 58ch; }
+.seccion-intro { color: var(--gris); font-size: var(--fs-md); line-height: 1.55;
+  margin: 0 0 var(--sp-5); max-width: 62ch; }
 .titulo-seccion { font-size: var(--fs-xl); margin: 34px 0 16px; }
 .cierre { text-align: center; }
 .cierre p { color: var(--gris); margin-bottom: 22px; }
@@ -298,7 +298,7 @@ a { color: var(--primary); }
 .linea-pill.activa { background: var(--primary); border-color: var(--primary); color: var(--blanco); }
 
 /* ---------- CATÁLOGO ---------- */
-.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 20px; align-items: start; }
 .course-card { background: var(--blanco); border-radius: var(--radio); border: 1px solid var(--borde);
   overflow: hidden; display: flex; flex-direction: column; transition: all .2s; box-shadow: var(--sombra); }
 .course-card:hover { box-shadow: var(--sombra-lg); transform: translateY(-2px); border-color: var(--accent-claro); }
@@ -307,14 +307,14 @@ a { color: var(--primary); }
 .course-card.contenedor .contenedor-desc { font-size: var(--fs-sm); color: var(--gris); margin: 0; }
 .course-portada { position: relative; overflow: hidden; background: var(--bg-card); }
 .portada-svg { display: block; width: 100%; height: 156px; }
-.course-info { padding: var(--sp-5); display: flex; flex-direction: column; gap: 12px; flex: 1; }
-.course-info h3 { margin: 0; font-size: var(--fs-xl); line-height: 1.22; letter-spacing: -0.01em; }
+.course-info { padding: 18px 20px; display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.course-info h3 { margin: 0; font-size: var(--fs-lg); line-height: 1.2; letter-spacing: -0.015em; }
 /* Insignia de la tarjeta como meta-label editorial (mayúsculas, sobria),
    al estilo de las tarjetas de curso de Maven. Solo dentro de la tarjeta:
    las insignias de las tablas de administración no se tocan. */
 .course-info .badge { text-transform: uppercase; letter-spacing: .07em;
   font-size: var(--fs-3xs); font-weight: 700; padding: 4px 9px; border-radius: var(--radio-sm); }
-.course-acciones { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 10px; }
+.course-acciones { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 8px; }
 .badge { align-self: flex-start; font-size: var(--fs-2xs); font-weight: 700; padding: 4px 11px; border-radius: var(--radio-lg); letter-spacing: .02em; }
 .badge.verde { background: var(--ok-bg); color: var(--ok); }
 .badge.ok { background: var(--ok-bg); color: var(--ok); }
@@ -334,7 +334,7 @@ a { color: var(--primary); }
 .fecha-sesion { font-size: var(--fs-xs); color: var(--accent); font-weight: 600; margin: 4px 0 0; }
 
 /* ---------- SERVICIOS / CASOS ---------- */
-.servicios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: var(--sp-5); }
+.servicios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
 .servicio-card { background: var(--blanco); border: 1px solid var(--borde); border-left: 4px solid var(--accent);
   border-radius: var(--radio); padding: 18px 20px; box-shadow: var(--sombra); transition: all .2s; }
 .servicio-card:hover { box-shadow: var(--sombra-lg); transform: translateY(-2px); }
