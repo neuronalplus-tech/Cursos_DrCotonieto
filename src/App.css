@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
   --primary: #1B3A4B;
@@ -38,8 +38,13 @@
      encima. */
   --wa-boton: #0E7A38;
   --wa-boton-oscuro: #0b5f2c;
-  --titulo: 'Fraunces', Georgia, serif;
+  /* IDENTIDAD TIPOGRÁFICA propia (no el serif+Inter por defecto de la IA):
+     · Títulos en Bricolage Grotesque — grotesca editorial con carácter.
+     · Cuerpo en Hanken Grotesk — humanista cálida y legible.
+     · Metadatos/etiquetas en Space Mono — firma técnica y precisa. */
+  --titulo: 'Bricolage Grotesque', 'Hanken Grotesk', system-ui, sans-serif;
   --texto: 'Hanken Grotesk', system-ui, sans-serif;
+  --mono: 'Space Mono', ui-monospace, 'Cascadia Code', monospace;
   --sombra: 0 1px 3px rgba(27,58,75,.06), 0 8px 24px rgba(27,58,75,.06);
   --sombra-lg: 0 12px 32px rgba(27,58,75,.12);
   /* Esquinas más planas = aire institucional. Bajadas de 12/8/16 a
@@ -54,17 +59,17 @@
      9,10,10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,17,18,19,20…
      Ahora cada uno cae en su escalón más cercano. Para cambiar la jerarquía
      de TODO el sitio se toca un solo valor aquí. */
-  --fs-3xs: 11px;   /* micro-etiquetas, sellos */
-  --fs-2xs: 12px;   /* eyebrow, píldoras, pies */
-  --fs-xs:  13px;   /* notas, texto sutil */
-  --fs-sm:  14px;   /* texto de interfaz, botones */
-  --fs-md:  15px;   /* texto secundario denso */
-  --fs-base:16px;   /* cuerpo y lead */
-  --fs-lg:  18px;   /* subtítulos, h4, h3 de tarjeta */
-  --fs-xl:  22px;   /* h3, h2 de panel */
-  --fs-2xl: 27px;   /* h2 de sección */
-  --fs-3xl: 36px;   /* h1, hero */
-  --fs-4xl: 46px;   /* cifras de display (folio, KPI grande) */
+  --fs-3xs: 12px;   /* micro-etiquetas mono, sellos (piso: nada más pequeño) */
+  --fs-2xs: 13px;   /* eyebrow, píldoras, pies */
+  --fs-xs:  14px;   /* notas, texto sutil */
+  --fs-sm:  15px;   /* texto de interfaz, botones */
+  --fs-md:  16px;   /* texto secundario denso */
+  --fs-base:17px;   /* cuerpo y lead (editorial, más legible) */
+  --fs-lg:  20px;   /* subtítulos, h4, h3 de tarjeta */
+  --fs-xl:  24px;   /* h3, h2 de panel */
+  --fs-2xl: 30px;   /* h2 de sección */
+  --fs-3xl: 38px;   /* h1, hero */
+  --fs-4xl: 48px;   /* cifras de display (folio, KPI grande) */
 
   /* ESPACIADO — una rejilla de 4px para que los márgenes dejen de ser
      números a ojo (6,8,10,12,14,18,22,26,28,30,32,34…). */
@@ -86,7 +91,15 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 90px; }
 body { margin: 0; background: var(--bg); color: var(--body); font-family: var(--texto); font-size: var(--fs-base); line-height: 1.65; }
-h1, h2, h3, h4 { font-family: var(--titulo); color: var(--primary); line-height: 1.25; }
+h1, h2, h3, h4 { font-family: var(--titulo); color: var(--primary); line-height: 1.2; letter-spacing: -0.015em; }
+
+/* FIRMA TÉCNICA — los metadatos y etiquetas en monoespaciada (Space Mono),
+   en mayúsculas y con tracking. Es el sello que distingue el sitio de
+   cualquier plantilla de IA y aporta precisión (lectura de credibilidad,
+   principio de neuromarketing: lo preciso se percibe como confiable). */
+.seccion-eyebrow, .hero-ed-eyebrow, .course-info .badge,
+.kpi-nombre, .kpi-lbl, .kpi-meta, .eyebrow { font-family: var(--mono); }
+.kpi-nombre, .kpi-lbl, .kpi-meta { text-transform: uppercase; letter-spacing: .05em; }
 h1 { font-weight: 600; margin-top: 0; }
 a { color: var(--primary); }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: var(--radio-sm); }
@@ -175,8 +188,8 @@ a { color: var(--primary); }
   font-weight: 700; color: var(--accent); margin: 0 0 20px; }
 /* El titular es el protagonista: Fraunces grande, con aire. Escala con la
    pantalla (34px en móvil → ~56px en escritorio). */
-.hero-ed-titulo { font-family: var(--titulo); font-size: clamp(32px, 5vw, 56px); font-weight: 600;
-  line-height: 1.08; letter-spacing: -0.02em; color: var(--primary); margin: 0 0 22px; }
+.hero-ed-titulo { font-family: var(--titulo); font-size: clamp(30px, 4.4vw, 50px); font-weight: 700;
+  line-height: 1.07; letter-spacing: -0.025em; color: var(--primary); margin: 0 0 22px; }
 .hero-ed-lead { font-size: var(--fs-xl); line-height: 1.5; color: var(--gris);
   margin: 0 0 30px; max-width: 46ch; }
 .hero-ed-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
