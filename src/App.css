@@ -990,6 +990,39 @@ a { color: var(--primary); }
   border-bottom-color: var(--accent);
 }
 
+/* ------------------------------------------------------------
+   PANEL DE ADMINISTRACIÓN — organización en barra lateral
+   ------------------------------------------------------------
+   Solo DISPOSICIÓN (no cambia tipografía, color ni tamaño): la
+   navegación pasa de fila horizontal a una barra lateral vertical
+   fija, con el contenido a la derecha. Más ordenado y navegable,
+   como una consola de gestión.
+   ------------------------------------------------------------ */
+.admin-cuerpo { display: grid; grid-template-columns: 224px 1fr; gap: 28px; align-items: start; }
+.admin-cuerpo > .admin-tabs, .admin-cuerpo > .gestion-pestanas {
+  flex-direction: column; flex-wrap: nowrap; gap: 14px;
+  margin: 4px 0 0; padding: 0 20px 4px 0;
+  border-bottom: none; border-right: 1px solid var(--borde);
+  position: sticky; top: 80px;
+}
+.admin-cuerpo .admin-grupo-botones { flex-direction: column; flex-wrap: nowrap; gap: 1px; }
+.admin-cuerpo .admin-tab {
+  display: block; width: 100%; text-align: left;
+  border-bottom: none; margin-bottom: 0;
+}
+.admin-cuerpo .admin-tab.activa { border-bottom-color: transparent; }
+.admin-contenido { min-width: 0; }
+@media (max-width: 900px) {
+  .admin-cuerpo { grid-template-columns: 1fr; gap: 0; }
+  .admin-cuerpo > .admin-tabs, .admin-cuerpo > .gestion-pestanas {
+    flex-direction: row; flex-wrap: wrap; gap: 12px 14px;
+    padding-bottom: 12px; border-right: none; border-bottom: 2px solid var(--borde);
+    position: static;
+  }
+  .admin-cuerpo .admin-grupo-botones { flex-direction: row; flex-wrap: wrap; }
+  .admin-cuerpo .admin-tab { display: inline-block; width: auto; }
+}
+
 /* ============================================================
    GESTIÓN DE USUARIOS
    ============================================================ */

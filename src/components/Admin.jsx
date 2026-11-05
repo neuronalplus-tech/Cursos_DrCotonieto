@@ -1996,6 +1996,7 @@ function Admin({ user }) {
           Agrupadas por lo que se va a hacer, se encuentran antes: la
           pregunta real nunca es "¿cuál pestaña?", es "¿quiero tocar
           contenido, personas o dinero?". */}
+      <div className="admin-cuerpo">
       <nav className="admin-tabs" aria-label="Secciones del panel">
         {GRUPOS_PANEL.map(([grupo, pestañas]) => {
           // Misma regla que `esVistaVisible` (definida arriba), para que la
@@ -2019,6 +2020,7 @@ function Admin({ user }) {
         })}
       </nav>
 
+      <div className="admin-contenido">
       {/* El cliente ve su plan y su consumo; tú no, porque tu aula está
           exenta y la franja no se pinta. Va fuera de las pestañas a
           propósito: si está a punto de quedarse sin alumnos disponibles,
@@ -3332,6 +3334,8 @@ function Admin({ user }) {
         </ModalPortal>
       )}
 
+      </div>
+      </div>
       <BandaRedes />
     </section>
   )

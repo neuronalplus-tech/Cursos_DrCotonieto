@@ -182,6 +182,7 @@ export default function CentroGestion({ user }) {
 
       <BarraVerComo g={g} />
 
+      <div className="admin-cuerpo">
       <nav className="gestion-pestanas" aria-label="Vistas del Centro">
         {[['indicadores', '📈 Indicadores'], ['cursos', '📚 Cursos'], ...(g.esAdminOrg ? [['permisos', '🔑 Permisos por perfil']] : [])]
           .map(([clave, texto]) => (
@@ -190,6 +191,7 @@ export default function CentroGestion({ user }) {
           ))}
       </nav>
 
+      <div className="admin-contenido">
       {pestana === 'indicadores' ? (
         <IndicadoresGestion g={g} />
       ) : pestana === 'permisos' ? (
@@ -248,6 +250,8 @@ export default function CentroGestion({ user }) {
           </div>
         </>
       )}
+      </div>
+      </div>
     </section>
   )
 }
