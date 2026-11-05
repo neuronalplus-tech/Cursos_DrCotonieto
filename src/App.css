@@ -191,7 +191,7 @@ a { color: var(--primary); }
 .red-btn:hover { border-color: var(--accent); background: var(--bg-card); transform: translateY(-1px); }
 
 /* ---------- FRANJA SUPERIOR ---------- */
-.franja-superior { display: flex; align-items: stretch; gap: 28px; padding: 32px 0 40px; }
+.franja-superior { display: flex; align-items: stretch; gap: clamp(28px, 4vw, 48px); padding: clamp(36px, 6vw, 64px) 0; }
 /* Perfil como "tarjeta de identidad" institucional: panel blanco con
    borde y una franja superior en el color primario, como una credencial
    oficial. Es el primer golpe de seriedad al abrir la página. */
@@ -233,17 +233,21 @@ a { color: var(--primary); }
   cursor: pointer; padding: 0; transition: all .18s; }
 .punto.activo { background: #fff; width: 22px; border-radius: var(--radio-sm); }
 
-.seccion { padding: 44px 0; border-top: 1px solid var(--borde); }
+/* Ritmo editorial: aire amplio y CONSTANTE entre secciones (escala con la
+   pantalla), como School of Life / Maven. Una sola medida para todas. */
+.seccion { padding: clamp(52px, 7vw, 88px) 0; border-top: 1px solid var(--borde); }
+/* Eyebrow: la etiqueta corta en mayúsculas sobre el título. Firma editorial
+   que da jerarquía sin ruido. */
+.seccion-eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: var(--fs-2xs);
+  font-weight: 700; color: var(--accent); margin: 0 0 10px; }
 /* Título de sección con subrayado de acento: el marcador de sección más
    reconocible de un sitio institucional. Fraunces en peso fuerte + una
    barra corta en terracota bajo el título. */
-.seccion h2 { font-size: var(--fs-2xl); font-weight: 700; margin: 0 0 8px;
-  position: relative; padding-bottom: 14px; }
-.seccion h2::after { content: ''; position: absolute; left: 0; bottom: 0;
-  width: 52px; height: 3px; background: var(--accent); border-radius: var(--radio-sm); }
-/* En las secciones centradas, el subrayado se centra con el título. */
-.seccion.cierre h2::after, .seccion.sobre-mi h2::after { left: 50%; transform: translateX(-50%); }
-.seccion-intro { color: var(--gris); margin: 0 0 26px; max-width: 660px; }
+.seccion h2 { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -0.02em;
+  line-height: 1.12; margin: 0 0 14px; }
+/* Intro con medida legible y cuerpo cómodo, estilo editorial. */
+.seccion-intro { color: var(--gris); font-size: var(--fs-lg); line-height: 1.6;
+  margin: 0 0 var(--sp-6); max-width: 58ch; }
 .titulo-seccion { font-size: var(--fs-xl); margin: 34px 0 16px; }
 .cierre { text-align: center; }
 .cierre p { color: var(--gris); margin-bottom: 22px; }
@@ -272,7 +276,7 @@ a { color: var(--primary); }
 .course-card.contenedor .contenedor-desc { font-size: var(--fs-sm); color: var(--gris); margin: 0; }
 .course-portada { position: relative; overflow: hidden; background: var(--bg-card); }
 .portada-svg { display: block; width: 100%; height: 156px; }
-.course-info { padding: 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.course-info { padding: var(--sp-5); display: flex; flex-direction: column; gap: 12px; flex: 1; }
 .course-info h3 { margin: 0; font-size: var(--fs-lg); }
 .course-acciones { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 6px; }
 .badge { align-self: flex-start; font-size: var(--fs-2xs); font-weight: 700; padding: 4px 11px; border-radius: var(--radio-lg); letter-spacing: .02em; }
@@ -294,7 +298,7 @@ a { color: var(--primary); }
 .fecha-sesion { font-size: var(--fs-xs); color: var(--accent); font-weight: 600; margin: 4px 0 0; }
 
 /* ---------- SERVICIOS / CASOS ---------- */
-.servicios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 16px; }
+.servicios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: var(--sp-5); }
 .servicio-card { background: var(--blanco); border: 1px solid var(--borde); border-left: 4px solid var(--accent);
   border-radius: var(--radio); padding: 18px 20px; box-shadow: var(--sombra); transition: all .2s; }
 .servicio-card:hover { box-shadow: var(--sombra-lg); transform: translateY(-2px); }

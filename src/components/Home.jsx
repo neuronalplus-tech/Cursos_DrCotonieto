@@ -88,6 +88,7 @@ function Home({ user }) {
       </section>
 
       <section className="seccion" id="cursos">
+        <p className="seccion-eyebrow">Formación</p>
         <TextoEditable as="h2" clave="portada.cursos.titulo" defecto="Cursos y talleres" />
         <TextoEditable as="p" className="seccion-intro" clave="portada.cursos.intro"
           defecto={'Formación clínica aplicada, agrupada por línea temática. Los talleres gratuitos son de acceso libre; los cursos requieren inscripción. Toca "Saber más" para ver de qué trata cada uno.'} />
@@ -120,6 +121,7 @@ function Home({ user }) {
 
       {!loading && proximos.length > 0 && (
         <section className="seccion" id="proximos">
+          <p className="seccion-eyebrow">En preparación</p>
           <TextoEditable as="h2" clave="portada.proximos.titulo" defecto="Próximamente" />
           <TextoEditable as="p" className="seccion-intro" clave="portada.proximos.intro"
             defecto={'Estos cursos están en preparación. Toca "Me interesa" y te aviso en cuanto abra su inscripción — así también sé qué producir primero.'} />
@@ -130,6 +132,7 @@ function Home({ user }) {
       )}
 
       <section className="seccion">
+        <p className="seccion-eyebrow">Acompañamiento</p>
         <TextoEditable as="h2" clave="portada.servicios.titulo" defecto="Servicios" />
         <ListaEditable clave="portada.servicios" defecto={SERVICIOS} etiqueta="Servicios"
           campos={[{ k: 'titulo', etiqueta: 'Título' }, { k: 'detalle', etiqueta: 'Detalle' }]}>
@@ -144,6 +147,7 @@ function Home({ user }) {
       </section>
 
       <section className="seccion">
+        <p className="seccion-eyebrow">Práctica clínica</p>
         <TextoEditable as="h2" clave="portada.casos.titulo" defecto="Casos que atiendo" />
         <ListaEditable clave="portada.casos" defecto={CASOS} etiqueta="Casos que atiendo"
           campos={[{ k: 'texto', etiqueta: 'Caso' }]}>
@@ -156,6 +160,7 @@ function Home({ user }) {
       </section>
 
       <section className="seccion sobre-mi">
+        <p className="seccion-eyebrow">Quién te acompaña</p>
         <TextoEditable as="h2" clave="portada.sobremi.titulo" defecto="Sobre mí" />
         <ImagenEditable clave="perfil.foto" defecto={FOTO_PERFIL} alt="Dr. Ernesto Cotonieto" className="sobre-mi-foto" />
         <TextoEditable as="p" className="hero-bio" clave="perfil.bio" defecto={MARCA.bio} />
@@ -175,6 +180,7 @@ function Home({ user }) {
       </section>
 
       <section className="seccion cierre">
+        <p className="seccion-eyebrow">Contacto</p>
         <TextoEditable as="h2" clave="portada.cierre.titulo" defecto="¿Empezamos?" />
         <TextoEditable as="p" clave="portada.cierre.texto" defecto="Escríbeme y resolvemos dudas sobre terapia, cursos o supervisión clínica." />
         <BotonEditable clave="portada.cierre.boton" clase="button grande"
