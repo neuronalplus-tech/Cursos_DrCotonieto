@@ -55,7 +55,7 @@ export default function CarruselCursos({ lineas, cursos, onSelect, copia = {} })
         onPointerLeave={onLeaveTrack} onPointerCancel={onLeaveTrack}>
         {slides.map((s, i) => (
           <div className="carrusel-slide" key={s.linea}>
-            <div className="carrusel-fondo"><PortadaCurso motivo={s.motivo} uid={`car${i}`} /></div>
+            <div className="carrusel-fondo"><PortadaCurso motivo={s.motivo} uid={`car${i}`} titulo={s.linea} /></div>
             <div className="carrusel-velo" />
             <div className="carrusel-texto">
               <h3>{s.linea}</h3>

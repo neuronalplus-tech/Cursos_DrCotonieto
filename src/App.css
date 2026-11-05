@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap');
 
 :root {
   --primary: #1B3A4B;
@@ -39,7 +39,7 @@
   --wa-boton: #0E7A38;
   --wa-boton-oscuro: #0b5f2c;
   --titulo: 'Fraunces', Georgia, serif;
-  --texto: 'Inter', system-ui, sans-serif;
+  --texto: 'Hanken Grotesk', system-ui, sans-serif;
   --sombra: 0 1px 3px rgba(27,58,75,.06), 0 8px 24px rgba(27,58,75,.06);
   --sombra-lg: 0 12px 32px rgba(27,58,75,.12);
   /* Esquinas más planas = aire institucional. Bajadas de 12/8/16 a

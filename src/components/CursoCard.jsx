@@ -216,7 +216,7 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
     return (
       <article className="course-card gratis contenedor">
         <div className="course-portada">
-          <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+          <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} titulo={curso.titulo} />
         </div>
         <div className="course-info">
           <TextoEditable as="span" className="badge verde" clave="curso.insignia.seccion" defecto="Sección" />
@@ -234,7 +234,7 @@ function CursoCard({ curso: cursoProp, user, tieneAcceso }) {
   return (
     <article className={`course-card ${gratis ? 'gratis' : ''} ${prox ? 'proximo' : ''}`}>
       <div className="course-portada">
-        <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} />
+        <PortadaCurso motivo={motivoDe(curso)} uid={curso.id} titulo={curso.titulo} />
         {prox && <TextoEditable as="span" className="cinta-prox" clave="curso.cinta.proximamente" defecto="Próximamente" />}
       </div>
 
