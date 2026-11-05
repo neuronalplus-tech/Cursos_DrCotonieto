@@ -3,6 +3,7 @@
 :root {
   --primary: #1B3A4B;
   --primary-claro: #2C556B;
+  --primary-oscuro: #122A38;
   --accent: #C17A5E;
   --accent-claro: #E0A88C;
   --body: #33414A;
@@ -41,9 +42,11 @@
   --texto: 'Inter', system-ui, sans-serif;
   --sombra: 0 1px 3px rgba(27,58,75,.06), 0 8px 24px rgba(27,58,75,.06);
   --sombra-lg: 0 12px 32px rgba(27,58,75,.12);
-  --radio: 12px;
-  --radio-sm: 8px;
-  --radio-lg: 16px;
+  /* Esquinas más planas = aire institucional. Bajadas de 12/8/16 a
+     7/4/10: se nota sin llegar a brutalismo. Toca TODO lo que usa radio. */
+  --radio: 7px;
+  --radio-sm: 4px;
+  --radio-lg: 10px;
   --radio-pill: 999px;
 
   /* ESCALA TIPOGRÁFICA — la lección de PASMU: pocos pasos, no 35 tamaños
@@ -99,7 +102,7 @@ a { color: var(--primary); }
 
 /* ---------- BOTONES ---------- */
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 11px 22px; border: 2px solid transparent; border-radius: 8px; font-family: var(--texto);
+  padding: 11px 22px; border: 2px solid transparent; border-radius: var(--radio-sm); font-family: var(--texto);
   font-weight: 600; font-size: var(--fs-sm); cursor: pointer; text-decoration: none; transition: all .18s ease; }
 .button.primary { background: var(--primary); color: #fff; }
 .button.primary:hover { background: var(--primary-claro); transform: translateY(-1px); }
@@ -127,7 +130,14 @@ a { color: var(--primary); }
 
 /* ---------- HEADER ---------- */
 .app-header { background: var(--primary); color: #fff; position: sticky; top: 0; z-index: 100;
-  box-shadow: 0 2px 12px rgba(0,0,0,.12); border-top: 3px solid var(--accent); border-bottom: 1px solid rgba(255,255,255,.08); }
+  box-shadow: 0 2px 12px rgba(0,0,0,.12); border-top: 3px solid var(--accent); }
+/* Franja institucional superior (banda sobria tipo gob.mx/DGETI). */
+.header-strip { background: var(--primary-oscuro); display: flex; justify-content: space-between;
+  align-items: center; gap: 12px; padding: 5px clamp(14px, 2.5vw, 40px);
+  font-size: var(--fs-3xs); border-bottom: 1px solid rgba(255,255,255,.07); }
+.header-strip-marca { text-transform: uppercase; letter-spacing: .16em; font-weight: 700; color: var(--accent-claro); }
+.header-strip-cred { letter-spacing: .02em; color: rgba(255,255,255,.72); }
+@media (max-width: 700px) { .header-strip-cred { display: none; } }
 /* La barra ocupa TODO el ancho, a diferencia del contenido de las
    páginas, que se acota a 1150 px para que una línea de texto no se
    vuelva ilegible de tan larga. Una barra de aplicación no tiene ese
