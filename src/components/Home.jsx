@@ -77,14 +77,16 @@ function Home({ user }) {
       <section className="hero-ed">
         <div className="hero-ed-texto">
           <TextoEditable as="p" className="hero-ed-eyebrow" clave="perfil.nombre" defecto={MARCA.nombre} />
-          <TextoEditable as="h1" className="hero-ed-titulo" clave="perfil.slogan" defecto={MARCA.slogan} />
-          <TextoEditable as="p" className="hero-ed-lead" clave="perfil.subtitulo" defecto={MARCA.subtitulo} />
+          <TextoEditable as="h1" className="hero-ed-titulo" clave="portada.hero.titulo"
+            defecto="Formación en psicología que une evidencia y práctica." />
+          <TextoEditable as="p" className="hero-ed-lead" clave="portada.hero.lead"
+            defecto="Cursos para profesionales de la salud mental y talleres abiertos a la comunidad. Aprende a tu ritmo, con rigor y cercanía." />
           <div className="hero-ed-ctas">
-            <BotonEditable clave="portada.agendar" clase="button whatsapp grande"
-              defecto={{ texto: 'Agenda tu llamada sin costo', mensaje: WA_MENSAJE_CONSULTA, estilo: 'whatsapp' }} />
-            <button type="button" className="button secondary grande" onClick={() => irACurso('todas')}>
+            <button type="button" className="button primary grande" onClick={() => irACurso('todas')}>
               Ver cursos y talleres
             </button>
+            <BotonEditable clave="portada.agendar" clase="button whatsapp grande"
+              defecto={{ texto: 'Agenda una llamada', mensaje: WA_MENSAJE_CONSULTA, estilo: 'whatsapp' }} />
           </div>
           <TextoEditable as="p" className="hero-ed-cred" clave="perfil.credencial" defecto={MARCA.credencial} />
         </div>

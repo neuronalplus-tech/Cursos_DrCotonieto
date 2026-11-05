@@ -113,13 +113,6 @@ export default function Header({ user, esAdmin, onLogout, nombreUsuario }) {
 
   return (
     <header className="app-header">
-      {/* Franja institucional: la banda superior sobria con la que se
-          presentan los sitios formales (tipo gob.mx/DGETI). Da el ancla
-          institucional que se ve en TODA la plataforma. */}
-      <div className="header-strip">
-        <span className="header-strip-marca">Aula virtual</span>
-        <span className="header-strip-cred">Formación clínica basada en evidencia</span>
-      </div>
       <div className="header-content">
         <div className="logo-area" role="button" tabIndex={0}
              aria-label="Ir al inicio"
